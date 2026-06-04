@@ -120,10 +120,10 @@ async def chat(
     # Step 1: Search Elasticsearch via Kibana
     try:
         # Always get recent logs for context
-        recent_logs = await get_recent_logs(sid, time_range_minutes=request.time_range_minutes)
+        recent_logs = await get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes)
         # Also search for specific terms from the question
-        log_results = await search_logs(sid, question, time_range_minutes=request.time_range_minutes)
-        error_results = await get_recent_errors(sid, time_range_minutes=request.time_range_minutes)
+        log_results = await search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes)
+        error_results = await get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes)
         # Merge, deduplicate by timestamp
         seen = set()
         merged_logs = []

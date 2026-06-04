@@ -8,8 +8,8 @@ class Settings(BaseSettings):
     elasticsearch_user: str | None = None
     elasticsearch_password: str | None = None
     kibana_space: str = "koop-plooi-prod"
-    es_log_index: str = "filebeat-*,logs-*"
-    es_metric_index: str = "metricbeat-*,metrics-*"
+    es_log_index: str = "logs-*"
+    es_metric_index: str = "logs-*"
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"

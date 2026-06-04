@@ -38,7 +38,7 @@ async def generate_answer(question: str, context: str) -> str:
     """Generate a complete answer (non-streaming)."""
     messages = _build_prompt(question, context)
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=600.0) as client:
         response = await client.post(
             f"{settings.ollama_base_url}/api/chat",
             json={
@@ -57,7 +57,7 @@ async def generate_answer_stream(
     """Generate a streaming answer, yielding chunks as they arrive."""
     messages = _build_prompt(question, context)
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=600.0) as client:
         async with client.stream(
             "POST",
             f"{settings.ollama_base_url}/api/chat",

@@ -13,7 +13,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 // ─── Login Page ─────────────────────────────────────────────
 
 function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState("");
+  const [username, setUsername] = useState("anton.partono@koop.overheid.nl");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -132,7 +132,7 @@ function ChatPage({ token, username, onLogout }) {
         body: JSON.stringify({
           question,
           time_range_minutes: timeRange,
-          stream: true,
+          stream: false,
         }),
       });
 
@@ -142,62 +142,17 @@ function ChatPage({ token, username, onLogout }) {
       }
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.detail || `Server error: ${response.status}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let fullContent = "";
-      let sources = [];
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        const events = buffer.split("\n\n");
-        buffer = events.pop() || "";
-
-        for (const event of events) {
-          const eventMatch = event.match(/event:\s*(\w+)/);
-          const dataMatch = event.match(/data:\s*(.*)/s);
-
-          if (!eventMatch || !dataMatch) continue;
-
-          const eventType = eventMatch[1];
-          const eventData = dataMatch[1].trim();
-
-          if (eventType === "chunk") {
-            fullContent += eventData;
-            setMessages((prev) => {
-              const updated = [...prev];
-              updated[updated.length - 1] = {
-                role: "assistant",
-                content: fullContent,
-                sources,
-              };
-              return updated;
-            });
-          } else if (eventType === "sources") {
-            try {
-              sources = JSON.parse(eventData);
-            } catch {
-              // ignore
-            }
-          } else if (eventType === "error") {
-            fullContent += `\n\n**Error:** ${eventData}`;
-          }
-        }
-      }
-
+      const data = await response.json();
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
           role: "assistant",
-          content: fullContent || "No response received.",
-          sources,
+          content: data.answer || "No data found.",
+          sources: data.sources || [],
         };
         return updated;
       });

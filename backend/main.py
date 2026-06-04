@@ -1,9 +1,8 @@
-"""KIBANA-OO Backend — FastAPI app connecting LLAMA to Elasticsearch."""
+"""KIBANA-OO Backend — FastAPI app connecting LLAMA to Elasticsearch via Kibana."""
 
 import json
 import logging
 import secrets
-from base64 import b64decode, b64encode
 
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +10,7 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from config import settings
-from elastic import create_client, get_recent_errors, search_logs, search_metrics, test_connection
+from elastic import get_recent_errors, get_recent_logs, keycloak_login, search_logs, search_metrics
 from llm import generate_answer, generate_answer_stream
 
 logging.basicConfig(level=logging.INFO)
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="KIBANA-OO",
     description="AI-powered chat interface for Elasticsearch logs and metrics",
-    version="0.2.0",
+    version="0.4.0",
 )
 
 app.add_middleware(
@@ -30,7 +29,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory session store: token -> {username, password}
+# In-memory session store: token -> {username, sid}
 _sessions: dict[str, dict] = {}
 
 
@@ -51,7 +50,7 @@ class ChatResponse(BaseModel):
 
 
 def _get_session(authorization: str | None) -> dict:
-    """Validate session token and return credentials."""
+    """Validate session token and return session data."""
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Not logged in")
     token = authorization[7:]
@@ -69,7 +68,7 @@ async def health():
 
 @app.post("/login")
 async def login(request: LoginRequest):
-    """Validate Kibana credentials and create a session."""
+    """Log in via Keycloak and create a session."""
     username = request.username.strip()
     password = request.password
 
@@ -77,19 +76,18 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=400, detail="Username and password required")
 
     try:
-        es_health = test_connection(username, password)
+        sid = await keycloak_login(username, password)
     except Exception as e:
         logger.warning(f"Login failed for {username}: {e}")
-        raise HTTPException(status_code=401, detail="Invalid credentials or cannot reach Elasticsearch")
+        raise HTTPException(status_code=401, detail=str(e))
 
     # Create session token
     token = secrets.token_urlsafe(32)
-    _sessions[token] = {"username": username, "password": password}
+    _sessions[token] = {"username": username, "sid": sid}
 
     logger.info(f"User {username} logged in successfully")
     return {
         "token": token,
-        "elasticsearch_status": es_health.get("status", "unknown"),
         "username": username,
     }
 
@@ -108,28 +106,40 @@ async def chat(
     request: ChatRequest,
     authorization: str | None = Header(default=None),
 ):
-    """Process a chat question: search ES, generate answer with LLAMA."""
+    """Process a chat question: search ES via Kibana, generate answer with LLAMA."""
     session = _get_session(authorization)
-    client = create_client(session["username"], session["password"])
+    sid = session["sid"]
+    username = session["username"]
 
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    logger.info(f"[{session['username']}] Question: {question[:100]}")
+    logger.info(f"[{username}] Question: {question[:100]}")
 
-    # Step 1: Search Elasticsearch for relevant context
+    # Step 1: Search Elasticsearch via Kibana
     try:
-        log_results = search_logs(client, question, time_range_minutes=request.time_range_minutes)
-        metric_results = search_metrics(client, question, size=10, time_range_minutes=request.time_range_minutes)
-        error_results = get_recent_errors(client, time_range_minutes=request.time_range_minutes)
+        # Always get recent logs for context
+        recent_logs = await get_recent_logs(sid, time_range_minutes=request.time_range_minutes)
+        # Also search for specific terms from the question
+        log_results = await search_logs(sid, question, time_range_minutes=request.time_range_minutes)
+        error_results = await get_recent_errors(sid, time_range_minutes=request.time_range_minutes)
+        # Merge, deduplicate by timestamp
+        seen = set()
+        merged_logs = []
+        for entry in log_results + recent_logs:
+            key = entry.get("timestamp", "") + entry.get("message", "")[:50]
+            if key not in seen:
+                seen.add(key)
+                merged_logs.append(entry)
+        log_results = merged_logs
     except Exception as e:
-        logger.error(f"Elasticsearch query failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Failed to query Elasticsearch: {e}")
+        logger.error(f"Kibana query failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to query Kibana: {e}")
 
     # Step 2: Build context string for the LLM
-    all_results = log_results + metric_results + error_results
-    context = _build_context(log_results, metric_results, error_results)
+    all_results = log_results + error_results
+    context = _build_context(log_results, [], error_results)
 
     if not context.strip():
         context = "No matching data found in Elasticsearch for the given time range."

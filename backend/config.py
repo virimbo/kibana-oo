@@ -2,11 +2,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # Elasticsearch
-    elasticsearch_url: str = "https://elasticsearch-prod.cicd.s15m.nl:9200"
-    elasticsearch_api_key: str | None = None
-    elasticsearch_user: str | None = None
-    elasticsearch_password: str | None = None
+    # Kibana (we connect through Kibana, not directly to ES)
+    kibana_url: str = "https://kibana-prod.cicd.s15m.nl"
     kibana_space: str = "koop-plooi-prod"
     es_log_index: str = "logs-*"
     es_metric_index: str = "logs-*"

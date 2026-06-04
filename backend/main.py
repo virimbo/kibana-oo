@@ -2,14 +2,16 @@
 
 import json
 import logging
+import secrets
+from base64 import b64decode, b64encode
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from config import settings
-from elastic import get_cluster_health, get_recent_errors, search_logs, search_metrics
+from elastic import create_client, get_recent_errors, search_logs, search_metrics, test_connection
 from llm import generate_answer, generate_answer_stream
 
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="KIBANA-OO",
     description="AI-powered chat interface for Elasticsearch logs and metrics",
-    version="0.1.0",
+    version="0.2.0",
 )
 
 app.add_middleware(
@@ -27,6 +29,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# In-memory session store: token -> {username, password}
+_sessions: dict[str, dict] = {}
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 class ChatRequest(BaseModel):
@@ -40,35 +50,79 @@ class ChatResponse(BaseModel):
     sources: list[dict]
 
 
+def _get_session(authorization: str | None) -> dict:
+    """Validate session token and return credentials."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not logged in")
+    token = authorization[7:]
+    session = _sessions.get(token)
+    if not session:
+        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
+    return session
+
+
 @app.get("/health")
 async def health():
-    """Health check endpoint."""
+    """Health check endpoint (no auth required)."""
+    return {"status": "ok", "model": settings.ollama_model}
+
+
+@app.post("/login")
+async def login(request: LoginRequest):
+    """Validate Kibana credentials and create a session."""
+    username = request.username.strip()
+    password = request.password
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Username and password required")
+
     try:
-        es_health = get_cluster_health()
-        return {
-            "status": "ok",
-            "elasticsearch": es_health.get("status", "unknown"),
-            "model": settings.ollama_model,
-        }
+        es_health = test_connection(username, password)
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {"status": "degraded", "error": str(e)}
+        logger.warning(f"Login failed for {username}: {e}")
+        raise HTTPException(status_code=401, detail="Invalid credentials or cannot reach Elasticsearch")
+
+    # Create session token
+    token = secrets.token_urlsafe(32)
+    _sessions[token] = {"username": username, "password": password}
+
+    logger.info(f"User {username} logged in successfully")
+    return {
+        "token": token,
+        "elasticsearch_status": es_health.get("status", "unknown"),
+        "username": username,
+    }
+
+
+@app.post("/logout")
+async def logout(authorization: str | None = Header(default=None)):
+    """Clear the session."""
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization[7:]
+        _sessions.pop(token, None)
+    return {"status": "ok"}
 
 
 @app.post("/chat")
-async def chat(request: ChatRequest):
+async def chat(
+    request: ChatRequest,
+    authorization: str | None = Header(default=None),
+):
     """Process a chat question: search ES, generate answer with LLAMA."""
+    session = _get_session(authorization)
+    client = create_client(session["username"], session["password"])
+
     question = request.question.strip()
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    logger.info(f"Processing question: {question[:100]}")
+    logger.info(f"[{session['username']}] Question: {question[:100]}")
 
     # Step 1: Search Elasticsearch for relevant context
     try:
-        log_results = search_logs(question, time_range_minutes=request.time_range_minutes)
-        metric_results = search_metrics(question, size=10, time_range_minutes=request.time_range_minutes)
-        error_results = get_recent_errors(time_range_minutes=request.time_range_minutes)
+        log_results = search_logs(client, question, time_range_minutes=request.time_range_minutes)
+        metric_results = search_metrics(client, question, size=10, time_range_minutes=request.time_range_minutes)
+        error_results = get_recent_errors(client, time_range_minutes=request.time_range_minutes)
     except Exception as e:
         logger.error(f"Elasticsearch query failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to query Elasticsearch: {e}")
@@ -101,7 +155,6 @@ async def _stream_response(question: str, context: str, sources: list[dict]):
     try:
         async for chunk in generate_answer_stream(question, context):
             yield {"event": "chunk", "data": chunk}
-        # Send sources at the end
         yield {"event": "sources", "data": json.dumps(sources[:5])}
         yield {"event": "done", "data": ""}
     except Exception as e:

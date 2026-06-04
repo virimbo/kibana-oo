@@ -10,28 +10,106 @@ const SUGGESTIONS = [
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
-export default function App() {
+// ─── Login Page ─────────────────────────────────────────────
+
+function LoginPage({ onLogin }) {
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin(e) {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Login failed");
+      }
+
+      const data = await res.json();
+      onLogin(data.token, data.username);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="login-page">
+      <div className="login-card">
+        <h1>KIBANA-OO</h1>
+        <p className="login-subtitle">AI Log Assistant</p>
+        <p className="login-desc">
+          Sign in with your Kibana credentials to start asking questions about
+          your logs and metrics.
+        </p>
+
+        <form onSubmit={handleLogin}>
+          <label>
+            Username
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Your Kibana username"
+              autoFocus
+              required
+            />
+          </label>
+          <label>
+            Password
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Your Kibana password"
+              required
+            />
+          </label>
+
+          {error && <div className="login-error">{error}</div>}
+
+          <button type="submit" disabled={loading}>
+            {loading ? "Connecting..." : "Sign in"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// ─── Chat Page ──────────────────────────────────────────────
+
+function ChatPage({ token, username, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [timeRange, setTimeRange] = useState(60);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState({ ok: false, checked: false });
   const chatRef = useRef(null);
 
-  // Health check on mount
-  useEffect(() => {
-    fetch(`${BACKEND_URL}/health`)
-      .then((r) => r.json())
-      .then((data) => setStatus({ ok: data.status === "ok", checked: true }))
-      .catch(() => setStatus({ ok: false, checked: true }));
-  }, []);
-
-  // Auto-scroll to bottom
   useEffect(() => {
     if (chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
   }, [messages]);
+
+  async function handleLogout() {
+    await fetch(`${BACKEND_URL}/logout`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+    onLogout();
+  }
 
   async function sendMessage(question) {
     if (!question.trim() || loading) return;
@@ -47,13 +125,21 @@ export default function App() {
     try {
       const response = await fetch(`${BACKEND_URL}/chat`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify({
           question,
           time_range_minutes: timeRange,
           stream: true,
         }),
       });
+
+      if (response.status === 401) {
+        onLogout();
+        return;
+      }
 
       if (!response.ok) {
         throw new Error(`Server error: ${response.status}`);
@@ -70,24 +156,7 @@ export default function App() {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() || "";
 
-        for (const line of lines) {
-          if (line.startsWith("data: ")) {
-            const data = line.slice(6);
-            // Check for event type from previous line
-            continue;
-          }
-          if (line.startsWith("event: ")) {
-            continue;
-          }
-
-          // Parse SSE format: "event: X\ndata: Y"
-          if (line.trim() === "") continue;
-        }
-
-        // Simpler SSE parsing: look for event/data pairs in the full buffer
         const events = buffer.split("\n\n");
         buffer = events.pop() || "";
 
@@ -115,7 +184,7 @@ export default function App() {
             try {
               sources = JSON.parse(eventData);
             } catch {
-              // ignore parse errors
+              // ignore
             }
           } else if (eventType === "error") {
             fullContent += `\n\n**Error:** ${eventData}`;
@@ -123,7 +192,6 @@ export default function App() {
         }
       }
 
-      // Final update with sources
       setMessages((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
@@ -159,17 +227,11 @@ export default function App() {
     <>
       <header className="header">
         <h1>KIBANA-OO</h1>
-        <div className="status">
-          <span
-            className={`status-dot ${status.checked && !status.ok ? "error" : ""}`}
-          />
-          <span style={{ color: "var(--text-secondary)" }}>
-            {!status.checked
-              ? "Connecting..."
-              : status.ok
-                ? "Connected"
-                : "Disconnected"}
-          </span>
+        <div className="header-right">
+          <span className="header-user">{username}</span>
+          <button className="logout-btn" onClick={handleLogout}>
+            Sign out
+          </button>
         </div>
       </header>
 
@@ -178,8 +240,8 @@ export default function App() {
           <div className="welcome">
             <h2>Ask anything about your logs & metrics</h2>
             <p>
-              KIBANA-OO searches your Elasticsearch cluster (koop-plooi-prod) and
-              uses LLAMA to answer your questions in natural language.
+              KIBANA-OO searches your Elasticsearch cluster (koop-plooi-prod)
+              and uses LLAMA to answer your questions in natural language.
             </p>
             <div className="suggestions">
               {SUGGESTIONS.map((s) => (
@@ -239,11 +301,47 @@ export default function App() {
             onKeyDown={handleKeyDown}
             disabled={loading}
           />
-          <button onClick={() => sendMessage(input)} disabled={loading || !input.trim()}>
+          <button
+            onClick={() => sendMessage(input)}
+            disabled={loading || !input.trim()}
+          >
             {loading ? "..." : "Send"}
           </button>
         </div>
       </div>
     </>
+  );
+}
+
+// ─── App (router) ───────────────────────────────────────────
+
+export default function App() {
+  const [token, setToken] = useState(
+    () => sessionStorage.getItem("kibana_oo_token") || null
+  );
+  const [username, setUsername] = useState(
+    () => sessionStorage.getItem("kibana_oo_user") || ""
+  );
+
+  function handleLogin(newToken, user) {
+    setToken(newToken);
+    setUsername(user);
+    sessionStorage.setItem("kibana_oo_token", newToken);
+    sessionStorage.setItem("kibana_oo_user", user);
+  }
+
+  function handleLogout() {
+    setToken(null);
+    setUsername("");
+    sessionStorage.removeItem("kibana_oo_token");
+    sessionStorage.removeItem("kibana_oo_user");
+  }
+
+  if (!token) {
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  return (
+    <ChatPage token={token} username={username} onLogout={handleLogout} />
   );
 }

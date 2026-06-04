@@ -7,29 +7,24 @@ from elasticsearch import Elasticsearch
 from config import settings
 
 
-def _create_client() -> Elasticsearch:
-    """Create an authenticated Elasticsearch client."""
-    kwargs: dict = {
-        "hosts": [settings.elasticsearch_url],
-        "verify_certs": True,
-        "request_timeout": 30,
-    }
-
-    if settings.elasticsearch_api_key:
-        kwargs["api_key"] = settings.elasticsearch_api_key
-    elif settings.elasticsearch_user and settings.elasticsearch_password:
-        kwargs["basic_auth"] = (
-            settings.elasticsearch_user,
-            settings.elasticsearch_password,
-        )
-
-    return Elasticsearch(**kwargs)
+def create_client(username: str, password: str) -> Elasticsearch:
+    """Create an authenticated Elasticsearch client with user-provided credentials."""
+    return Elasticsearch(
+        hosts=[settings.elasticsearch_url],
+        basic_auth=(username, password),
+        verify_certs=True,
+        request_timeout=30,
+    )
 
 
-es_client = _create_client()
+def test_connection(username: str, password: str) -> dict:
+    """Test if the credentials work. Returns cluster health or raises."""
+    client = create_client(username, password)
+    return client.cluster.health().body
 
 
 def search_logs(
+    client: Elasticsearch,
     query: str,
     size: int = 20,
     time_range_minutes: int = 60,
@@ -66,11 +61,12 @@ def search_logs(
         },
     }
 
-    result = es_client.search(index=settings.es_log_index, body=body)
+    result = client.search(index=settings.es_log_index, body=body)
     return _format_hits(result["hits"]["hits"])
 
 
 def search_metrics(
+    client: Elasticsearch,
     query: str,
     size: int = 20,
     time_range_minutes: int = 60,
@@ -107,11 +103,15 @@ def search_metrics(
         },
     }
 
-    result = es_client.search(index=settings.es_metric_index, body=body)
+    result = client.search(index=settings.es_metric_index, body=body)
     return _format_hits(result["hits"]["hits"])
 
 
-def get_recent_errors(size: int = 10, time_range_minutes: int = 30) -> list[dict]:
+def get_recent_errors(
+    client: Elasticsearch,
+    size: int = 10,
+    time_range_minutes: int = 30,
+) -> list[dict]:
     """Get recent error-level log entries."""
     now = datetime.now(timezone.utc)
     time_from = now - timedelta(minutes=time_range_minutes)
@@ -147,13 +147,8 @@ def get_recent_errors(size: int = 10, time_range_minutes: int = 30) -> list[dict
         },
     }
 
-    result = es_client.search(index=settings.es_log_index, body=body)
+    result = client.search(index=settings.es_log_index, body=body)
     return _format_hits(result["hits"]["hits"])
-
-
-def get_cluster_health() -> dict:
-    """Get Elasticsearch cluster health status."""
-    return es_client.cluster.health().body
 
 
 def _format_hits(hits: list[dict]) -> list[dict]:
@@ -166,17 +161,13 @@ def _format_hits(hits: list[dict]) -> list[dict]:
             "timestamp": source.get("@timestamp", ""),
             "message": source.get("message", ""),
         }
-        # Include log level if present
         if "log" in source and "level" in source["log"]:
             entry["level"] = source["log"]["level"]
         elif "level" in source:
             entry["level"] = source["level"]
-        # Include host info if present
         if "host" in source and "name" in source["host"]:
             entry["host"] = source["host"]["name"]
-        # Include error info if present
         if "error" in source:
             entry["error"] = source["error"]
-
         formatted.append(entry)
     return formatted

@@ -14,24 +14,10 @@ if errorlevel 1 (
     exit /b 1
 )
 
-:: Check if .env exists
+:: Create .env from example if it doesn't exist
 if not exist .env (
-    echo [SETUP] First time? Creating .env file...
-    copy .env.example .env
-    echo.
-    echo ============================================
-    echo  IMPORTANT: Edit the .env file first!
-    echo ============================================
-    echo.
-    echo Open the .env file in this folder and fill in:
-    echo   - ELASTICSEARCH_USER  = your Kibana username
-    echo   - ELASTICSEARCH_PASSWORD = your Kibana password
-    echo.
-    echo After editing .env, run this script again.
-    echo.
-    start notepad .env
-    pause
-    exit /b 0
+    echo [SETUP] Creating config file...
+    copy .env.example .env >nul
 )
 
 echo [1/3] Starting services...
@@ -49,6 +35,7 @@ echo.
 echo ============================================
 echo   KIBANA-OO is ready!
 echo   Open your browser: http://localhost:3000
+echo   Log in with your Kibana username/password
 echo ============================================
 echo.
 echo Press any key to open in browser...

@@ -995,6 +995,7 @@ body {
   border-radius: var(--radius-sm);
 }
 .tile--down { opacity: 0.6; border-style: dashed; }
+.tile--active { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
 .tile-name { font-size: 12.5px; color: var(--text-secondary); }
 .tile-count { font-size: 20px; font-weight: 700; }
 

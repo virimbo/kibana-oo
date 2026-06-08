@@ -1,8 +1,10 @@
 """Dashboard fact layer: deterministic Elasticsearch aggregations via the
-Kibana console proxy. Every number the dashboard shows is computed here."""
+Kibana console proxy. Every number the dashboard shows is computed here.
+
+The dashboard queries a rolling window ([now - period, now]) over a single
+selected data view, and compares it to the immediately preceding equal period."""
 import asyncio
-from datetime import datetime, time, timedelta, timezone
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel
 
@@ -19,18 +21,30 @@ DATA_VIEW_LABELS = {
     "ds-prod5-koop-sp": "KOOP SP (prod5)",
 }
 
+# Histogram bucket size per period (minutes) so every period yields a readable
+# number of bars. Falls back to "5m" for unknown periods.
+_INTERVALS = {15: "1m", 30: "2m", 60: "5m", 360: "30m", 1440: "1h"}
 
-def day_bounds(date_str: str | None, tz_name: str) -> tuple[datetime, datetime]:
-    """Return the [start, end) UTC datetimes for the calendar day `date_str`
-    (YYYY-MM-DD) in timezone `tz_name`. If date_str is None, use today in tz."""
-    tz = ZoneInfo(tz_name)
-    if date_str:
-        day = datetime.strptime(date_str, "%Y-%m-%d").date()
-    else:
-        day = datetime.now(tz).date()
-    local_start = datetime.combine(day, time.min, tzinfo=tz)
-    local_end = local_start + timedelta(days=1)
-    return local_start.astimezone(timezone.utc), local_end.astimezone(timezone.utc)
+
+def resolve_data_view(requested: str | None) -> str:
+    """Validate a requested data view against the whitelist, else use the default."""
+    allowed = settings.data_view_list
+    if requested and requested in allowed:
+        return requested
+    if settings.default_data_view in allowed:
+        return settings.default_data_view
+    return allowed[0]
+
+
+def period_bounds(period_minutes: int, now: datetime | None = None) -> tuple[datetime, datetime]:
+    """Return the rolling [start, end) UTC window for the last `period_minutes`."""
+    end = now or datetime.now(timezone.utc)
+    start = end - timedelta(minutes=period_minutes)
+    return start, end
+
+
+def timeseries_interval(period_minutes: int) -> str:
+    return _INTERVALS.get(period_minutes, "5m")
 
 
 def critical_query(start: datetime, end: datetime) -> dict:
@@ -56,8 +70,8 @@ def critical_query(start: datetime, end: datetime) -> dict:
     }
 
 
-def snapshot_body(start: datetime, end: datetime, tz_name: str) -> dict:
-    """size:0 aggregation body for one data view's day snapshot."""
+def snapshot_body(start: datetime, end: datetime, interval: str, tz_name: str) -> dict:
+    """size:0 aggregation body for the selected data view's window."""
     return {
         "size": 0,
         "track_total_hits": True,
@@ -66,7 +80,7 @@ def snapshot_body(start: datetime, end: datetime, tz_name: str) -> dict:
             "over_time": {
                 "date_histogram": {
                     "field": "@timestamp",
-                    "fixed_interval": "1h",
+                    "fixed_interval": interval,
                     "time_zone": tz_name,
                     "min_doc_count": 0,
                 }
@@ -86,26 +100,6 @@ def snapshot_body(start: datetime, end: datetime, tz_name: str) -> dict:
                     "urls": {"terms": {"field": "url.path", "size": 10}},
                 },
             },
-        },
-    }
-
-
-def baseline_body(start: datetime, end: datetime, tz_name: str) -> dict:
-    """size:0 daily histogram of criticals over the 7 days before `start`
-    through `end`, for computing deltas."""
-    base_start = start - timedelta(days=7)
-    return {
-        "size": 0,
-        "query": critical_query(base_start, end),
-        "aggs": {
-            "per_day": {
-                "date_histogram": {
-                    "field": "@timestamp",
-                    "calendar_interval": "1d",
-                    "time_zone": tz_name,
-                    "min_doc_count": 0,
-                }
-            }
         },
     }
 
@@ -148,17 +142,6 @@ def parse_aggs(resp: dict) -> dict:
     }
 
 
-def parse_baseline(resp: dict) -> tuple[int, float]:
-    """Return (previous_day_count, avg_of_7_history_days) from the daily histogram.
-    The last bucket is the current day and is excluded from both."""
-    buckets = resp.get("aggregations", {}).get("per_day", {}).get("buckets", [])
-    history = [b["doc_count"] for b in buckets[:-1]]  # drop current day
-    previous = history[-1] if history else 0
-    last7 = history[-7:]
-    avg_7d = round(sum(last7) / len(last7), 2) if last7 else 0.0
-    return previous, avg_7d
-
-
 def status_level(total: int) -> str:
     if total >= CRITICAL_AT:
         return "critical"
@@ -168,10 +151,8 @@ def status_level(total: int) -> str:
 
 
 class Delta(BaseModel):
-    previous: int
-    avg_7d: float
+    previous: int                      # criticals in the prior equal-length period
     pct_vs_previous: float | None = None
-    pct_vs_avg: float | None = None
 
 
 class SystemBreakdown(BaseModel):
@@ -182,7 +163,8 @@ class SystemBreakdown(BaseModel):
 
 
 class DashboardSnapshot(BaseModel):
-    date: str
+    period_minutes: int
+    data_view: str
     window_start: str
     window_end: str
     total: int
@@ -209,34 +191,39 @@ def _pct(curr: int, base: float) -> float | None:
     return round((curr - base) / base * 100, 1)
 
 
-async def build_snapshot(sid: str, date_str: str | None) -> DashboardSnapshot:
+async def build_snapshot(
+    sid: str,
+    period_minutes: int,
+    data_view: str | None,
+    now: datetime | None = None,
+) -> DashboardSnapshot:
     """Resolve the window once, fan out concurrent queries, assemble one
-    consistent snapshot. Rollup numbers come from a single query over the
-    non-superset views; per-system tiles are isolated counts."""
+    consistent snapshot for the selected data view. Headline numbers come from
+    that view; per-system tiles show every whitelisted view for the same window;
+    the delta compares to the immediately preceding equal-length period."""
     tz = settings.dashboard_timezone
-    start, end = day_bounds(date_str, tz)
-    rollup_index = settings.rollup_index
+    dv = resolve_data_view(data_view)
+    start, end = period_bounds(period_minutes, now)
+    prev_start = start - (end - start)
+    interval = timeseries_interval(period_minutes)
     views = settings.data_view_list
 
-    agg_task = _es_search(sid, rollup_index, snapshot_body(start, end, tz))
-    base_task = _es_search(sid, rollup_index, baseline_body(start, end, tz))
+    agg_task = _es_search(sid, dv, snapshot_body(start, end, interval, tz))
+    prev_task = _count(sid, dv, prev_start, start)
     view_tasks = [_count(sid, v, start, end) for v in views]
 
-    results = await asyncio.gather(agg_task, base_task, *view_tasks, return_exceptions=True)
-    agg_res, base_res = results[0], results[1]
+    results = await asyncio.gather(agg_task, prev_task, *view_tasks, return_exceptions=True)
+    agg_res, prev_res = results[0], results[1]
     view_counts = results[2:]
 
     if isinstance(agg_res, Exception):
-        raise agg_res  # core rollup failed — surfaced as 502 by the router
+        raise agg_res  # core query failed — surfaced as 502 by the router
 
     parsed = parse_aggs(agg_res)
-    if isinstance(base_res, Exception):
-        previous, avg_7d = 0, 0.0
-    else:
-        previous, avg_7d = parse_baseline(base_res)
+    partial = isinstance(prev_res, Exception)
+    previous = 0 if partial else prev_res
 
     systems: list[SystemBreakdown] = []
-    partial = isinstance(base_res, Exception)
     for view, count in zip(views, view_counts):
         label = DATA_VIEW_LABELS.get(view, view)
         if isinstance(count, Exception):
@@ -247,16 +234,12 @@ async def build_snapshot(sid: str, date_str: str | None) -> DashboardSnapshot:
 
     total = parsed["total"]
     return DashboardSnapshot(
-        date=date_str or start.astimezone(ZoneInfo(tz)).strftime("%Y-%m-%d"),
+        period_minutes=period_minutes,
+        data_view=dv,
         window_start=start.isoformat(),
         window_end=end.isoformat(),
         total=total,
-        delta=Delta(
-            previous=previous,
-            avg_7d=avg_7d,
-            pct_vs_previous=_pct(total, previous),
-            pct_vs_avg=_pct(total, avg_7d),
-        ),
+        delta=Delta(previous=previous, pct_vs_previous=_pct(total, previous)),
         status_level=status_level(total),
         systems=systems,
         timeseries=parsed["timeseries"],

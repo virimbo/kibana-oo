@@ -4,8 +4,8 @@ from monitoring import DashboardSnapshot, Delta, SystemBreakdown
 
 def _snapshot():
     return DashboardSnapshot(
-        date="2026-06-08", window_start="s", window_end="e",
-        total=42, delta=Delta(previous=10, avg_7d=10.0, pct_vs_previous=320.0, pct_vs_avg=320.0),
+        period_minutes=15, data_view="logs-*", window_start="s", window_end="e",
+        total=42, delta=Delta(previous=10, pct_vs_previous=320.0),
         status_level="degraded",
         systems=[SystemBreakdown(data_view="ds-prod5-koop-plooi*", label="KOOP Plooi (prod5)", count=42),
                  SystemBreakdown(data_view="ds-prod5-koop-sp", label="KOOP SP (prod5)", count=0)],

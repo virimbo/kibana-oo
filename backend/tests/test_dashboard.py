@@ -35,10 +35,10 @@ def client(monkeypatch):
     _sessions["user-tok"] = {"username": "intern@koop.nl", "sid": "sid2"}
     dashboard._summary_cache.clear()
 
-    async def fake_snapshot(sid, date_str):
+    async def fake_snapshot(sid, period, data_view):
         return monitoring.DashboardSnapshot(
-            date="2026-06-08", window_start="s", window_end="e", total=42,
-            delta=monitoring.Delta(previous=10, avg_7d=10.0),
+            period_minutes=period, data_view=data_view, window_start="s", window_end="e",
+            total=42, delta=monitoring.Delta(previous=10, pct_vs_previous=320.0),
             status_level="degraded", systems=[], timeseries=[], top_signatures=[],
             affected_services=[], status_codes=[], failing_urls=[], partial=False,
         )

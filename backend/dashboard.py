@@ -1,8 +1,6 @@
 """Admin-gated dashboard endpoints. Numbers come from monitoring.build_snapshot;
 the briefing narrates the same snapshot. Both are cached."""
 import logging
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -10,38 +8,36 @@ from auth import require_admin
 from briefing import generate_briefing
 from cache import TTLCache
 from config import settings
-from monitoring import build_snapshot
+from monitoring import build_snapshot, resolve_data_view
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard")
 
 _summary_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
-_briefing_cache = TTLCache(ttl=24 * 3600)  # per day
+_briefing_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
-# Dates must be YYYY-MM-DD; FastAPI returns 422 for anything else.
-_DATE_PATTERN = r"^\d{4}-\d{2}-\d{2}$"
+# Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
+ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
 
 
-def _effective_date(date: str | None) -> str:
-    """Resolve `date` (or today in the dashboard timezone) to a concrete
-    YYYY-MM-DD string, so cache keys and queries are stable and unambiguous."""
-    if date:
-        return date
-    return datetime.now(ZoneInfo(settings.dashboard_timezone)).strftime("%Y-%m-%d")
+def _period(value: int) -> int:
+    return value if value in ALLOWED_PERIODS else 15
 
 
 @router.get("/summary")
 async def summary(
-    date: str | None = Query(default=None, pattern=_DATE_PATTERN),
+    period: int = Query(default=15),
+    data_view: str | None = Query(default=None),
     session: dict = Depends(require_admin),
 ):
-    effective = _effective_date(date)
-    key = f"summary:{effective}"
+    period = _period(period)
+    dv = resolve_data_view(data_view)
+    key = f"summary:{dv}:{period}"
     cached = _summary_cache.get(key)
     if cached is not None:
         return cached
     try:
-        snap = await build_snapshot(session["sid"], effective)
+        snap = await build_snapshot(session["sid"], period, dv)
     except Exception as e:
         logger.error(f"Dashboard summary failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load dashboard: {e}")
@@ -52,18 +48,20 @@ async def summary(
 
 @router.get("/briefing")
 async def briefing(
-    date: str | None = Query(default=None, pattern=_DATE_PATTERN),
+    period: int = Query(default=15),
+    data_view: str | None = Query(default=None),
     regenerate: bool = Query(default=False),
     session: dict = Depends(require_admin),
 ):
-    effective = _effective_date(date)
-    key = f"briefing:{effective}"
+    period = _period(period)
+    dv = resolve_data_view(data_view)
+    key = f"briefing:{dv}:{period}"
     if not regenerate:
         cached = _briefing_cache.get(key)
         if cached is not None:
             return cached
     try:
-        snap = await build_snapshot(session["sid"], effective)
+        snap = await build_snapshot(session["sid"], period, dv)
         text = await generate_briefing(snap)
     except Exception as e:
         logger.error(f"Dashboard briefing failed: {e}")

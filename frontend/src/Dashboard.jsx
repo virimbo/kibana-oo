@@ -3,14 +3,27 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 
-function today() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Amsterdam",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+const PERIODS = [
+  { value: 15, label: "Last 15 min" },
+  { value: 30, label: "Last 30 min" },
+  { value: 60, label: "Last 1 hour" },
+  { value: 360, label: "Last 6 hours" },
+  { value: 1440, label: "Last 24 hours" },
+];
+
+// Defaults requested by the operator.
+const DEFAULT_PERIOD = 15;
+const DEFAULT_DATA_VIEW = "logs-*";
+
+const FALLBACK_DATA_VIEWS = [
+  { id: "logs-*", label: "All logs" },
+  { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
+  { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
+];
+
+const periodLabel = (v) => PERIODS.find((p) => p.value === v)?.label || `${v} min`;
 
 function Delta({ pct }) {
   if (pct == null) return null;
@@ -23,7 +36,9 @@ function Delta({ pct }) {
 }
 
 export default function DashboardPage({ token, username, onLogout, onSwitchView }) {
-  const [date, setDate] = useState(today());
+  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
+  const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
   const [snap, setSnap] = useState(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -31,11 +46,30 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
   const [briefing, setBriefing] = useState(null);
   const [briefingState, setBriefingState] = useState("idle"); // idle|loading|error
 
+  // Load the data-view list for the dropdown (single source of truth).
+  useEffect(() => {
+    let active = true;
+    fetch(`${BACKEND_URL}/data-views`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (active && d && Array.isArray(d.data_views) && d.data_views.length) {
+          setDataViews(d.data_views);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const data = await getJSON(`/dashboard/summary?date=${date}`, token);
+      const data = await getJSON(
+        `/dashboard/summary?period=${period}&data_view=${encodeURIComponent(dataView)}`,
+        token
+      );
       setSnap(data);
       setLoadedAt(new Date());
     } catch (e) {
@@ -44,7 +78,7 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
     } finally {
       setLoading(false);
     }
-  }, [date, token, onLogout]);
+  }, [period, dataView, token, onLogout]);
 
   useEffect(() => {
     load();
@@ -55,7 +89,9 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
       setBriefingState("loading");
       try {
         const data = await getJSON(
-          `/dashboard/briefing?date=${date}${regenerate ? "&regenerate=true" : ""}`,
+          `/dashboard/briefing?period=${period}&data_view=${encodeURIComponent(dataView)}${
+            regenerate ? "&regenerate=true" : ""
+          }`,
           token
         );
         setBriefing(data.briefing);
@@ -64,14 +100,14 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
         setBriefingState("error");
       }
     },
-    [date, token]
+    [period, dataView, token]
   );
 
-  // Auto-load the briefing once the numbers are in.
+  // Auto-load the briefing once the numbers for this window are in.
   useEffect(() => {
     if (snap) loadBriefing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap?.date]);
+  }, [snap?.period_minutes, snap?.data_view]);
 
   const max = Math.max(1, ...((snap?.timeseries || []).map((b) => b.count)));
 
@@ -82,7 +118,9 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
           <span className="brand-mark">◆</span>
           <div className="brand-text">
             <span className="brand-name">Monitoring</span>
-            <span className="brand-sub">Critical issues · {date}</span>
+            <span className="brand-sub">
+              Critical issues · {periodLabel(period)} · {dataView}
+            </span>
           </div>
         </div>
         <div className="header-right">
@@ -99,13 +137,40 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
       <div className="chat-scroll">
         <div className="dash">
           <div className="dash-controls">
-            <input
-              type="date"
-              className="control-select"
-              value={date}
-              max={today()}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <label className="control">
+              <span className="control-label">Period</span>
+              <select
+                className="control-select"
+                value={period}
+                onChange={(e) => setPeriod(Number(e.target.value))}
+                disabled={loading}
+                title="Rolling time window to analyze"
+              >
+                {PERIODS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="control">
+              <span className="control-label">Data view</span>
+              <select
+                className="control-select"
+                value={dataView}
+                onChange={(e) => setDataView(e.target.value)}
+                disabled={loading}
+                title="Elasticsearch data view to analyze"
+              >
+                {dataViews.map((v) => (
+                  <option key={v.id} value={v.id}>
+                    {v.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <button className="btn btn--ghost" onClick={load} disabled={loading}>
               {loading ? "Refreshing…" : "Refresh"}
             </button>
@@ -136,7 +201,7 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                   <span className="kpi-value">
                     {snap.total} <Delta pct={snap.delta.pct_vs_previous} />
                   </span>
-                  <span className="kpi-label">criticals today</span>
+                  <span className="kpi-label">criticals · {periodLabel(period).toLowerCase()}</span>
                 </div>
                 <div className="kpi">
                   <span className="kpi-value">
@@ -145,8 +210,8 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                   <span className="kpi-label">systems affected</span>
                 </div>
                 <div className="kpi">
-                  <span className="kpi-value">{snap.delta.avg_7d}</span>
-                  <span className="kpi-label">7-day avg</span>
+                  <span className="kpi-value">{snap.delta.previous}</span>
+                  <span className="kpi-label">prior period</span>
                 </div>
               </div>
 
@@ -170,7 +235,9 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                   {snap.systems.map((s) => (
                     <div
                       key={s.data_view}
-                      className={`tile ${s.available ? "" : "tile--down"}`}
+                      className={`tile ${s.available ? "" : "tile--down"} ${
+                        s.data_view === snap.data_view ? "tile--active" : ""
+                      }`}
                     >
                       <span className="tile-name">{s.label}</span>
                       <span className="tile-count">

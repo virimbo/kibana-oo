@@ -134,28 +134,6 @@ def parse_not_found(resp: dict) -> tuple[int, list[dict]]:
     return total, urls
 
 
-def pipeline_body(start: datetime, end: datetime, query_string: str) -> dict:
-    """size:0 count of documents in the window matching a pipeline (OVS/NVS)
-    query string. The query string is configurable to match how logs label them."""
-    return {
-        "size": 0,
-        "track_total_hits": True,
-        "query": {
-            "bool": {
-                "filter": [
-                    {"range": {"@timestamp": {"gte": start.isoformat(), "lt": end.isoformat()}}},
-                    {"query_string": {"query": query_string, "default_field": "*", "lenient": True}},
-                ]
-            }
-        },
-    }
-
-
-async def _pipeline_count(sid: str, index: str, start: datetime, end: datetime, query_string: str) -> int:
-    resp = await _es_search(sid, index, pipeline_body(start, end, query_string))
-    return resp.get("hits", {}).get("total", {}).get("value", 0)
-
-
 def _dig_path(src: object, dotted: str):
     cur = src
     for key in dotted.split("."):
@@ -430,18 +408,19 @@ async def build_snapshot(
     agg_task = _es_search(sid, dv, snapshot_body(start, end, interval, tz))
     prev_task = _count(sid, dv, prev_start, start)
     nf_task = _es_search(sid, dv, not_found_body(start, end))
-    ovs_task = _pipeline_count(sid, dv, start, end, settings.pipeline_ovs_query)
-    nvs_task = _pipeline_count(sid, dv, start, end, settings.pipeline_nvs_query)
+    # Count UNIQUE documents per pipeline (de-duplicated), so the tile number always
+    # matches the list — many log lines often refer to the same document.
     ovs_docs_task = fetch_pipeline_docs(sid, dv, start, end, settings.pipeline_ovs_query)
+    nvs_docs_task = fetch_pipeline_docs(sid, dv, start, end, settings.pipeline_nvs_query)
     view_tasks = [_count(sid, v, start, end) for v in views]
 
     results = await asyncio.gather(
-        agg_task, prev_task, nf_task, ovs_task, nvs_task, ovs_docs_task,
+        agg_task, prev_task, nf_task, ovs_docs_task, nvs_docs_task,
         *view_tasks, return_exceptions=True
     )
     agg_res, prev_res, nf_res = results[0], results[1], results[2]
-    ovs_res, nvs_res, ovs_docs_res = results[3], results[4], results[5]
-    view_counts = results[6:]
+    ovs_docs_res, nvs_docs_res = results[3], results[4]
+    view_counts = results[5:]
 
     if isinstance(agg_res, Exception):
         raise agg_res  # core query failed — surfaced as 502 by the router
@@ -453,9 +432,10 @@ async def build_snapshot(
         not_found_total, not_found_urls = 0, []
     else:
         not_found_total, not_found_urls = parse_not_found(nf_res)
-    ovs_count = 0 if isinstance(ovs_res, Exception) else ovs_res
-    nvs_count = 0 if isinstance(nvs_res, Exception) else nvs_res
     ovs_docs = [] if isinstance(ovs_docs_res, Exception) else ovs_docs_res
+    nvs_docs = [] if isinstance(nvs_docs_res, Exception) else nvs_docs_res
+    ovs_count = len(ovs_docs)   # unique documents — matches the list
+    nvs_count = len(nvs_docs)
     ovs_new_count = sum(1 for d in ovs_docs if is_new_action(d.get("action")))
 
     systems: list[SystemBreakdown] = []

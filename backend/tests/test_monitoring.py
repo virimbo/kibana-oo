@@ -169,16 +169,19 @@ def patched_es(monkeypatch):
                 {"key": "/document/missing.pdf", "doc_count": 6},
                 {"key": "/zoek/oud", "doc_count": 3}]}}}
         qs = _query_string(body)
-        if qs:  # pipeline (OVS/NVS) query
-            if body.get("size", 0) > 0:  # the drill-down docs query
+        if qs:  # pipeline (OVS/NVS) docs query
+            if "OVS" in qs:  # 3 hits, 2 unique documents (abc-123 appears twice)
                 return {"hits": {"hits": [
-                    {"_source": {"@timestamp": "2026-06-08T11:00:00Z",
-                                 "url": {"path": "/document/abc-123"},
+                    {"_source": {"@timestamp": "2026-06-08T11:00:00Z", "url": {"path": "/document/abc-123"},
                                  "event": {"action": "create"}, "title": "Nieuw besluit"}},
-                    {"_source": {"@timestamp": "2026-06-08T10:00:00Z",
-                                 "url": {"path": "/document/def-456"},
+                    {"_source": {"@timestamp": "2026-06-08T10:30:00Z", "url": {"path": "/document/abc-123"},
+                                 "event": {"action": "create"}, "title": "Nieuw besluit"}},
+                    {"_source": {"@timestamp": "2026-06-08T10:00:00Z", "url": {"path": "/document/def-456"},
                                  "event": {"action": "update"}, "title": "Besluit X"}}]}}
-            return {"hits": {"total": {"value": 4 if "OVS" in qs else 96}}}
+            return {"hits": {"hits": [  # NVS: 3 unique documents
+                {"_source": {"@timestamp": "t", "url": {"path": "/document/n1"}, "title": "N1"}},
+                {"_source": {"@timestamp": "t", "url": {"path": "/document/n2"}, "title": "N2"}},
+                {"_source": {"@timestamp": "t", "url": {"path": "/document/n3"}, "title": "N3"}}]}}
         return {"hits": {"total": {"value": counts.get(index, 0)}}}
 
     monkeypatch.setattr(monitoring, "_es_search", fake_es)
@@ -200,9 +203,9 @@ async def test_build_snapshot_assembles_consistent_payload(patched_es):
     assert all(s.available for s in snap.systems)
     assert snap.not_found_total == 9
     assert snap.not_found_urls[0] == {"url": "/document/missing.pdf", "count": 6}
-    assert snap.ovs_count == 4    # old pipeline
-    assert snap.nvs_count == 96   # new pipeline
-    assert len(snap.ovs_docs) == 2
+    assert snap.ovs_count == 2    # unique OVS documents (deduplicated from 3 hits)
+    assert snap.nvs_count == 3    # unique NVS documents
+    assert len(snap.ovs_docs) == snap.ovs_count   # tile number always matches the list
     assert snap.ovs_docs[0]["link"].endswith("/document/abc-123")
     assert snap.ovs_docs[0]["action"] == "create"
     assert snap.ovs_new_count == 1   # one create, one update

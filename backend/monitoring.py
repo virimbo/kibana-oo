@@ -131,6 +131,28 @@ def parse_not_found(resp: dict) -> tuple[int, list[dict]]:
     return total, urls
 
 
+def pipeline_body(start: datetime, end: datetime, query_string: str) -> dict:
+    """size:0 count of documents in the window matching a pipeline (OVS/NVS)
+    query string. The query string is configurable to match how logs label them."""
+    return {
+        "size": 0,
+        "track_total_hits": True,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": start.isoformat(), "lt": end.isoformat()}}},
+                    {"query_string": {"query": query_string, "default_field": "*", "lenient": True}},
+                ]
+            }
+        },
+    }
+
+
+async def _pipeline_count(sid: str, index: str, start: datetime, end: datetime, query_string: str) -> int:
+    resp = await _es_search(sid, index, pipeline_body(start, end, query_string))
+    return resp.get("hits", {}).get("total", {}).get("value", 0)
+
+
 def parse_aggs(resp: dict) -> dict:
     aggs = resp.get("aggregations", {})
     timeseries = [
@@ -205,6 +227,8 @@ class DashboardSnapshot(BaseModel):
     failing_urls: list[dict]
     not_found_total: int = 0
     not_found_urls: list[dict] = []
+    ovs_count: int = 0   # documents via the old pipeline (oude verwerkingsstraat)
+    nvs_count: int = 0   # documents via the new pipeline (nieuwe verwerkingsstraat)
     partial: bool
 
 
@@ -240,13 +264,16 @@ async def build_snapshot(
     agg_task = _es_search(sid, dv, snapshot_body(start, end, interval, tz))
     prev_task = _count(sid, dv, prev_start, start)
     nf_task = _es_search(sid, dv, not_found_body(start, end))
+    ovs_task = _pipeline_count(sid, dv, start, end, settings.pipeline_ovs_query)
+    nvs_task = _pipeline_count(sid, dv, start, end, settings.pipeline_nvs_query)
     view_tasks = [_count(sid, v, start, end) for v in views]
 
     results = await asyncio.gather(
-        agg_task, prev_task, nf_task, *view_tasks, return_exceptions=True
+        agg_task, prev_task, nf_task, ovs_task, nvs_task, *view_tasks, return_exceptions=True
     )
     agg_res, prev_res, nf_res = results[0], results[1], results[2]
-    view_counts = results[3:]
+    ovs_res, nvs_res = results[3], results[4]
+    view_counts = results[5:]
 
     if isinstance(agg_res, Exception):
         raise agg_res  # core query failed — surfaced as 502 by the router
@@ -258,6 +285,8 @@ async def build_snapshot(
         not_found_total, not_found_urls = 0, []
     else:
         not_found_total, not_found_urls = parse_not_found(nf_res)
+    ovs_count = 0 if isinstance(ovs_res, Exception) else ovs_res
+    nvs_count = 0 if isinstance(nvs_res, Exception) else nvs_res
 
     systems: list[SystemBreakdown] = []
     for view, count in zip(views, view_counts):
@@ -285,5 +314,7 @@ async def build_snapshot(
         failing_urls=parsed["failing_urls"],
         not_found_total=not_found_total,
         not_found_urls=not_found_urls,
+        ovs_count=ovs_count,
+        nvs_count=nvs_count,
         partial=partial,
     )

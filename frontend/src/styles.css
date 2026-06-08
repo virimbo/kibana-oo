@@ -967,6 +967,43 @@ body {
 .notfound-total { font-size: 14px; margin-bottom: 10px; }
 .notfound-total strong { font-size: 20px; color: var(--warn); }
 
+/* Processing pipelines (OVS/NVS) */
+.pipe-row { display: flex; gap: 12px; }
+.pipe {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.pipe-label { font-size: 12.5px; color: var(--text-secondary); }
+.pipe-count { font-size: 26px; font-weight: 700; }
+.pipe--nvs { border-left: 4px solid var(--success); }
+.pipe--nvs .pipe-count { color: var(--success); }
+.pipe--ovs { border-left: 4px solid var(--text-faint); }
+.pipe--ovs-active { border-left: 4px solid var(--error); background: var(--error-soft); }
+.pipe--ovs-active .pipe-count { color: var(--error); }
+
+.pipe-alert { margin-top: 12px; font-size: 13.5px; color: var(--error); font-weight: 600; }
+.pipe-ok { margin-top: 12px; font-size: 13.5px; color: var(--success); }
+
+.pipe-bar {
+  margin-top: 12px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+.pipe-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--success), #3fb98a);
+  border-radius: 999px;
+  transition: width 0.3s;
+}
+
 /* Info tooltips */
 .infotip {
   display: inline-grid;

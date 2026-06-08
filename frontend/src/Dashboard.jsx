@@ -49,6 +49,49 @@ function Delta({ pct }) {
   );
 }
 
+function Pipelines({ ovs, nvs }) {
+  const total = ovs + nvs;
+  const nvsShare = total ? Math.round((nvs / total) * 100) : null;
+  return (
+    <section className={`panel ${ovs > 0 ? "panel--alert" : ""}`}>
+      <h3>
+        Verwerkingsstraat — OVS → NVS
+        <InfoTip text="Documents processed via the old pipeline (OVS, oude verwerkingsstraat) vs the new one (NVS, nieuwe verwerkingsstraat) in this window. You're migrating to NVS, so OVS should trend toward zero — any OVS activity is flagged." />
+      </h3>
+      <div className="pipe-row">
+        <div className="pipe pipe--nvs">
+          <span className="pipe-label">NVS · new pipeline</span>
+          <span className="pipe-count">{nvs}</span>
+        </div>
+        <div className={`pipe ${ovs > 0 ? "pipe--ovs-active" : "pipe--ovs"}`}>
+          <span className="pipe-label">OVS · old pipeline</span>
+          <span className="pipe-count">{ovs}</span>
+        </div>
+      </div>
+      {ovs > 0 ? (
+        <p className="pipe-alert">
+          ⚠ {ovs} document{ovs === 1 ? "" : "s"} still went through the OLD pipeline (OVS) in this window.
+        </p>
+      ) : total > 0 ? (
+        <p className="pipe-ok">✓ All {nvs} documents went through the new pipeline (NVS).</p>
+      ) : (
+        <p className="muted">
+          No documents matched OVS/NVS in this window. If you expected some, the match terms may
+          need tuning — tell me what you see.
+        </p>
+      )}
+      {nvsShare != null && (
+        <>
+          <div className="pipe-bar">
+            <div className="pipe-bar-fill" style={{ width: `${nvsShare}%` }} />
+          </div>
+          <p className="muted">{nvsShare}% processed via NVS.</p>
+        </>
+      )}
+    </section>
+  );
+}
+
 export default function DashboardPage({ token, username, onLogout, onSwitchView }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -312,6 +355,8 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                   </>
                 )}
               </section>
+
+              <Pipelines ovs={snap.ovs_count} nvs={snap.nvs_count} />
 
               <section className="panel">
                 <h3>

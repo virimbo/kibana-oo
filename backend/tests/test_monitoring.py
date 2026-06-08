@@ -106,6 +106,12 @@ def patched_es(monkeypatch):
     """Patch _es_search: aggregation body -> sample; count body -> per-index count."""
     counts = {"logs-*": 5, "ds-prod5-koop-plooi*": 7, "ds-prod5-koop-sp": 0}
 
+    def _query_string(body):
+        for f in body.get("query", {}).get("bool", {}).get("filter", []):
+            if "query_string" in f:
+                return f["query_string"]["query"]
+        return None
+
     async def fake_es(sid, index, body):
         aggs = body.get("aggs", {})
         if "over_time" in aggs:
@@ -114,6 +120,9 @@ def patched_es(monkeypatch):
             return {"hits": {"total": {"value": 9}}, "aggregations": {"urls": {"buckets": [
                 {"key": "/document/missing.pdf", "doc_count": 6},
                 {"key": "/zoek/oud", "doc_count": 3}]}}}
+        qs = _query_string(body)
+        if qs:  # pipeline (OVS/NVS) query
+            return {"hits": {"total": {"value": 4 if "OVS" in qs else 96}}}
         return {"hits": {"total": {"value": counts.get(index, 0)}}}
 
     monkeypatch.setattr(monitoring, "_es_search", fake_es)
@@ -135,6 +144,8 @@ async def test_build_snapshot_assembles_consistent_payload(patched_es):
     assert all(s.available for s in snap.systems)
     assert snap.not_found_total == 9
     assert snap.not_found_urls[0] == {"url": "/document/missing.pdf", "count": 6}
+    assert snap.ovs_count == 4    # old pipeline
+    assert snap.nvs_count == 96   # new pipeline
     assert snap.partial is False
 
 

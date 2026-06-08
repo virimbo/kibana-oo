@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     # lives. Used by the certificate-expiry cards. Read-only discovery.
     cert_index: str = "heartbeat-*,synthetics-*"
 
+    # Document processing pipelines (Verwerkingsstraat): OVS = oude (old),
+    # NVS = nieuwe (new). Query strings attributing documents to each pipeline.
+    # Tune these to match how your logs label the pipelines.
+    pipeline_ovs_query: str = 'OVS OR "oude verwerkingsstraat"'
+    pipeline_nvs_query: str = 'NVS OR "nieuwe verwerkingsstraat"'
+
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"

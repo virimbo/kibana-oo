@@ -60,6 +60,8 @@ def critical_query(start: datetime, end: datetime) -> dict:
                         "minimum_should_match": 1,
                         "should": [
                             {"terms": {"log.level": ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]}},
+                            # top-level `level` (logback/Logstash JSON, e.g. KOOP Plooi services)
+                            {"terms": {"level": ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]}},
                             {"exists": {"field": "error.message"}},
                             {"range": {"http.response.status_code": {"gte": 500}}},
                             {"term": {"processor.event": "error"}},
@@ -192,44 +194,77 @@ def _flatten(src, prefix: str = "", out: dict | None = None) -> dict:
     return out
 
 
+# Infrastructure / ECS metadata fields — never a document's own identity. Excluded
+# from auto-discovery so we don't pick the cluster/namespace name as a "document".
+_INFRA_PREFIX = re.compile(
+    r"^(agent|cloud|host|observer|ecs|orchestrator|container|process|input|stream|"
+    r"data_stream|service|kibana|cluster|elastic_agent|fields|tags|kubernetes|"
+    r"kubernetes_namespace|platform_cluster|thread_name|level_value|@version|_p|time|"
+    r"log\.file|log\.offset|event\.(dataset|module|ingested|created|kind|category|outcome))($|\.)",
+    re.IGNORECASE,
+)
+
 # When the configured fields don't match, auto-discover by field-name hint.
-_URL_HINT = re.compile(r"url|uri|link|href|permalink|locat|path", re.IGNORECASE)
-_ID_HINT = re.compile(r"identifier|documentid|dossier|kenmerk|(^|\.)id$|productid|\bcode\b", re.IGNORECASE)
+_URL_HINT = re.compile(r"(^|\.)(url|uri|link|href|permalink|locatie|location)($|\.)|path", re.IGNORECASE)
+_ID_HINT = re.compile(r"identifier|documentid|document\.id|dossier|kenmerk|(^|\.)id$|productid|\bcode\b", re.IGNORECASE)
 _TITLE_HINT = re.compile(r"titel|title|onderwerp|(^|\.)naam$|(^|\.)name$|omschrijv|subject", re.IGNORECASE)
-_ACTION_HINT = re.compile(r"action|operation|operatie|mutatie|(^|\.)type$|soort|verb|kind|status|event\.action", re.IGNORECASE)
+_ACTION_HINT = re.compile(r"action|operation|operatie|mutatie|(^|\.)type$|soort|verb|(^|\.)kind$|status", re.IGNORECASE)
 
 
 def _scan(flat: dict, hint: re.Pattern, url_like: bool = False):
-    matches = [(k, v) for k, v in flat.items() if isinstance(v, str) and v.strip() and hint.search(k)]
-    if url_like:
-        matches.sort(key=lambda kv: 0 if kv[1].startswith(("http", "/")) else 1)
-    return matches[0][1] if matches else None
+    cands = [
+        (k, v) for k, v in flat.items()
+        if isinstance(v, str) and v.strip() and hint.search(k) and not _INFRA_PREFIX.match(k)
+    ]
+    if url_like:  # only accept values that are genuinely a URL or a path
+        cands = [kv for kv in cands if kv[1].startswith(("http://", "https://", "/"))]
+    return cands[0][1] if cands else None
+
+
+def _looks_like_doc_path(value: str) -> bool:
+    return value.startswith("/") and len(value) > 1
 
 
 def summarize_doc(hit: dict) -> dict:
-    """Turn a raw document hit into a compact, clickable list item: a label, an
-    open.overheid.nl link, the action (new/update), and a preview of real fields.
-    Prefers configured fields, then auto-discovers from the document's structure."""
+    """Turn a raw document hit into a compact list item: a label, an open.overheid.nl
+    link (ONLY when a real URL/path exists), the action (new/update), and a preview of
+    the document's own fields. Prefers configured DOC_* fields, then auto-discovers."""
     src = hit.get("_source", {})
     flat = _flatten(src)
-    url = _first_field(src, settings.doc_url_fields) or _scan(flat, _URL_HINT, url_like=True)
+    url_cfg = _first_field(src, settings.doc_url_fields)          # from explicit config
+    url_auto = _scan(flat, _URL_HINT, url_like=True)              # auto-discovered
     code = _first_field(src, settings.doc_id_fields) or _scan(flat, _ID_HINT)
     title = _first_field(src, settings.doc_title_fields) or _scan(flat, _TITLE_HINT)
     action = _first_field(src, settings.doc_action_fields) or _scan(flat, _ACTION_HINT)
 
     base = settings.portal_base_url.rstrip("/")
     link = None
-    if isinstance(url, str) and url:
-        link = url if url.startswith("http") else f"{base}/{url.lstrip('/')}"
-    elif isinstance(code, str) and code.startswith("/"):
-        link = f"{base}{code}"
+    if isinstance(url_cfg, str) and url_cfg.startswith(("http://", "https://")):
+        link = url_cfg                                            # explicit absolute URL
+    elif isinstance(url_cfg, str) and _looks_like_doc_path(url_cfg):
+        link = f"{base}/{url_cfg.lstrip('/')}"                    # trust explicitly-configured path
+    elif isinstance(url_auto, str) and url_auto.startswith(("http://", "https://")):
+        link = url_auto                                          # auto: only full URLs, never guessed paths
 
-    label = title or code or url or str(flat.get("message", ""))[:80] or "(document)"
-    # A short preview of the real fields — context for the admin and reveals the
-    # schema so the configured DOC_* fields can be tuned precisely.
-    preview = " · ".join(
-        f"{k}={str(flat[k])[:40]}" for k in list(flat)[:3] if k != "@timestamp"
+    url = url_cfg or url_auto
+    # For log-shaped data the message IS the meaningful content; prefer an explicitly
+    # configured title, then the log message, then any auto-discovered title/id.
+    message = flat.get("message")
+    label = (
+        _first_field(src, settings.doc_title_fields)
+        or (str(message)[:140] if isinstance(message, str) and message.strip() else None)
+        or title
+        or code
+        or url
+        or "(document)"
     )
+    # Preview the document's OWN fields (infra/metadata excluded) so the admin sees
+    # real content and the correct DOC_* fields can be configured from one look.
+    own = [
+        (k, v) for k, v in flat.items()
+        if k not in ("@timestamp", "message") and not _INFRA_PREFIX.match(k)
+    ]
+    preview = " · ".join(f"{k}={str(v)[:48]}" for k, v in own[:5])
     return {
         "timestamp": src.get("@timestamp"),
         "label": str(label),

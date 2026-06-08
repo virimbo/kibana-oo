@@ -69,6 +69,23 @@ def test_summarize_doc_builds_portal_link(monkeypatch):
     assert d["label"] == "Besluit X"
 
 
+def test_summarize_doc_ignores_infra_and_makes_no_fake_link(monkeypatch):
+    monkeypatch.setattr(monitoring.settings, "doc_url_fields", "url.full,url.path")
+    monkeypatch.setattr(monitoring.settings, "doc_id_fields", "document.id,documentId")
+    monkeypatch.setattr(monitoring.settings, "doc_title_fields", "title,titel")
+    monkeypatch.setattr(monitoring.settings, "doc_action_fields", "event.action")
+    hit = {"_source": {"@timestamp": "t",
+                       "data_stream": {"namespace": "koop-plooi-prd"},
+                       "service": {"name": "koop-plooi-prd"},
+                       "host": {"name": "koop-plooi-prd"},
+                       "message": "document processed via OVS"}}
+    d = monitoring.summarize_doc(hit)
+    assert d["link"] is None                       # no real URL/path -> no broken link
+    assert d["label"] != "koop-plooi-prd"          # infra value not used as label
+    assert "document processed via OVS" in d["label"]
+    assert "koop-plooi-prd" not in d["preview"]    # infra excluded from preview
+
+
 def test_not_found_body_and_parse():
     start, end = monitoring.period_bounds(15, now=datetime(2026, 6, 8, 12, 0, tzinfo=timezone.utc))
     body = monitoring.not_found_body(start, end)

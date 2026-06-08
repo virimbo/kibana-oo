@@ -225,9 +225,8 @@ async def get_recent_errors(
                     {
                         "bool": {
                             "should": [
-                                {"match": {"log.level": "error"}},
-                                {"match": {"log.level": "ERROR"}},
-                                {"match": {"level": "error"}},
+                                {"terms": {"log.level": ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]}},
+                                {"terms": {"level": ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]}},
                                 {"exists": {"field": "error.message"}},
                             ]
                         }

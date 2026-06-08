@@ -884,3 +884,134 @@ body {
   .control-select { max-width: none; }
   .msg--user .msg-body { max-width: 88%; }
 }
+
+/* ── Dashboard ────────────────────────────────────────── */
+.dash {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px 22px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.dash-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dash-asof {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-left: auto;
+}
+
+.dash-warn {
+  font-size: 11.5px;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  padding: 2px 9px;
+  margin-left: 10px;
+}
+
+.status-banner {
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.status-banner--ok { background: rgba(70, 201, 122, 0.12); border-color: var(--success); }
+.status-banner--degraded { background: rgba(227, 179, 65, 0.12); border-color: var(--warn); }
+.status-banner--critical { background: var(--error-soft); border-color: var(--error); }
+
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.kpi {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-value { font-size: 28px; font-weight: 700; }
+.kpi-label { font-size: 12.5px; color: var(--text-faint); }
+
+.delta { font-size: 13px; font-weight: 600; }
+.delta--up { color: var(--error); }
+.delta--down { color: var(--success); }
+
+.panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+}
+
+.panel h3 { font-size: 14px; margin-bottom: 12px; }
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.panel-head h3 { margin-bottom: 0; }
+.panel--ai { border-color: var(--accent); }
+
+.spark {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 90px;
+}
+.spark-bar {
+  flex: 1;
+  min-height: 2px;
+  background: linear-gradient(180deg, var(--accent), #2d6fd6);
+  border-radius: 2px 2px 0 0;
+}
+
+.tiles { display: flex; flex-wrap: wrap; gap: 10px; }
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 130px;
+  padding: 12px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.tile--down { opacity: 0.6; border-style: dashed; }
+.tile-name { font-size: 12.5px; color: var(--text-secondary); }
+.tile-count { font-size: 20px; font-weight: 700; }
+
+.dash-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.dash-table th, .dash-table td {
+  border: 1px solid var(--border);
+  padding: 7px 11px;
+  text-align: left;
+}
+.dash-table th { background: var(--bg-input); }
+
+.url-list { list-style: none; margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+.url-list code { font-family: var(--mono); font-size: 12.5px; }
+
+.muted { color: var(--text-faint); font-size: 13px; }
+
+@media (max-width: 600px) {
+  .kpis { grid-template-columns: 1fr; }
+  .dash { padding: 16px 14px 30px; }
+}

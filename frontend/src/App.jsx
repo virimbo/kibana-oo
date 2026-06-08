@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { getJSON } from "./api";
+import DashboardPage from "./Dashboard";
 
 const SUGGESTIONS = [
   {
@@ -280,7 +282,7 @@ function UserMessage({ msg }) {
 
 // ─── Chat Page ──────────────────────────────────────────────
 
-function ChatPage({ token, username, onLogout }) {
+function ChatPage({ token, username, onLogout, isAdmin, onSwitchView }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [timeRange, setTimeRange] = useState(60);
@@ -496,6 +498,11 @@ function ChatPage({ token, username, onLogout }) {
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
+          {isAdmin && (
+            <button className="btn btn--ghost" onClick={onSwitchView}>
+              Dashboard
+            </button>
+          )}
           <span className="header-user">{username}</span>
           <button className="btn btn--ghost" onClick={handleLogout}>
             Sign out
@@ -687,6 +694,23 @@ export default function App() {
   const [username, setUsername] = useState(
     () => sessionStorage.getItem("kibana_oo_user") || ""
   );
+  const [view, setView] = useState("chat"); // "chat" | "dashboard"
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Probe admin access: 403 means non-admin; 200/502 means admin (endpoint reached).
+  useEffect(() => {
+    if (!token) {
+      setIsAdmin(false);
+      return;
+    }
+    let active = true;
+    getJSON("/dashboard/summary", token)
+      .then(() => active && setIsAdmin(true))
+      .catch((e) => active && setIsAdmin(e.message !== "forbidden"));
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   function handleLogin(newToken, user) {
     setToken(newToken);
@@ -698,6 +722,7 @@ export default function App() {
   function handleLogout() {
     setToken(null);
     setUsername("");
+    setView("chat");
     sessionStorage.removeItem("kibana_oo_token");
     sessionStorage.removeItem("kibana_oo_user");
   }
@@ -706,7 +731,24 @@ export default function App() {
     return <LoginPage onLogin={handleLogin} />;
   }
 
+  if (view === "dashboard" && isAdmin) {
+    return (
+      <DashboardPage
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onSwitchView={() => setView("chat")}
+      />
+    );
+  }
+
   return (
-    <ChatPage token={token} username={username} onLogout={handleLogout} />
+    <ChatPage
+      token={token}
+      username={username}
+      onLogout={handleLogout}
+      isAdmin={isAdmin}
+      onSwitchView={() => setView("dashboard")}
+    />
   );
 }

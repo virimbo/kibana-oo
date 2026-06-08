@@ -13,6 +13,14 @@ class Settings(BaseSettings):
     data_views: str = "logs-*,ds-prod5-koop-plooi*,ds-prod5-koop-sp"
     default_data_view: str = "logs-*"
 
+    # Dashboard
+    dashboard_cache_ttl: int = 60          # seconds; summary cache TTL
+    dashboard_timezone: str = "Europe/Amsterdam"
+    dashboard_admins: str = ""             # comma-separated admin usernames/emails
+    # Views treated as a superset of others — excluded from rollup totals to avoid
+    # double counting (still shown as their own per-system tile).
+    dashboard_superset_views: str = "logs-*"
+
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"
@@ -32,6 +40,26 @@ class Settings(BaseSettings):
             if view and view not in seen:
                 seen.append(view)
         return seen or [self.es_log_index]
+
+    @property
+    def admin_list(self) -> list[str]:
+        seen: list[str] = []
+        for name in self.dashboard_admins.split(","):
+            name = name.strip()
+            if name and name not in seen:
+                seen.append(name)
+        return seen
+
+    @property
+    def rollup_views(self) -> list[str]:
+        """Data views used for rollup totals (superset views excluded)."""
+        superset = {v.strip() for v in self.dashboard_superset_views.split(",") if v.strip()}
+        return [v for v in self.data_view_list if v not in superset]
+
+    @property
+    def rollup_index(self) -> str:
+        """Comma-joined ES index string for the rollup query."""
+        return ",".join(self.rollup_views) or self.es_log_index
 
 
 settings = Settings()

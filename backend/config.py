@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     pipeline_ovs_query: str = 'OVS OR "oude verwerkingsstraat"'
     pipeline_nvs_query: str = 'NVS OR "nieuwe verwerkingsstraat"'
 
+    # Public portal base, used to turn document paths into clickable links.
+    portal_base_url: str = "https://open.overheid.nl"
+    # Best-effort source fields used to identify a document in drill-down lists.
+    doc_url_fields: str = "url.full,url.original,url.path"
+    doc_id_fields: str = "document.id,documentId,dossier.id,identifier,id"
+    doc_title_fields: str = "title,titel,document.title,name"
+    doc_action_fields: str = "event.action,event.type,action,operation,mutatie"
+    pipeline_doc_size: int = 25
+
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"

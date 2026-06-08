@@ -153,6 +153,69 @@ async def _pipeline_count(sid: str, index: str, start: datetime, end: datetime, 
     return resp.get("hits", {}).get("total", {}).get("value", 0)
 
 
+def _dig_path(src: object, dotted: str):
+    cur = src
+    for key in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(key)
+    return cur
+
+
+def _first_field(src: dict, fields_csv: str):
+    for field in (f.strip() for f in fields_csv.split(",") if f.strip()):
+        val = _dig_path(src, field)
+        if val not in (None, "", []):
+            return val
+    return None
+
+
+def summarize_doc(hit: dict) -> dict:
+    """Turn a raw document hit into a compact, clickable list item:
+    a label, an open.overheid.nl link (best-effort), and the action (new/update)."""
+    src = hit.get("_source", {})
+    url = _first_field(src, settings.doc_url_fields)
+    code = _first_field(src, settings.doc_id_fields)
+    title = _first_field(src, settings.doc_title_fields)
+    action = _first_field(src, settings.doc_action_fields)
+    base = settings.portal_base_url.rstrip("/")
+    link = None
+    if isinstance(url, str) and url:
+        link = url if url.startswith("http") else f"{base}/{url.lstrip('/')}"
+    elif isinstance(code, str) and code.startswith("/"):
+        link = f"{base}{code}"
+    label = title or code or url or "(document)"
+    return {
+        "timestamp": src.get("@timestamp"),
+        "label": str(label),
+        "code": code if isinstance(code, str) else None,
+        "link": link,
+        "action": action if isinstance(action, str) else None,
+    }
+
+
+async def fetch_pipeline_docs(
+    sid: str, index: str, start: datetime, end: datetime, query_string: str, size: int | None = None
+) -> list[dict]:
+    """Fetch the actual documents matching a pipeline query, newest first, as
+    clickable drill-down items."""
+    size = size or settings.pipeline_doc_size
+    body = {
+        "size": size,
+        "sort": [{"@timestamp": {"order": "desc"}}],
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": start.isoformat(), "lt": end.isoformat()}}},
+                    {"query_string": {"query": query_string, "default_field": "*", "lenient": True}},
+                ]
+            }
+        },
+    }
+    resp = await _es_search(sid, index, body)
+    return [summarize_doc(h) for h in resp.get("hits", {}).get("hits", [])]
+
+
 def parse_aggs(resp: dict) -> dict:
     aggs = resp.get("aggregations", {})
     timeseries = [
@@ -229,6 +292,8 @@ class DashboardSnapshot(BaseModel):
     not_found_urls: list[dict] = []
     ovs_count: int = 0   # documents via the old pipeline (oude verwerkingsstraat)
     nvs_count: int = 0   # documents via the new pipeline (nieuwe verwerkingsstraat)
+    ovs_docs: list[dict] = []   # the actual OVS documents (drill-down, clickable)
+    portal_base: str = ""       # base URL for building document links
     partial: bool
 
 
@@ -266,14 +331,16 @@ async def build_snapshot(
     nf_task = _es_search(sid, dv, not_found_body(start, end))
     ovs_task = _pipeline_count(sid, dv, start, end, settings.pipeline_ovs_query)
     nvs_task = _pipeline_count(sid, dv, start, end, settings.pipeline_nvs_query)
+    ovs_docs_task = fetch_pipeline_docs(sid, dv, start, end, settings.pipeline_ovs_query)
     view_tasks = [_count(sid, v, start, end) for v in views]
 
     results = await asyncio.gather(
-        agg_task, prev_task, nf_task, ovs_task, nvs_task, *view_tasks, return_exceptions=True
+        agg_task, prev_task, nf_task, ovs_task, nvs_task, ovs_docs_task,
+        *view_tasks, return_exceptions=True
     )
     agg_res, prev_res, nf_res = results[0], results[1], results[2]
-    ovs_res, nvs_res = results[3], results[4]
-    view_counts = results[5:]
+    ovs_res, nvs_res, ovs_docs_res = results[3], results[4], results[5]
+    view_counts = results[6:]
 
     if isinstance(agg_res, Exception):
         raise agg_res  # core query failed — surfaced as 502 by the router
@@ -287,6 +354,7 @@ async def build_snapshot(
         not_found_total, not_found_urls = parse_not_found(nf_res)
     ovs_count = 0 if isinstance(ovs_res, Exception) else ovs_res
     nvs_count = 0 if isinstance(nvs_res, Exception) else nvs_res
+    ovs_docs = [] if isinstance(ovs_docs_res, Exception) else ovs_docs_res
 
     systems: list[SystemBreakdown] = []
     for view, count in zip(views, view_counts):
@@ -316,5 +384,7 @@ async def build_snapshot(
         not_found_urls=not_found_urls,
         ovs_count=ovs_count,
         nvs_count=nvs_count,
+        ovs_docs=ovs_docs,
+        portal_base=settings.portal_base_url,
         partial=partial,
     )

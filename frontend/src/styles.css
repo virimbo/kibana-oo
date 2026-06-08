@@ -1004,6 +1004,32 @@ body {
   transition: width 0.3s;
 }
 
+.pipe-docs { margin-top: 14px; }
+.pipe-docs-title { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 8px; }
+.doc-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.doc-list li { display: flex; align-items: center; gap: 9px; }
+.doc-link {
+  color: var(--accent);
+  font-size: 13px;
+  text-decoration: none;
+  word-break: break-all;
+}
+.doc-link:hover { text-decoration: underline; }
+.doc-link--plain { color: var(--text-secondary); }
+.doc-action {
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.doc-action--new { color: var(--error); background: var(--error-soft); border: 1px solid var(--error); }
+.doc-action--update { color: var(--text-faint); background: var(--bg-input); border: 1px solid var(--border); }
+.url-list a { color: var(--accent); text-decoration: none; }
+.url-list a:hover { text-decoration: underline; }
+
 /* Info tooltips */
 .infotip {
   display: inline-grid;

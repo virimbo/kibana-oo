@@ -50,6 +50,16 @@ def test_snapshot_body_uses_interval():
     assert body["aggs"]["over_time"]["date_histogram"]["fixed_interval"] == "5m"
 
 
+def test_summarize_doc_builds_portal_link(monkeypatch):
+    monkeypatch.setattr(monitoring.settings, "portal_base_url", "https://open.overheid.nl")
+    hit = {"_source": {"@timestamp": "t", "url": {"path": "/document/abc-123"},
+                       "event": {"action": "update"}, "title": "Besluit X"}}
+    d = monitoring.summarize_doc(hit)
+    assert d["link"] == "https://open.overheid.nl/document/abc-123"
+    assert d["action"] == "update"
+    assert d["label"] == "Besluit X"
+
+
 def test_not_found_body_and_parse():
     start, end = monitoring.period_bounds(15, now=datetime(2026, 6, 8, 12, 0, tzinfo=timezone.utc))
     body = monitoring.not_found_body(start, end)
@@ -122,6 +132,11 @@ def patched_es(monkeypatch):
                 {"key": "/zoek/oud", "doc_count": 3}]}}}
         qs = _query_string(body)
         if qs:  # pipeline (OVS/NVS) query
+            if body.get("size", 0) > 0:  # the drill-down docs query
+                return {"hits": {"hits": [
+                    {"_source": {"@timestamp": "2026-06-08T11:00:00Z",
+                                 "url": {"path": "/document/abc-123"},
+                                 "event": {"action": "update"}, "title": "Besluit X"}}]}}
             return {"hits": {"total": {"value": 4 if "OVS" in qs else 96}}}
         return {"hits": {"total": {"value": counts.get(index, 0)}}}
 
@@ -146,6 +161,10 @@ async def test_build_snapshot_assembles_consistent_payload(patched_es):
     assert snap.not_found_urls[0] == {"url": "/document/missing.pdf", "count": 6}
     assert snap.ovs_count == 4    # old pipeline
     assert snap.nvs_count == 96   # new pipeline
+    assert len(snap.ovs_docs) == 1
+    assert snap.ovs_docs[0]["link"].endswith("/document/abc-123")
+    assert snap.ovs_docs[0]["action"] == "update"
+    assert snap.portal_base == "https://open.overheid.nl"
     assert snap.partial is False
 
 

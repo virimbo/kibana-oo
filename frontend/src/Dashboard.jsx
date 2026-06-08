@@ -49,7 +49,9 @@ function Delta({ pct }) {
   );
 }
 
-function Pipelines({ ovs, nvs }) {
+const isNewAction = (a) => /new|create|aanmaak|nieuw|insert/i.test(a || "");
+
+function Pipelines({ ovs, nvs, ovsDocs }) {
   const total = ovs + nvs;
   const nvsShare = total ? Math.round((nvs / total) * 100) : null;
   return (
@@ -79,6 +81,32 @@ function Pipelines({ ovs, nvs }) {
           No documents matched OVS/NVS in this window. If you expected some, the match terms may
           need tuning — tell me what you see.
         </p>
+      )}
+      {ovs > 0 && ovsDocs && ovsDocs.length > 0 && (
+        <div className="pipe-docs">
+          <p className="pipe-docs-title">OVS documents — click to check each on open.overheid.nl:</p>
+          <ul className="doc-list">
+            {ovsDocs.map((d, i) => (
+              <li key={i}>
+                {d.action && (
+                  <span
+                    className={`doc-action doc-action--${isNewAction(d.action) ? "new" : "update"}`}
+                    title={isNewAction(d.action) ? "brand-new document" : "update of an existing document"}
+                  >
+                    {d.action}
+                  </span>
+                )}
+                {d.link ? (
+                  <a href={d.link} target="_blank" rel="noreferrer" className="doc-link">
+                    {d.label}
+                  </a>
+                ) : (
+                  <span className="doc-link doc-link--plain">{d.label}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
       {nvsShare != null && (
         <>
@@ -345,18 +373,30 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                     </p>
                     {snap.not_found_urls.length > 0 && (
                       <ul className="url-list">
-                        {snap.not_found_urls.map((u) => (
-                          <li key={u.url}>
-                            <code>{u.url}</code> <span className="muted">{u.count}×</span>
-                          </li>
-                        ))}
+                        {snap.not_found_urls.map((u) => {
+                          const href = /^https?:\/\//.test(u.url)
+                            ? u.url
+                            : `${snap.portal_base || ""}${u.url}`;
+                          return (
+                            <li key={u.url}>
+                              {snap.portal_base || /^https?:\/\//.test(u.url) ? (
+                                <a href={href} target="_blank" rel="noreferrer">
+                                  <code>{u.url}</code>
+                                </a>
+                              ) : (
+                                <code>{u.url}</code>
+                              )}{" "}
+                              <span className="muted">{u.count}×</span>
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </>
                 )}
               </section>
 
-              <Pipelines ovs={snap.ovs_count} nvs={snap.nvs_count} />
+              <Pipelines ovs={snap.ovs_count} nvs={snap.nvs_count} ovsDocs={snap.ovs_docs} />
 
               <section className="panel">
                 <h3>

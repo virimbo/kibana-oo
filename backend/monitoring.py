@@ -237,6 +237,14 @@ def summarize_doc(hit: dict) -> dict:
     title = _first_field(src, settings.doc_title_fields) or _scan(flat, _TITLE_HINT)
     action = _first_field(src, settings.doc_action_fields) or _scan(flat, _ACTION_HINT)
 
+    # Extract a document identifier (e.g. KOOP "ronl-...") from the log text.
+    message = flat.get("message")
+    doc_id = None
+    if settings.doc_id_regex:
+        haystack = str(message) if message else " ".join(str(v) for v in flat.values())
+        m = re.search(settings.doc_id_regex, haystack)
+        doc_id = m.group(0) if m else None
+
     base = settings.portal_base_url.rstrip("/")
     link = None
     if isinstance(url_cfg, str) and url_cfg.startswith(("http://", "https://")):
@@ -245,11 +253,13 @@ def summarize_doc(hit: dict) -> dict:
         link = f"{base}/{url_cfg.lstrip('/')}"                    # trust explicitly-configured path
     elif isinstance(url_auto, str) and url_auto.startswith(("http://", "https://")):
         link = url_auto                                          # auto: only full URLs, never guessed paths
+    elif doc_id and settings.doc_link_template:
+        link = settings.doc_link_template.format(id=doc_id)       # build portal link from extracted id
 
     url = url_cfg or url_auto
+    code = code or doc_id
     # For log-shaped data the message IS the meaningful content; prefer an explicitly
     # configured title, then the log message, then any auto-discovered title/id.
-    message = flat.get("message")
     label = (
         _first_field(src, settings.doc_title_fields)
         or (str(message)[:140] if isinstance(message, str) and message.strip() else None)
@@ -294,7 +304,16 @@ async def fetch_pipeline_docs(
         },
     }
     resp = await _es_search(sid, index, body)
-    return [summarize_doc(h) for h in resp.get("hits", {}).get("hits", [])]
+    # De-duplicate: many log lines often refer to the same document.
+    seen: set[str] = set()
+    unique: list[dict] = []
+    for doc in (summarize_doc(h) for h in resp.get("hits", {}).get("hits", [])):
+        key = doc.get("code") or doc.get("link") or doc.get("label") or ""
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(doc)
+    return unique
 
 
 def parse_aggs(resp: dict) -> dict:

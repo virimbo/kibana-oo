@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     doc_title_fields: str = "title,titel,document.title,name"
     doc_action_fields: str = "event.action,event.type,action,operation,mutatie"
     pipeline_doc_size: int = 25
+    # Extract a document identifier from the log text and turn it into a portal link.
+    # Default matches KOOP "ronl-..." identifiers seen in repository log messages.
+    doc_id_regex: str = r"ronl-[A-Za-z0-9-]+"
+    doc_link_template: str = "https://open.overheid.nl/documenten/{id}"
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"

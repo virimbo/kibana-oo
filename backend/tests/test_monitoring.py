@@ -69,6 +69,18 @@ def test_summarize_doc_builds_portal_link(monkeypatch):
     assert d["label"] == "Besluit X"
 
 
+def test_summarize_doc_extracts_ronl_id_and_links(monkeypatch):
+    monkeypatch.setattr(monitoring.settings, "doc_url_fields", "url.full,url.path")  # not present
+    monkeypatch.setattr(monitoring.settings, "doc_id_regex", r"ronl-[A-Za-z0-9-]+")
+    monkeypatch.setattr(monitoring.settings, "doc_link_template", "https://open.overheid.nl/documenten/{id}")
+    hit = {"_source": {"level": "INFO",
+                       "message": "retrieve document with path /smb/repository/5a/ronl-archief-abc123def/1/x.pdf"}}
+    d = monitoring.summarize_doc(hit)
+    assert d["code"] == "ronl-archief-abc123def"
+    assert d["link"] == "https://open.overheid.nl/documenten/ronl-archief-abc123def"
+    assert d["label"].startswith("retrieve document with path")
+
+
 def test_summarize_doc_ignores_infra_and_makes_no_fake_link(monkeypatch):
     monkeypatch.setattr(monitoring.settings, "doc_url_fields", "url.full,url.path")
     monkeypatch.setattr(monitoring.settings, "doc_id_fields", "document.id,documentId")

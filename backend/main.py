@@ -3,6 +3,7 @@
 import json
 import logging
 
+import httpx
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -96,9 +97,28 @@ async def login(request: LoginRequest):
 
     try:
         sid = await keycloak_login(username, password)
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+        logger.warning(f"Cannot reach Kibana for {username}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Cannot reach Kibana. Please check that you are connected to the "
+                "company network or VPN, then try again."
+            ),
+        )
     except Exception as e:
+        msg = str(e)
+        if "name resolution" in msg.lower() or "Errno -3" in msg or "Errno -5" in msg:
+            logger.warning(f"Cannot reach Kibana (DNS) for {username}: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Cannot reach Kibana. Please check that you are connected to the "
+                    "company network or VPN, then try again."
+                ),
+            )
         logger.warning(f"Login failed for {username}: {e}")
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=401, detail=msg)
 
     # Create session token
     token = create_session(username, sid)

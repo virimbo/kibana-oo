@@ -12,6 +12,7 @@ from config import settings
 from elastic import get_recent_errors, get_recent_logs, keycloak_login, search_logs, search_metrics
 from llm import generate_answer, generate_answer_stream
 from session import create_session, drop_session, require_session
+from dashboard import router as dashboard_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,6 +29,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(dashboard_router)
 
 class LoginRequest(BaseModel):
     username: str

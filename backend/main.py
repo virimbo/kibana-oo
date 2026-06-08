@@ -41,7 +41,26 @@ class LoginRequest(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     time_range_minutes: int = 60
+    data_view: str | None = None
     stream: bool = True
+
+
+# Friendly labels for the known data views (falls back to the raw id).
+DATA_VIEW_LABELS = {
+    "logs-*": "All logs",
+    "ds-prod5-koop-plooi*": "KOOP Plooi (prod5)",
+    "ds-prod5-koop-sp": "KOOP SP (prod5)",
+}
+
+
+def _resolve_data_view(requested: str | None) -> str:
+    """Validate a requested data view against the whitelist, else use the default."""
+    allowed = settings.data_view_list
+    if requested and requested in allowed:
+        return requested
+    if settings.default_data_view in allowed:
+        return settings.default_data_view
+    return allowed[0]
 
 
 class ChatResponse(BaseModel):
@@ -64,6 +83,18 @@ def _get_session(authorization: str | None) -> dict:
 async def health():
     """Health check endpoint (no auth required)."""
     return {"status": "ok", "model": settings.ollama_model}
+
+
+@app.get("/data-views")
+async def data_views():
+    """List the data views (ES index patterns) the user may query."""
+    return {
+        "data_views": [
+            {"id": dv, "label": DATA_VIEW_LABELS.get(dv, dv)}
+            for dv in settings.data_view_list
+        ],
+        "default": _resolve_data_view(None),
+    }
 
 
 @app.post("/login")
@@ -115,15 +146,16 @@ async def chat(
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    logger.info(f"[{username}] Question: {question[:100]}")
+    data_view = _resolve_data_view(request.data_view)
+    logger.info(f"[{username}] [{data_view}] Question: {question[:100]}")
 
     # Step 1: Search Elasticsearch via Kibana
     try:
         # Always get recent logs for context
-        recent_logs = await get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes)
+        recent_logs = await get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
         # Also search for specific terms from the question
-        log_results = await search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes)
-        error_results = await get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes)
+        log_results = await search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
+        error_results = await get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
         # Merge, deduplicate by timestamp
         seen = set()
         merged_logs = []

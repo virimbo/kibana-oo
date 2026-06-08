@@ -72,8 +72,16 @@ def _headers(sid: str) -> dict:
     }
 
 
+# Index patterns may only contain ES-safe characters. This guards the
+# value before it is interpolated into the Kibana proxy URL path.
+_SAFE_INDEX = re.compile(r"^[A-Za-z0-9_.\-*,]+$")
+
+
 async def _es_search(sid: str, index: str, body: dict) -> dict:
     """Execute an Elasticsearch search via Kibana's console proxy."""
+    if not index or not _SAFE_INDEX.match(index):
+        raise ValueError(f"Invalid index pattern: {index!r}")
+
     url = f"{KIBANA_URL}/s/{KIBANA_SPACE}/api/console/proxy?path={index}/_search&method=POST"
 
     async with httpx.AsyncClient(verify=True, timeout=30.0) as client:
@@ -90,6 +98,7 @@ async def get_recent_logs(
     sid: str,
     size: int = 15,
     time_range_minutes: int = 60,
+    index: str | None = None,
 ) -> list[dict]:
     """Get the most recent logs regardless of content."""
     now = datetime.now(timezone.utc)
@@ -108,7 +117,7 @@ async def get_recent_logs(
         },
     }
 
-    result = await _es_search(sid, settings.es_log_index, body)
+    result = await _es_search(sid, index or settings.es_log_index, body)
     return _format_hits(result.get("hits", {}).get("hits", []))
 
 
@@ -117,6 +126,7 @@ async def search_logs(
     query: str,
     size: int = 20,
     time_range_minutes: int = 60,
+    index: str | None = None,
 ) -> list[dict]:
     """Search logs matching a query string within a time range."""
     now = datetime.now(timezone.utc)
@@ -150,7 +160,7 @@ async def search_logs(
         },
     }
 
-    result = await _es_search(sid, settings.es_log_index, body)
+    result = await _es_search(sid, index or settings.es_log_index, body)
     return _format_hits(result.get("hits", {}).get("hits", []))
 
 
@@ -200,6 +210,7 @@ async def get_recent_errors(
     sid: str,
     size: int = 10,
     time_range_minutes: int = 30,
+    index: str | None = None,
 ) -> list[dict]:
     """Get recent error-level log entries."""
     now = datetime.now(timezone.utc)
@@ -236,7 +247,7 @@ async def get_recent_errors(
         },
     }
 
-    result = await _es_search(sid, settings.es_log_index, body)
+    result = await _es_search(sid, index or settings.es_log_index, body)
     return _format_hits(result.get("hits", {}).get("hits", []))
 
 

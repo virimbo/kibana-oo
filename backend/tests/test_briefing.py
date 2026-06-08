@@ -18,21 +18,24 @@ def _snapshot():
     )
 
 
-def test_prompt_contains_facts_and_guardrails():
-    prompt = briefing.build_prompt(_snapshot())
-    assert "42" in prompt
-    assert "NullPointerException" in prompt
-    assert "registration-service" in prompt
-    assert "/api/submit" in prompt
-    low = prompt.lower()
+def test_facts_contain_numbers_and_entities():
+    facts = briefing.build_facts(_snapshot())
+    assert "42" in facts
+    assert "NullPointerException" in facts
+    assert "registration-service" in facts
+    assert "/api/submit" in facts
+
+
+def test_system_prompt_has_guardrails():
+    low = briefing.SYSTEM.lower()
     assert "only" in low and ("do not invent" in low or "not invent" in low)
     assert "insufficient data" in low
 
 
-def test_prompt_handles_all_clear():
+def test_facts_handle_all_clear():
     snap = _snapshot()
     snap.total = 0
     snap.status_level = "ok"
     snap.top_signatures = []
-    prompt = briefing.build_prompt(snap)
-    assert "0" in prompt
+    facts = briefing.build_facts(snap)
+    assert '"total_criticals": 0' in facts

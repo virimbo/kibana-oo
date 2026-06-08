@@ -132,6 +132,8 @@ async def test_build_snapshot_assembles_consistent_payload(patched_es):
 
 
 async def test_build_snapshot_isolates_view_failure(monkeypatch, patched_es):
+    # patched_es already replaced _es_search with the fixture's fake; capture it
+    # so flaky_es can delegate to it for the non-failing indices.
     patched_es_original = monitoring._es_search
 
     async def flaky_es(sid, index, body):

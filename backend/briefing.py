@@ -18,7 +18,8 @@ SYSTEM = (
 )
 
 
-def build_prompt(snap: DashboardSnapshot) -> str:
+def build_facts(snap: DashboardSnapshot) -> str:
+    """Serialize the deterministic snapshot into the JSON facts the LLM narrates."""
     facts = {
         "date": snap.date,
         "total_criticals": snap.total,
@@ -32,9 +33,14 @@ def build_prompt(snap: DashboardSnapshot) -> str:
         "failing_urls": snap.failing_urls,
         "data_partial": snap.partial,
     }
-    return f"{SYSTEM}\n\n## Facts (JSON)\n{json.dumps(facts, indent=2, default=str)}\n\n## Briefing"
+    return json.dumps(facts, indent=2, default=str)
 
 
 async def generate_briefing(snap: DashboardSnapshot) -> str:
-    prompt = build_prompt(snap)
-    return await generate_answer(question="Summarize today's critical issues.", context=prompt)
+    # Pass the grounding rules as the system message (not buried in the user
+    # turn) so a small model treats them as authoritative.
+    return await generate_answer(
+        question="Summarize today's critical issues.",
+        context=build_facts(snap),
+        system=SYSTEM,
+    )

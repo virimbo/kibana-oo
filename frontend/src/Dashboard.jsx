@@ -191,8 +191,8 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                       <tr><th>Signature</th><th>Count</th><th>First</th><th>Last</th></tr>
                     </thead>
                     <tbody>
-                      {snap.top_signatures.map((s, i) => (
-                        <tr key={i}>
+                      {snap.top_signatures.map((s) => (
+                        <tr key={s.signature}>
                           <td>{s.signature}</td>
                           <td>{s.count}</td>
                           <td>{s.first_seen || "—"}</td>
@@ -210,8 +210,8 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                   <p className="muted">None.</p>
                 ) : (
                   <div className="tiles">
-                    {snap.affected_services.map((s, i) => (
-                      <div key={i} className="tile">
+                    {snap.affected_services.map((s) => (
+                      <div key={s.name} className="tile">
                         <span className="tile-name">{s.name}</span>
                         <span className="tile-count">{s.count}</span>
                       </div>
@@ -227,16 +227,16 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                 ) : (
                   <>
                     <div className="tiles">
-                      {snap.status_codes.map((s, i) => (
-                        <div key={i} className="tile">
+                      {snap.status_codes.map((s) => (
+                        <div key={s.code} className="tile">
                           <span className="tile-name">{s.code}</span>
                           <span className="tile-count">{s.count}</span>
                         </div>
                       ))}
                     </div>
                     <ul className="url-list">
-                      {snap.failing_urls.map((u, i) => (
-                        <li key={i}>
+                      {snap.failing_urls.map((u) => (
+                        <li key={u.url}>
                           <code>{u.url}</code> <span className="muted">{u.count}</span>
                         </li>
                       ))}

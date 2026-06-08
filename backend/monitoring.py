@@ -39,7 +39,7 @@ def critical_query(start: datetime, end: datetime) -> dict:
     return {
         "bool": {
             "filter": [
-                {"range": {"@timestamp": {"gte": start.isoformat(), "lte": end.isoformat()}}},
+                {"range": {"@timestamp": {"gte": start.isoformat(), "lt": end.isoformat()}}},
                 {
                     "bool": {
                         "minimum_should_match": 1,

@@ -704,9 +704,15 @@ export default function App() {
       return;
     }
     let active = true;
+    // 200 → admin; 502 → admin but ES is down (gating passed before the query);
+    // 403/401 → not an admin / no valid session.
     getJSON("/dashboard/summary", token)
       .then(() => active && setIsAdmin(true))
-      .catch((e) => active && setIsAdmin(e.message !== "forbidden"));
+      .catch(
+        (e) =>
+          active &&
+          setIsAdmin(e.message !== "forbidden" && e.message !== "unauthorized")
+      );
     return () => {
       active = false;
     };

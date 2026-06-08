@@ -20,10 +20,12 @@ Rules:
 """
 
 
-def _build_prompt(question: str, context: str) -> list[dict]:
-    """Build the message list for the LLM."""
+def _build_prompt(question: str, context: str, system: str | None = None) -> list[dict]:
+    """Build the message list for the LLM. `system` overrides the default
+    chat persona — used by the dashboard briefing to supply a grounded analyst
+    system prompt instead of the generic assistant one."""
     return [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system or SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
@@ -34,9 +36,9 @@ def _build_prompt(question: str, context: str) -> list[dict]:
     ]
 
 
-async def generate_answer(question: str, context: str) -> str:
+async def generate_answer(question: str, context: str, system: str | None = None) -> str:
     """Generate a complete answer (non-streaming)."""
-    messages = _build_prompt(question, context)
+    messages = _build_prompt(question, context, system=system)
 
     async with httpx.AsyncClient(timeout=600.0) as client:
         response = await client.post(

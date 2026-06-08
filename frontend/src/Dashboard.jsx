@@ -51,15 +51,21 @@ function Delta({ pct }) {
 
 const isNewAction = (a) => /new|create|aanmaak|nieuw|insert/i.test(a || "");
 
-function Pipelines({ ovs, nvs, ovsDocs }) {
+function Pipelines({ ovs, nvs, ovsDocs, ovsNew }) {
   const total = ovs + nvs;
   const nvsShare = total ? Math.round((nvs / total) * 100) : null;
   return (
     <section className={`panel ${ovs > 0 ? "panel--alert" : ""}`}>
       <h3>
         Verwerkingsstraat — OVS → NVS
-        <InfoTip text="Documents processed via the old pipeline (OVS, oude verwerkingsstraat) vs the new one (NVS, nieuwe verwerkingsstraat) in this window. You're migrating to NVS, so OVS should trend toward zero — any OVS activity is flagged." />
+        <InfoTip text="Documents processed via the old pipeline (OVS, oude verwerkingsstraat) vs the new one (NVS, nieuwe verwerkingsstraat) in this window. You're migrating to NVS, so OVS should trend toward zero — any OVS activity is flagged. NEW documents on OVS are the most serious leak." />
       </h3>
+      {ovsNew > 0 && (
+        <div className="pipe-new-alert">
+          ⚠ {ovsNew} NEW document{ovsNew === 1 ? "" : "s"} entered the OLD pipeline (OVS) —
+          a brand-new document should go to NVS, not OVS. Check the list below.
+        </div>
+      )}
       <div className="pipe-row">
         <div className="pipe pipe--nvs">
           <span className="pipe-label">NVS · new pipeline</span>
@@ -396,7 +402,12 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                 )}
               </section>
 
-              <Pipelines ovs={snap.ovs_count} nvs={snap.nvs_count} ovsDocs={snap.ovs_docs} />
+              <Pipelines
+                ovs={snap.ovs_count}
+                nvs={snap.nvs_count}
+                ovsDocs={snap.ovs_docs}
+                ovsNew={snap.ovs_new_count}
+              />
 
               <section className="panel">
                 <h3>

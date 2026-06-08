@@ -4,6 +4,7 @@ Kibana console proxy. Every number the dashboard shows is computed here.
 The dashboard queries a rolling window ([now - period, now]) over a single
 selected data view, and compares it to the immediately preceding equal period."""
 import asyncio
+import re
 from datetime import datetime, timedelta, timezone
 
 from pydantic import BaseModel
@@ -170,6 +171,15 @@ def _first_field(src: dict, fields_csv: str):
     return None
 
 
+# A document's action counts as "new" (a brand-new publication) vs an update of
+# an existing/"mother" document. New documents must NOT use the old pipeline.
+_NEW_ACTION_RE = re.compile(r"new|create|aanmaak|nieuw|insert|add", re.IGNORECASE)
+
+
+def is_new_action(action: str | None) -> bool:
+    return bool(action and _NEW_ACTION_RE.search(action))
+
+
 def summarize_doc(hit: dict) -> dict:
     """Turn a raw document hit into a compact, clickable list item:
     a label, an open.overheid.nl link (best-effort), and the action (new/update)."""
@@ -293,6 +303,7 @@ class DashboardSnapshot(BaseModel):
     ovs_count: int = 0   # documents via the old pipeline (oude verwerkingsstraat)
     nvs_count: int = 0   # documents via the new pipeline (nieuwe verwerkingsstraat)
     ovs_docs: list[dict] = []   # the actual OVS documents (drill-down, clickable)
+    ovs_new_count: int = 0      # of those, how many are brand-NEW (not updates)
     portal_base: str = ""       # base URL for building document links
     partial: bool
 
@@ -355,6 +366,7 @@ async def build_snapshot(
     ovs_count = 0 if isinstance(ovs_res, Exception) else ovs_res
     nvs_count = 0 if isinstance(nvs_res, Exception) else nvs_res
     ovs_docs = [] if isinstance(ovs_docs_res, Exception) else ovs_docs_res
+    ovs_new_count = sum(1 for d in ovs_docs if is_new_action(d.get("action")))
 
     systems: list[SystemBreakdown] = []
     for view, count in zip(views, view_counts):
@@ -385,6 +397,7 @@ async def build_snapshot(
         ovs_count=ovs_count,
         nvs_count=nvs_count,
         ovs_docs=ovs_docs,
+        ovs_new_count=ovs_new_count,
         portal_base=settings.portal_base_url,
         partial=partial,
     )

@@ -50,6 +50,15 @@ def test_snapshot_body_uses_interval():
     assert body["aggs"]["over_time"]["date_histogram"]["fixed_interval"] == "5m"
 
 
+def test_is_new_action():
+    assert monitoring.is_new_action("create") is True
+    assert monitoring.is_new_action("nieuw") is True
+    assert monitoring.is_new_action("INSERT") is True
+    assert monitoring.is_new_action("update") is False
+    assert monitoring.is_new_action("wijziging") is False
+    assert monitoring.is_new_action(None) is False
+
+
 def test_summarize_doc_builds_portal_link(monkeypatch):
     monkeypatch.setattr(monitoring.settings, "portal_base_url", "https://open.overheid.nl")
     hit = {"_source": {"@timestamp": "t", "url": {"path": "/document/abc-123"},
@@ -136,6 +145,9 @@ def patched_es(monkeypatch):
                 return {"hits": {"hits": [
                     {"_source": {"@timestamp": "2026-06-08T11:00:00Z",
                                  "url": {"path": "/document/abc-123"},
+                                 "event": {"action": "create"}, "title": "Nieuw besluit"}},
+                    {"_source": {"@timestamp": "2026-06-08T10:00:00Z",
+                                 "url": {"path": "/document/def-456"},
                                  "event": {"action": "update"}, "title": "Besluit X"}}]}}
             return {"hits": {"total": {"value": 4 if "OVS" in qs else 96}}}
         return {"hits": {"total": {"value": counts.get(index, 0)}}}
@@ -161,9 +173,10 @@ async def test_build_snapshot_assembles_consistent_payload(patched_es):
     assert snap.not_found_urls[0] == {"url": "/document/missing.pdf", "count": 6}
     assert snap.ovs_count == 4    # old pipeline
     assert snap.nvs_count == 96   # new pipeline
-    assert len(snap.ovs_docs) == 1
+    assert len(snap.ovs_docs) == 2
     assert snap.ovs_docs[0]["link"].endswith("/document/abc-123")
-    assert snap.ovs_docs[0]["action"] == "update"
+    assert snap.ovs_docs[0]["action"] == "create"
+    assert snap.ovs_new_count == 1   # one create, one update
     assert snap.portal_base == "https://open.overheid.nl"
     assert snap.partial is False
 

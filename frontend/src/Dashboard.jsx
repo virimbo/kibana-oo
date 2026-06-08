@@ -94,21 +94,24 @@ function Pipelines({ ovs, nvs, ovsDocs, ovsNew }) {
           <ul className="doc-list">
             {ovsDocs.map((d, i) => (
               <li key={i}>
-                {d.action && (
-                  <span
-                    className={`doc-action doc-action--${isNewAction(d.action) ? "new" : "update"}`}
-                    title={isNewAction(d.action) ? "brand-new document" : "update of an existing document"}
-                  >
-                    {d.action}
-                  </span>
-                )}
-                {d.link ? (
-                  <a href={d.link} target="_blank" rel="noreferrer" className="doc-link">
-                    {d.label}
-                  </a>
-                ) : (
-                  <span className="doc-link doc-link--plain">{d.label}</span>
-                )}
+                <span className="doc-row">
+                  {d.action && (
+                    <span
+                      className={`doc-action doc-action--${isNewAction(d.action) ? "new" : "update"}`}
+                      title={isNewAction(d.action) ? "brand-new document" : "update of an existing document"}
+                    >
+                      {d.action}
+                    </span>
+                  )}
+                  {d.link ? (
+                    <a href={d.link} target="_blank" rel="noreferrer" className="doc-link">
+                      {d.label}
+                    </a>
+                  ) : (
+                    <span className="doc-link doc-link--plain">{d.label}</span>
+                  )}
+                </span>
+                {d.preview && <span className="doc-preview">{d.preview}</span>}
               </li>
             ))}
           </ul>

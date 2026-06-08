@@ -1018,8 +1018,15 @@ body {
 
 .pipe-docs { margin-top: 14px; }
 .pipe-docs-title { font-size: 12.5px; color: var(--text-secondary); margin-bottom: 8px; }
-.doc-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
-.doc-list li { display: flex; align-items: center; gap: 9px; }
+.doc-list { list-style: none; display: flex; flex-direction: column; gap: 9px; }
+.doc-list li { display: flex; flex-direction: column; gap: 2px; }
+.doc-row { display: flex; align-items: center; gap: 9px; }
+.doc-preview {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-faint);
+  word-break: break-all;
+}
 .doc-link {
   color: var(--accent);
   font-size: 13px;

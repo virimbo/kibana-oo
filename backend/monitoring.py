@@ -180,27 +180,63 @@ def is_new_action(action: str | None) -> bool:
     return bool(action and _NEW_ACTION_RE.search(action))
 
 
+def _flatten(src, prefix: str = "", out: dict | None = None) -> dict:
+    """Flatten a nested _source into dotted-key -> scalar pairs."""
+    if out is None:
+        out = {}
+    if isinstance(src, dict):
+        for k, v in src.items():
+            _flatten(v, f"{prefix}{k}.", out)
+    elif isinstance(src, (str, int, float, bool)) and str(src).strip() != "":
+        out[prefix[:-1]] = src
+    return out
+
+
+# When the configured fields don't match, auto-discover by field-name hint.
+_URL_HINT = re.compile(r"url|uri|link|href|permalink|locat|path", re.IGNORECASE)
+_ID_HINT = re.compile(r"identifier|documentid|dossier|kenmerk|(^|\.)id$|productid|\bcode\b", re.IGNORECASE)
+_TITLE_HINT = re.compile(r"titel|title|onderwerp|(^|\.)naam$|(^|\.)name$|omschrijv|subject", re.IGNORECASE)
+_ACTION_HINT = re.compile(r"action|operation|operatie|mutatie|(^|\.)type$|soort|verb|kind|status|event\.action", re.IGNORECASE)
+
+
+def _scan(flat: dict, hint: re.Pattern, url_like: bool = False):
+    matches = [(k, v) for k, v in flat.items() if isinstance(v, str) and v.strip() and hint.search(k)]
+    if url_like:
+        matches.sort(key=lambda kv: 0 if kv[1].startswith(("http", "/")) else 1)
+    return matches[0][1] if matches else None
+
+
 def summarize_doc(hit: dict) -> dict:
-    """Turn a raw document hit into a compact, clickable list item:
-    a label, an open.overheid.nl link (best-effort), and the action (new/update)."""
+    """Turn a raw document hit into a compact, clickable list item: a label, an
+    open.overheid.nl link, the action (new/update), and a preview of real fields.
+    Prefers configured fields, then auto-discovers from the document's structure."""
     src = hit.get("_source", {})
-    url = _first_field(src, settings.doc_url_fields)
-    code = _first_field(src, settings.doc_id_fields)
-    title = _first_field(src, settings.doc_title_fields)
-    action = _first_field(src, settings.doc_action_fields)
+    flat = _flatten(src)
+    url = _first_field(src, settings.doc_url_fields) or _scan(flat, _URL_HINT, url_like=True)
+    code = _first_field(src, settings.doc_id_fields) or _scan(flat, _ID_HINT)
+    title = _first_field(src, settings.doc_title_fields) or _scan(flat, _TITLE_HINT)
+    action = _first_field(src, settings.doc_action_fields) or _scan(flat, _ACTION_HINT)
+
     base = settings.portal_base_url.rstrip("/")
     link = None
     if isinstance(url, str) and url:
         link = url if url.startswith("http") else f"{base}/{url.lstrip('/')}"
     elif isinstance(code, str) and code.startswith("/"):
         link = f"{base}{code}"
-    label = title or code or url or "(document)"
+
+    label = title or code or url or str(flat.get("message", ""))[:80] or "(document)"
+    # A short preview of the real fields — context for the admin and reveals the
+    # schema so the configured DOC_* fields can be tuned precisely.
+    preview = " · ".join(
+        f"{k}={str(flat[k])[:40]}" for k in list(flat)[:3] if k != "@timestamp"
+    )
     return {
         "timestamp": src.get("@timestamp"),
         "label": str(label),
         "code": code if isinstance(code, str) else None,
         "link": link,
         "action": action if isinstance(action, str) else None,
+        "preview": preview,
     }
 
 

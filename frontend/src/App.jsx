@@ -128,6 +128,10 @@ function LoginPage({ onLogin }) {
           Sign in with your Kibana credentials to ask questions about your
           logs and metrics in plain language.
         </p>
+        <p className="ai-disclosure">
+          This application uses an AI system (Llama) to generate answers based
+          on your log data. Responses are AI-generated and should be verified.
+        </p>
 
         <form onSubmit={handleLogin}>
           <label>
@@ -229,6 +233,7 @@ function AssistantMessage({ msg }) {
       <div className="msg-body">
         <div className="msg-head">
           <span className="msg-name">KIBANA-OO</span>
+          <span className="ai-badge">AI-generated</span>
           {msg.time && <span className="msg-time">{fmtTime(msg.time)}</span>}
           {!isEmpty && !isStreaming && !isError && (
             <CopyButton text={msg.content} />
@@ -508,8 +513,13 @@ function ChatPage({ token, username, onLogout }) {
               <h2>Ask anything about your logs &amp; metrics</h2>
               <p>
                 KIBANA-OO searches your Elasticsearch cluster and uses a local
-                LLM to answer in natural language — with the source log entries
+                AI model to answer in natural language — with the source log entries
                 cited.
+              </p>
+              <p className="ai-disclosure ai-disclosure--chat">
+                You are interacting with an AI system. Responses are generated
+                by a Llama language model and may contain inaccuracies. Always
+                verify critical findings in Kibana.
               </p>
               <div className="suggestions">
                 {SUGGESTIONS.map((s) => (

@@ -2,9 +2,8 @@
 
 import json
 import logging
-import secrets
 
-from fastapi import FastAPI, HTTPException, Header
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -12,6 +11,7 @@ from sse_starlette.sse import EventSourceResponse
 from config import settings
 from elastic import get_recent_errors, get_recent_logs, keycloak_login, search_logs, search_metrics
 from llm import generate_answer, generate_answer_stream
+from session import create_session, drop_session, require_session
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -28,10 +28,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# In-memory session store: token -> {username, sid}
-_sessions: dict[str, dict] = {}
-
 
 class LoginRequest(BaseModel):
     username: str
@@ -68,17 +64,6 @@ class ChatResponse(BaseModel):
     sources: list[dict]
 
 
-def _get_session(authorization: str | None) -> dict:
-    """Validate session token and return session data."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not logged in")
-    token = authorization[7:]
-    session = _sessions.get(token)
-    if not session:
-        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
-    return session
-
-
 @app.get("/health")
 async def health():
     """Health check endpoint (no auth required)."""
@@ -113,8 +98,7 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=401, detail=str(e))
 
     # Create session token
-    token = secrets.token_urlsafe(32)
-    _sessions[token] = {"username": username, "sid": sid}
+    token = create_session(username, sid)
 
     logger.info(f"User {username} logged in successfully")
     return {
@@ -127,18 +111,16 @@ async def login(request: LoginRequest):
 async def logout(authorization: str | None = Header(default=None)):
     """Clear the session."""
     if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-        _sessions.pop(token, None)
+        drop_session(authorization[7:])
     return {"status": "ok"}
 
 
 @app.post("/chat")
 async def chat(
     request: ChatRequest,
-    authorization: str | None = Header(default=None),
+    session: dict = Depends(require_session),
 ):
     """Process a chat question: search ES via Kibana, generate answer with LLAMA."""
-    session = _get_session(authorization)
     sid = session["sid"]
     username = session["username"]
 

@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Views treated as a superset of others — excluded from rollup totals to avoid
     # double counting (still shown as their own per-system tile).
     dashboard_superset_views: str = "logs-*"
+    # Index patterns where TLS certificate monitoring data (Heartbeat / Synthetics)
+    # lives. Used by the certificate-expiry cards. Read-only discovery.
+    cert_index: str = "heartbeat-*,synthetics-*"
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"

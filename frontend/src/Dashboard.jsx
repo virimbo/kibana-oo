@@ -25,6 +25,11 @@ const FALLBACK_DATA_VIEWS = [
 
 const periodLabel = (v) => PERIODS.find((p) => p.value === v)?.label || `${v} min`;
 
+const fmtDate = (iso) =>
+  new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(
+    new Date(iso)
+  );
+
 function Delta({ pct }) {
   if (pct == null) return null;
   const up = pct > 0;
@@ -45,6 +50,18 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
   const [loadedAt, setLoadedAt] = useState(null);
   const [briefing, setBriefing] = useState(null);
   const [briefingState, setBriefingState] = useState("idle"); // idle|loading|error
+  const [certs, setCerts] = useState(null); // null = loading
+
+  // Certificate expiry — read from Kibana monitoring data, independent of the metrics.
+  useEffect(() => {
+    let active = true;
+    getJSON("/dashboard/certificates", token)
+      .then((d) => active && setCerts(d.certificates || []))
+      .catch(() => active && setCerts([]));
+    return () => {
+      active = false;
+    };
+  }, [token]);
 
   // Load the data-view list for the dropdown (single source of truth).
   useEffect(() => {
@@ -182,6 +199,34 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
           </div>
 
           {error && <div className="alert alert--error">{error}</div>}
+
+          <section className="panel">
+            <h3>Certificate expiry</h3>
+            {certs === null ? (
+              <p className="muted">Checking…</p>
+            ) : certs.length === 0 ? (
+              <p className="muted">
+                No certificate data found in Kibana. This usually means TLS/uptime
+                monitoring (Heartbeat or Synthetics) isn't set up for these sites yet —
+                ask your Kibana admin to enable it, and the cards will appear here.
+              </p>
+            ) : (
+              <div className="cert-cards">
+                {certs.map((c) => (
+                  <div key={c.host} className={`cert-card cert-card--${c.status}`}>
+                    <span className="cert-host">{c.host}</span>
+                    <span className="cert-days">
+                      {c.days_remaining < 0
+                        ? "Expired"
+                        : `${c.days_remaining} day${c.days_remaining === 1 ? "" : "s"} left`}
+                    </span>
+                    <span className="cert-meta">expires {fmtDate(c.not_after)}</span>
+                    {c.issuer && <span className="cert-meta">issued by {c.issuer}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
 
           {snap && (
             <>

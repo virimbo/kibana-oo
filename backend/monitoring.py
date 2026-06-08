@@ -104,6 +104,33 @@ def snapshot_body(start: datetime, end: datetime, interval: str, tz_name: str) -
     }
 
 
+def not_found_body(start: datetime, end: datetime) -> dict:
+    """size:0 query for HTTP 404s in the window — documents users requested but
+    that were not found. Separate from criticals (404 is a client, not server, error)."""
+    return {
+        "size": 0,
+        "track_total_hits": True,
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": start.isoformat(), "lt": end.isoformat()}}},
+                    {"term": {"http.response.status_code": 404}},
+                ]
+            }
+        },
+        "aggs": {"urls": {"terms": {"field": "url.path", "size": 10}}},
+    }
+
+
+def parse_not_found(resp: dict) -> tuple[int, list[dict]]:
+    total = resp.get("hits", {}).get("total", {}).get("value", 0)
+    urls = [
+        {"url": b["key"], "count": b["doc_count"]}
+        for b in resp.get("aggregations", {}).get("urls", {}).get("buckets", [])
+    ]
+    return total, urls
+
+
 def parse_aggs(resp: dict) -> dict:
     aggs = resp.get("aggregations", {})
     timeseries = [
@@ -176,6 +203,8 @@ class DashboardSnapshot(BaseModel):
     affected_services: list[dict]
     status_codes: list[dict]
     failing_urls: list[dict]
+    not_found_total: int = 0
+    not_found_urls: list[dict] = []
     partial: bool
 
 
@@ -210,11 +239,14 @@ async def build_snapshot(
 
     agg_task = _es_search(sid, dv, snapshot_body(start, end, interval, tz))
     prev_task = _count(sid, dv, prev_start, start)
+    nf_task = _es_search(sid, dv, not_found_body(start, end))
     view_tasks = [_count(sid, v, start, end) for v in views]
 
-    results = await asyncio.gather(agg_task, prev_task, *view_tasks, return_exceptions=True)
-    agg_res, prev_res = results[0], results[1]
-    view_counts = results[2:]
+    results = await asyncio.gather(
+        agg_task, prev_task, nf_task, *view_tasks, return_exceptions=True
+    )
+    agg_res, prev_res, nf_res = results[0], results[1], results[2]
+    view_counts = results[3:]
 
     if isinstance(agg_res, Exception):
         raise agg_res  # core query failed — surfaced as 502 by the router
@@ -222,6 +254,10 @@ async def build_snapshot(
     parsed = parse_aggs(agg_res)
     partial = isinstance(prev_res, Exception)
     previous = 0 if partial else prev_res
+    if isinstance(nf_res, Exception):
+        not_found_total, not_found_urls = 0, []
+    else:
+        not_found_total, not_found_urls = parse_not_found(nf_res)
 
     systems: list[SystemBreakdown] = []
     for view, count in zip(views, view_counts):
@@ -247,5 +283,7 @@ async def build_snapshot(
         affected_services=parsed["services"],
         status_codes=parsed["status_codes"],
         failing_urls=parsed["failing_urls"],
+        not_found_total=not_found_total,
+        not_found_urls=not_found_urls,
         partial=partial,
     )

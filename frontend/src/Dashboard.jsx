@@ -30,6 +30,15 @@ const fmtDate = (iso) =>
     new Date(iso)
   );
 
+function InfoTip({ text }) {
+  return (
+    <span className="infotip" tabIndex={0} role="note" aria-label={text}>
+      i
+      <span className="infotip-pop">{text}</span>
+    </span>
+  );
+}
+
 function Delta({ pct }) {
   if (pct == null) return null;
   const up = pct > 0;
@@ -155,7 +164,9 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
         <div className="dash">
           <div className="dash-controls">
             <label className="control">
-              <span className="control-label">Period</span>
+              <span className="control-label">
+                Period <InfoTip text="How far back to analyze — a rolling window ending now (e.g. the last 15 minutes)." />
+              </span>
               <select
                 className="control-select"
                 value={period}
@@ -172,7 +183,9 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
             </label>
 
             <label className="control">
-              <span className="control-label">Data view</span>
+              <span className="control-label">
+                Data view <InfoTip text="Which Elasticsearch dataset to analyze. “logs-*” is everything; the others narrow to a specific system." />
+              </span>
               <select
                 className="control-select"
                 value={dataView}
@@ -201,7 +214,10 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
           {error && <div className="alert alert--error">{error}</div>}
 
           <section className="panel">
-            <h3>Certificate expiry</h3>
+            <h3>
+              Certificate expiry
+              <InfoTip text="Days until each site's security (TLS) certificate expires, read from Kibana monitoring — not by opening the site. Green: >30 days; amber: under 30; red: under 14 or already expired." />
+            </h3>
             {certs === null ? (
               <p className="muted">Checking…</p>
             ) : certs.length === 0 ? (
@@ -246,22 +262,62 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
                   <span className="kpi-value">
                     {snap.total} <Delta pct={snap.delta.pct_vs_previous} />
                   </span>
-                  <span className="kpi-label">criticals · {periodLabel(period).toLowerCase()}</span>
+                  <span className="kpi-label">
+                    criticals · {periodLabel(period).toLowerCase()}
+                    <InfoTip text="Error-level logs, server errors (HTTP 5xx) and APM errors in the selected window. The arrow compares to the period just before it." />
+                  </span>
                 </div>
                 <div className="kpi">
                   <span className="kpi-value">
                     {snap.systems.filter((s) => s.count > 0).length}
                   </span>
-                  <span className="kpi-label">systems affected</span>
+                  <span className="kpi-label">
+                    systems affected
+                    <InfoTip text="How many of your data views had at least one critical issue in this window." />
+                  </span>
                 </div>
                 <div className="kpi">
                   <span className="kpi-value">{snap.delta.previous}</span>
-                  <span className="kpi-label">prior period</span>
+                  <span className="kpi-label">
+                    prior period
+                    <InfoTip text="The same count in the immediately preceding window — the baseline for the change arrow." />
+                  </span>
                 </div>
               </div>
 
+              <section className="panel panel--alert">
+                <h3>
+                  Documents not found (404)
+                  <InfoTip text="Pages or documents a user requested but that returned “file not found”. High counts usually mean broken links or removed/missing content on the site." />
+                </h3>
+                {snap.not_found_total === 0 ? (
+                  <p className="muted">
+                    No “not found” errors in this window — every requested page resolved.
+                  </p>
+                ) : (
+                  <>
+                    <p className="notfound-total">
+                      <strong>{snap.not_found_total}</strong> request
+                      {snap.not_found_total === 1 ? "" : "s"} returned “not found”.
+                    </p>
+                    {snap.not_found_urls.length > 0 && (
+                      <ul className="url-list">
+                        {snap.not_found_urls.map((u) => (
+                          <li key={u.url}>
+                            <code>{u.url}</code> <span className="muted">{u.count}×</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </section>
+
               <section className="panel">
-                <h3>Criticals over time</h3>
+                <h3>
+                  Criticals over time
+                  <InfoTip text="When issues happened — each bar is a time bucket; taller means more criticals then. A single tall bar = a spike." />
+                </h3>
                 <div className="spark">
                   {snap.timeseries.map((b, i) => (
                     <div
@@ -275,7 +331,10 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
               </section>
 
               <section className="panel">
-                <h3>By system</h3>
+                <h3>
+                  By system
+                  <InfoTip text="Critical issues per data view (system). The highlighted tile is the one you're currently viewing; “unavailable” means that system couldn't be reached this load." />
+                </h3>
                 <div className="tiles">
                   {snap.systems.map((s) => (
                     <div
@@ -294,7 +353,10 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
               </section>
 
               <section className="panel">
-                <h3>Top error signatures</h3>
+                <h3>
+                  Top error signatures
+                  <InfoTip text="The most frequent error types, with when each was first and last seen. A burst between two close times often points to one root cause." />
+                </h3>
                 {snap.top_signatures.length === 0 ? (
                   <p className="muted">None.</p>
                 ) : (
@@ -317,7 +379,10 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
               </section>
 
               <section className="panel">
-                <h3>Affected services</h3>
+                <h3>
+                  Affected services
+                  <InfoTip text="The services (applications) emitting the most critical issues in this window — where to look first." />
+                </h3>
                 {snap.affected_services.length === 0 ? (
                   <p className="muted">None.</p>
                 ) : (
@@ -333,7 +398,10 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
               </section>
 
               <section className="panel">
-                <h3>HTTP 5xx</h3>
+                <h3>
+                  HTTP 5xx
+                  <InfoTip text="Server errors — the site failed to respond properly (status 500–599). Listed with the URLs that failed. Different from 404, which means the page wasn't found." />
+                </h3>
                 {snap.status_codes.length === 0 ? (
                   <p className="muted">No server errors.</p>
                 ) : (
@@ -359,7 +427,10 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
 
               <section className="panel panel--ai">
                 <div className="panel-head">
-                  <h3>AI daily triage</h3>
+                  <h3>
+                    AI daily triage
+                    <InfoTip text="An AI-written summary of the facts shown above (counts, signatures, services). It only describes those numbers — it can still phrase things wrong, so verify anything important in Kibana." />
+                  </h3>
                   <button
                     className="btn btn--ghost"
                     onClick={() => loadBriefing(true)}

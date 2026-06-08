@@ -50,6 +50,17 @@ def test_snapshot_body_uses_interval():
     assert body["aggs"]["over_time"]["date_histogram"]["fixed_interval"] == "5m"
 
 
+def test_not_found_body_and_parse():
+    start, end = monitoring.period_bounds(15, now=datetime(2026, 6, 8, 12, 0, tzinfo=timezone.utc))
+    body = monitoring.not_found_body(start, end)
+    assert body["query"]["bool"]["filter"][1]["term"]["http.response.status_code"] == 404
+    resp = {"hits": {"total": {"value": 9}},
+            "aggregations": {"urls": {"buckets": [{"key": "/document/missing.pdf", "doc_count": 9}]}}}
+    total, urls = monitoring.parse_not_found(resp)
+    assert total == 9
+    assert urls[0] == {"url": "/document/missing.pdf", "count": 9}
+
+
 # ── parsers + status level ──────────────────────────────────
 
 SAMPLE_AGG_RESPONSE = {
@@ -96,8 +107,13 @@ def patched_es(monkeypatch):
     counts = {"logs-*": 5, "ds-prod5-koop-plooi*": 7, "ds-prod5-koop-sp": 0}
 
     async def fake_es(sid, index, body):
-        if "over_time" in body.get("aggs", {}):
+        aggs = body.get("aggs", {})
+        if "over_time" in aggs:
             return SAMPLE_AGG_RESPONSE
+        if "urls" in aggs:  # the not_found (404) query
+            return {"hits": {"total": {"value": 9}}, "aggregations": {"urls": {"buckets": [
+                {"key": "/document/missing.pdf", "doc_count": 6},
+                {"key": "/zoek/oud", "doc_count": 3}]}}}
         return {"hits": {"total": {"value": counts.get(index, 0)}}}
 
     monkeypatch.setattr(monitoring, "_es_search", fake_es)
@@ -117,6 +133,8 @@ async def test_build_snapshot_assembles_consistent_payload(patched_es):
     assert snap.status_level == "degraded"
     assert len(snap.systems) == 3
     assert all(s.available for s in snap.systems)
+    assert snap.not_found_total == 9
+    assert snap.not_found_urls[0] == {"url": "/document/missing.pdf", "count": 6}
     assert snap.partial is False
 
 

@@ -567,7 +567,7 @@ function ChatPage({ token, username, onLogout, isAdmin, onSwitchView }) {
               >
                 {dataViews.map((v) => (
                   <option key={v.id} value={v.id}>
-                    {v.label}
+                    {v.label && v.label !== v.id ? `${v.id} — ${v.label}` : v.id}
                   </option>
                 ))}
               </select>

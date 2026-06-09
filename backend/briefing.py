@@ -43,11 +43,13 @@ def build_facts(snap: DashboardSnapshot) -> str:
     return json.dumps(facts, indent=2, default=str)
 
 
-async def generate_briefing(snap: DashboardSnapshot) -> str:
+async def generate_briefing(snap: DashboardSnapshot, session: dict | None = None) -> str:
     # Pass the grounding rules as the system message (not buried in the user
-    # turn) so a small model treats them as authoritative.
+    # turn) so a small model treats them as authoritative. `session` carries the
+    # per-session LLM provider preference.
     return await generate_answer(
         question="Summarize the critical issues in this window.",
         context=build_facts(snap),
         system=SYSTEM,
+        session=session,
     )

@@ -36,14 +36,30 @@ def _build_prompt(question: str, context: str, system: str | None = None) -> lis
     ]
 
 
+def _llm_error_message(exc: Exception) -> str:
+    """Translate a provider error into a clear, user-facing message."""
+    provider = settings.llm_provider
+    if isinstance(exc, httpx.HTTPStatusError):
+        code = exc.response.status_code
+        if code in (401, 403):
+            return f"The {provider} AI provider rejected the API key ({code}). Check the API key (and that billing is enabled)."
+        if code == 429:
+            return f"The {provider} AI provider rate-limited the request (429). Try again shortly."
+        return f"The {provider} AI provider returned an error ({code})."
+    if isinstance(exc, httpx.RequestError):
+        return f"Cannot reach the {provider} AI provider. Check the connection / base URL."
+    return f"AI generation failed: {exc}"
+
+
 async def generate_answer(question: str, context: str, system: str | None = None) -> str:
     """Generate a complete answer (non-streaming)."""
     messages = _build_prompt(question, context, system=system)
-
-    if settings.llm_provider == "mistral":
-        return await _generate_mistral_answer(messages)
-    else:
+    try:
+        if settings.llm_provider == "mistral":
+            return await _generate_mistral_answer(messages)
         return await _generate_ollama_answer(messages, stream=False)
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        raise RuntimeError(_llm_error_message(e)) from e
 
 
 async def _generate_ollama_answer(messages: list[dict], stream: bool = False) -> str:
@@ -82,13 +98,15 @@ async def generate_answer_stream(
 ) -> AsyncIterator[str]:
     """Generate a streaming answer, yielding chunks as they arrive."""
     messages = _build_prompt(question, context)
-
-    if settings.llm_provider == "mistral":
-        async for chunk in _generate_mistral_answer_stream(messages):
-            yield chunk
-    else:
-        async for chunk in _generate_ollama_answer_stream(messages):
-            yield chunk
+    try:
+        if settings.llm_provider == "mistral":
+            async for chunk in _generate_mistral_answer_stream(messages):
+                yield chunk
+        else:
+            async for chunk in _generate_ollama_answer_stream(messages):
+                yield chunk
+    except (httpx.HTTPStatusError, httpx.RequestError) as e:
+        raise RuntimeError(_llm_error_message(e)) from e
 
 
 async def _generate_ollama_answer_stream(messages: list[dict]) -> AsyncIterator[str]:

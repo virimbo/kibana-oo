@@ -200,12 +200,14 @@ async def chat(
                 + (f" · image_text={len(image_text)}c" if image_text else "")
                 + (f" · doc_ids={doc_ids}" if doc_ids else ""))
 
-    async def _do_search() -> tuple[list[dict], str]:
+    async def _do_search() -> tuple[list[dict], str, str | None]:
+        """Returns (sources, llm_context, instant_message). When instant_message
+        is set, the data is genuinely empty and we answer immediately without
+        calling the (slow) LLM."""
         if doc_ids:
             # Intelligent path: the text names specific document id(s). Trace each
-            # across a WIDE window AND across EVERY data view (a document's logs
-            # may live in a different index than the one selected), enriched with
-            # the official title from the public portal.
+            # across a WIDE window AND across EVERY data view, enriched with the
+            # official title from the public portal.
             id_hits, metas = await asyncio.gather(
                 asyncio.gather(*[_collect_doc_events(sid, did) for did in doc_ids]),
                 asyncio.gather(*[fetch_document_meta(did) for did in doc_ids], return_exceptions=True),
@@ -220,23 +222,36 @@ async def chat(
                     "this plainly: the id may be wrong, outside the retention window, or "
                     "the events are not yet indexed."
                 )
-            return results, ctx
-        # Generic path: run the three context queries CONCURRENTLY.
-        recent_logs, log_results, error_results = await asyncio.gather(
-            get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
-            search_logs(sid, search_text, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
-            get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
-        )
-        seen = set()
-        merged_logs = []
-        for entry in log_results + recent_logs:
-            key = entry.get("timestamp", "") + entry.get("message", "")[:50]
-            if key not in seen:
-                seen.add(key)
-                merged_logs.append(entry)
-        results = merged_logs + error_results
-        ctx = _build_context(merged_logs, [], error_results)
-        return results, (ctx or "No matching data found in Elasticsearch for the given time range.")
+            return results, ctx, None
+
+        # Generic path: search the SELECTED view; if it's empty, automatically
+        # broaden to ALL data views (the real logs often live in a different
+        # index than the one selected) so the chat finds data wherever it lives.
+        logs, errors = await _fetch_generic(sid, search_text, request.time_range_minutes, data_view)
+        scope = data_view
+        all_views = settings.data_view_list
+        if not logs and not errors and len(all_views) > 1:
+            logs, errors = await _fetch_generic(
+                sid, search_text, request.time_range_minutes, ",".join(all_views)
+            )
+            scope = "all data views"
+
+        results = logs + errors
+        if not results:
+            instant = (
+                f"I searched **{scope}** over the last **{request.time_range_minutes} min** "
+                "and found no log events to analyse.\n\n"
+                "Try one of these:\n"
+                "- Pick a **longer time range** (top of the composer)\n"
+                "- Choose a different **data view**\n"
+                "- For a specific document, paste or type its **id** and I'll trace it across every view"
+            )
+            return [], "", instant
+
+        ctx = _build_context(logs, [], errors)
+        if scope != data_view:
+            ctx += f"\n\n(Note: no events in '{data_view}'; these results are from all data views.)"
+        return results, ctx, None
 
     # Step 1+2+polish: search Kibana AND spell/grammar-correct the typed question
     # CONCURRENTLY, so the correction adds (almost) no wall-clock time.
@@ -244,7 +259,7 @@ async def chat(
         polish_coro = (
             polish_text(question, session) if (request.autocorrect and question) else _passthrough(question)
         )
-        polished, (all_results, context) = await asyncio.gather(polish_coro, _do_search())
+        polished, (all_results, context, instant) = await asyncio.gather(polish_coro, _do_search())
     except HTTPException:
         raise
     except Exception as e:
@@ -256,6 +271,15 @@ async def chat(
     llm_question = polished or "Analyze the attached screenshot and answer any question it contains."
     if image_text:
         llm_question = f"{llm_question}\n\n[Text extracted from the attached image]:\n{image_text}"
+
+    # Fast path: genuinely no data → answer instantly, skip the slow LLM call.
+    if instant:
+        if request.stream:
+            return EventSourceResponse(
+                _instant_response(instant, display_question=display_question),
+                media_type="text/event-stream",
+            )
+        return ChatResponse(answer=instant, sources=[])
 
     # Step 3: Generate answer with selected LLM
     if request.stream:
@@ -271,6 +295,37 @@ async def chat(
         raise HTTPException(status_code=502, detail=f"Failed to generate answer: {e}")
 
     return ChatResponse(answer=answer, sources=all_results[:5])
+
+
+async def _fetch_generic(sid: str, query: str, minutes: int, index: str) -> tuple[list[dict], list[dict]]:
+    """Recent logs (a representative sample) + keyword matches + recent errors for
+    a generic question, against one index (or a comma-joined set). Per-query
+    failures are tolerated so one bad index never empties the whole context."""
+    recent, matched, errors = await asyncio.gather(
+        get_recent_logs(sid, size=12, time_range_minutes=minutes, index=index),
+        search_logs(sid, query, size=8, time_range_minutes=minutes, index=index),
+        get_recent_errors(sid, size=8, time_range_minutes=minutes, index=index),
+        return_exceptions=True,
+    )
+    safe = lambda x: [] if isinstance(x, Exception) else x
+    recent, matched, errors = safe(recent), safe(matched), safe(errors)
+    seen: set = set()
+    logs: list[dict] = []
+    for entry in matched + recent:
+        key = entry.get("timestamp", "") + entry.get("message", "")[:50]
+        if key not in seen:
+            seen.add(key)
+            logs.append(entry)
+    return logs, errors
+
+
+async def _instant_response(message: str, display_question: str | None = None):
+    """Stream a ready-made message immediately (no LLM call) as SSE."""
+    if display_question:
+        yield {"event": "question", "data": display_question}
+    yield {"event": "chunk", "data": message}
+    yield {"event": "sources", "data": json.dumps([])}
+    yield {"event": "done", "data": ""}
 
 
 async def _passthrough(value: str) -> str:
@@ -379,15 +434,15 @@ def _build_context(
 
     if errors:
         parts.append("### Recent Errors")
-        for entry in errors[:5]:
+        for entry in errors[:8]:
             ts = entry.get("timestamp", "?")
             msg = entry.get("message", "")[:300]
             host = entry.get("host", "?")
             parts.append(f"- [{ts}] ({host}) {msg}")
 
     if logs:
-        parts.append("\n### Matching Log Entries")
-        for entry in logs[:10]:
+        parts.append("\n### Recent / Matching Log Entries")
+        for entry in logs[:18]:
             ts = entry.get("timestamp", "?")
             msg = entry.get("message", "")[:300]
             level = entry.get("level", "")

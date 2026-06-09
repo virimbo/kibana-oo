@@ -38,3 +38,16 @@ coverage/
 # Temp
 tmp/
 .tmp/
+
+# Obsidian per-machine state (keep app/appearance/plugin lists; drop the rest)
+docs/**/.obsidian/workspace*.json
+docs/**/.obsidian/cache
+docs/**/.obsidian/plugins/
+docs/**/.obsidian/icons/
+# Stray nested default vault Obsidian auto-created
+docs/KIBANA-OO/Kibana-oo/
+# Smart Connections plugin generated state (embeddings, logs)
+docs/**/.smart-env/
+
+# Playwright MCP artifacts
+.playwright-mcp/

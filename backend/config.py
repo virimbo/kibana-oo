@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     doc_id_regex: str = r"ronl-[A-Za-z0-9-]+"
     doc_link_template: str = "https://open.overheid.nl/documenten/{id}"
 
+    # Documents activity tab: which logs count as document events, and how many to feed.
+    document_event_query: str = "ronl OR document OR bestand OR upload OR publicatie OR versie"
+    document_event_size: int = 200
+
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"

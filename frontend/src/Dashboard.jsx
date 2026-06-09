@@ -30,7 +30,7 @@ const fmtDate = (iso) =>
     new Date(iso)
   );
 
-function InfoTip({ text }) {
+export function InfoTip({ text }) {
   return (
     <span className="infotip" tabIndex={0} role="note" aria-label={text}>
       i
@@ -129,7 +129,7 @@ function Pipelines({ ovs, nvs, ovsDocs, ovsNew }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onSwitchView }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -230,8 +230,11 @@ export default function DashboardPage({ token, username, onLogout, onSwitchView 
           </div>
         </div>
         <div className="header-right">
-          <button className="btn btn--ghost" onClick={onSwitchView}>
+          <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>
             Chat
+          </button>
+          <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
+            Documents
           </button>
           <span className="header-user">{username}</span>
           <button className="btn btn--ghost" onClick={onLogout}>

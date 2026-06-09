@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 import DashboardPage from "./Dashboard";
+import DocumentsPage from "./Documents";
 
 const SUGGESTIONS = [
   {
@@ -282,7 +283,7 @@ function UserMessage({ msg }) {
 
 // ─── Chat Page ──────────────────────────────────────────────
 
-function ChatPage({ token, username, onLogout, isAdmin, onSwitchView }) {
+function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [timeRange, setTimeRange] = useState(60);
@@ -499,9 +500,14 @@ function ChatPage({ token, username, onLogout, isAdmin, onSwitchView }) {
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
           {isAdmin && (
-            <button className="btn btn--ghost" onClick={onSwitchView}>
-              Dashboard
-            </button>
+            <>
+              <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
+                Dashboard
+              </button>
+              <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
+                Documents
+              </button>
+            </>
           )}
           <span className="header-user">{username}</span>
           <button className="btn btn--ghost" onClick={handleLogout}>
@@ -743,7 +749,18 @@ export default function App() {
         token={token}
         username={username}
         onLogout={handleLogout}
-        onSwitchView={() => setView("chat")}
+        onNavigate={setView}
+      />
+    );
+  }
+
+  if (view === "documents" && isAdmin) {
+    return (
+      <DocumentsPage
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={setView}
       />
     );
   }
@@ -754,7 +771,7 @@ export default function App() {
       username={username}
       onLogout={handleLogout}
       isAdmin={isAdmin}
-      onSwitchView={() => setView("dashboard")}
+      onNavigate={setView}
     />
   );
 }

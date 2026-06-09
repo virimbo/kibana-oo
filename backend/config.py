@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # Known document sources (bron) for the errors-by-source table.
     processing_sources: str = "aanleverloket,dpc,oep-ob,oep,plooi-api,ronl-archief,ronl,roo,woo-idx"
 
+    # Chat intelligence: when a question names a document id (UUID or ronl-…),
+    # trace it across this wide window instead of the narrow selected range —
+    # so "why was this published twice?" finds events from hours/days earlier.
+    chat_doc_scan_days: int = 30
+    chat_doc_scan_size: int = 200
+
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"

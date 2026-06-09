@@ -1,5 +1,6 @@
 """KIBANA-OO Backend — FastAPI app connecting LLAMA to Elasticsearch via Kibana."""
 
+import asyncio
 import json
 import logging
 
@@ -10,8 +11,17 @@ from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
 
 from config import settings
-from elastic import get_recent_errors, get_recent_logs, keycloak_login, search_logs, search_metrics
+from elastic import (
+    extract_doc_ids,
+    get_recent_errors,
+    get_recent_logs,
+    keycloak_login,
+    search_by_document_id,
+    search_logs,
+    search_metrics,
+)
 from llm import generate_answer, generate_answer_stream
+from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router
 
@@ -172,34 +182,61 @@ async def chat(
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
     data_view = _resolve_data_view(request.data_view)
-    logger.info(f"[{username}] [{data_view}] Question: {question[:100]}")
+    doc_ids = extract_doc_ids(question)
+    logger.info(f"[{username}] [{data_view}] Question: {question[:100]}"
+                + (f" · doc_ids={doc_ids}" if doc_ids else ""))
 
-    # Step 1: Search Elasticsearch via Kibana
+    # Step 1+2: Search Elasticsearch via Kibana and build the LLM context.
     try:
-        # Always get recent logs for context
-        recent_logs = await get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
-        # Also search for specific terms from the question
-        log_results = await search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
-        error_results = await get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
-        # Merge, deduplicate by timestamp
-        seen = set()
-        merged_logs = []
-        for entry in log_results + recent_logs:
-            key = entry.get("timestamp", "") + entry.get("message", "")[:50]
-            if key not in seen:
-                seen.add(key)
-                merged_logs.append(entry)
-        log_results = merged_logs
+        if doc_ids:
+            # Intelligent path: the question names specific document id(s). Trace
+            # each across a WIDE window (ignoring the narrow selected range — the
+            # events may be hours/days old, as in a "published twice?" audit) and
+            # enrich with the official title from the public portal.
+            id_hits, metas = await asyncio.gather(
+                asyncio.gather(*[
+                    search_by_document_id(
+                        sid, did, index=data_view,
+                        size=settings.chat_doc_scan_size, days=settings.chat_doc_scan_days,
+                    ) for did in doc_ids
+                ]),
+                asyncio.gather(*[fetch_document_meta(did) for did in doc_ids], return_exceptions=True),
+            )
+            all_results = [hit for hits in id_hits for hit in hits]
+            context = _build_doc_context(doc_ids, id_hits, metas, data_view, settings.chat_doc_scan_days)
+        else:
+            # Generic path: run the three context queries CONCURRENTLY (was
+            # sequential — three back-to-back round-trips through Kibana).
+            recent_logs, log_results, error_results = await asyncio.gather(
+                get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
+                search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
+                get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
+            )
+            seen = set()
+            merged_logs = []
+            for entry in log_results + recent_logs:
+                key = entry.get("timestamp", "") + entry.get("message", "")[:50]
+                if key not in seen:
+                    seen.add(key)
+                    merged_logs.append(entry)
+            log_results = merged_logs
+            all_results = log_results + error_results
+            context = _build_context(log_results, [], error_results)
     except Exception as e:
         logger.error(f"Kibana query failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to query Kibana: {e}")
 
-    # Step 2: Build context string for the LLM
-    all_results = log_results + error_results
-    context = _build_context(log_results, [], error_results)
-
     if not context.strip():
-        context = "No matching data found in Elasticsearch for the given time range."
+        if doc_ids:
+            context = (
+                f"No log events were found for {', '.join(doc_ids)} in data view "
+                f"'{data_view}' over the last {settings.chat_doc_scan_days} days. "
+                "The document may live in a different data view (e.g. the KOOP "
+                "Plooi data stream) — suggest switching the data view or using the "
+                "Documents → Trace a document tool."
+            )
+        else:
+            context = "No matching data found in Elasticsearch for the given time range."
 
     # Step 3: Generate answer with selected LLM
     if request.stream:
@@ -227,6 +264,44 @@ async def _stream_response(question: str, context: str, sources: list[dict], ses
     except Exception as e:
         logger.error(f"Streaming failed: {e}")
         yield {"event": "error", "data": str(e)}
+
+
+def _build_doc_context(
+    doc_ids: list[str],
+    id_hits: list[list[dict]],
+    metas: list,
+    data_view: str,
+    days: int,
+) -> str:
+    """Grounded context for a document-scoped question: the official metadata
+    plus the full, time-ordered list of log events mentioning each id — so the
+    LLM can audit timelines like a double publication."""
+    parts: list[str] = []
+    for did, events, meta in zip(doc_ids, id_hits, metas):
+        parts.append(f"### Document {did}")
+        if isinstance(meta, dict) and meta:
+            if meta.get("title"):
+                parts.append(f"- Official title: {meta['title']}")
+            if meta.get("type"):
+                parts.append(f"- Type: {meta['type']}")
+            if meta.get("status"):
+                parts.append(f"- Portal publication status: {meta['status']}")
+            if meta.get("published"):
+                parts.append(f"- Portal publication date: {meta['published']}")
+            if meta.get("organization"):
+                parts.append(f"- Organization: {meta['organization']}")
+        parts.append(
+            f"- Log events in '{data_view}' over the last {days} days: {len(events)} "
+            "(oldest first)"
+        )
+        for e in events[:80]:  # cap to keep the prompt focused
+            ts = e.get("timestamp", "?")
+            level = e.get("level", "")
+            msg = (e.get("message", "") or "")[:300]
+            lvl = f"[{level}] " if level else ""
+            parts.append(f"  - [{ts}] {lvl}{msg}")
+        parts.append("")
+    return "\n".join(parts)
 
 
 def _build_context(

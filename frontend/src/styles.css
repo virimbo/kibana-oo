@@ -1252,28 +1252,142 @@ body {
 .trace-services-label { font-size: 11.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.4px; }
 .row-err td { background: var(--error-soft); }
 
-/* Document journey stepper */
-.journey { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.journey-step {
-  font-family: var(--mono);
-  font-size: 11.5px;
+/* Document journey — colour-coded pipeline flow diagram */
+.trace-journey { display: flex; flex-direction: column; gap: 9px; margin-top: 2px; }
+.trace-journey-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.jflow-legend { display: flex; align-items: center; gap: 12px; font-size: 11px; color: var(--text-faint); }
+.jflow-legend-item { display: inline-flex; align-items: center; gap: 5px; }
+.jflow-legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.jflow-legend-dot.is-ok { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.jflow-legend-dot.is-err { background: var(--error); box-shadow: 0 0 6px var(--error); }
+.jflow-legend-hint { font-style: italic; opacity: 0.8; }
+
+.jflow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 4px 2px; }
+.jflow-item { display: flex; align-items: center; }
+
+.jflow-node {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--bg-elevated), var(--bg-input));
+  cursor: default;
+  outline: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
+}
+.jflow-node:hover, .jflow-node:focus-visible { transform: translateY(-2px); z-index: 5; }
+.jflow-node--ok {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  box-shadow: inset 3px 0 0 var(--success);
+}
+.jflow-node--ok:hover, .jflow-node--ok:focus-visible {
+  box-shadow: inset 3px 0 0 var(--success), 0 6px 18px color-mix(in srgb, var(--success) 22%, transparent);
+}
+.jflow-node--err {
+  border-color: var(--error);
+  box-shadow: inset 3px 0 0 var(--error);
+  animation: jflowPulse 1.8s ease-in-out infinite;
+}
+@keyframes jflowPulse {
+  0%, 100% { box-shadow: inset 3px 0 0 var(--error), 0 0 0 0 color-mix(in srgb, var(--error) 40%, transparent); }
+  50% { box-shadow: inset 3px 0 0 var(--error), 0 0 0 5px color-mix(in srgb, var(--error) 12%, transparent); }
+}
+
+.jflow-step {
+  flex: none;
+  width: 18px; height: 18px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: 10.5px; font-weight: 700;
+  color: var(--text-secondary);
+  background: var(--bg-base, rgba(0,0,0,0.25));
+  border: 1px solid var(--border);
+}
+.jflow-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; }
+.jflow-node--ok .jflow-dot { background: var(--success); box-shadow: 0 0 7px var(--success); }
+.jflow-node--err .jflow-dot { background: var(--error); box-shadow: 0 0 7px var(--error); }
+.jflow-name { font-family: var(--mono); font-size: 12px; color: var(--text-primary); white-space: nowrap; }
+.jflow-count {
+  flex: none;
+  min-width: 18px; padding: 1px 6px;
+  text-align: center;
+  font-size: 11px; font-weight: 600;
   color: var(--text-secondary);
   background: var(--bg-input);
   border: 1px solid var(--border);
-  padding: 3px 9px;
-  border-radius: 6px;
+  border-radius: 999px;
+}
+.jflow-badge {
+  font-size: 11px; font-weight: 700; color: var(--error);
+  background: var(--error-soft); border: 1px solid var(--error);
+  padding: 1px 7px; border-radius: 999px; white-space: nowrap;
+}
+
+/* Connector */
+.jflow-arrow {
+  flex: none;
+  width: 22px; height: 2px;
+  margin: 0 1px;
   position: relative;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--success) 55%, transparent), color-mix(in srgb, var(--accent, #6366f1) 55%, transparent));
+  border-radius: 2px;
 }
-.journey-step:not(:last-child)::after {
-  content: "→";
-  color: var(--text-faint);
-  margin-left: 8px;
+.jflow-arrow::after {
+  content: ""; position: absolute; right: -1px; top: 50%;
+  transform: translateY(-50%) rotate(45deg);
+  width: 6px; height: 6px;
+  border-top: 2px solid color-mix(in srgb, var(--accent, #6366f1) 70%, transparent);
+  border-right: 2px solid color-mix(in srgb, var(--accent, #6366f1) 70%, transparent);
 }
-.journey-step--err {
-  color: var(--error);
-  background: var(--error-soft);
-  border-color: var(--error);
+.jflow-arrow--err { background: var(--error); }
+.jflow-arrow--err::after { border-color: var(--error); }
+
+/* Rich hover/focus tooltip */
+.jflow-tip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content; max-width: 280px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease;
+  z-index: 30;
+  text-align: left;
 }
+.jflow-node:hover .jflow-tip, .jflow-node:focus-visible .jflow-tip {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}
+.jflow-tip::after {
+  content: ""; position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+  width: 10px; height: 10px; margin-top: -5px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.jflow-tip-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.jflow-tip-step { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--text-faint); }
+.jflow-tip-status { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.jflow-tip-status.is-ok { color: var(--success); }
+.jflow-tip-status.is-err { color: var(--error); }
+.jflow-tip-name { font-family: var(--mono); font-size: 12.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 7px; word-break: break-word; }
+.jflow-tip-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0; }
+.jflow-tip-grid dt { font-size: 11px; color: var(--text-faint); }
+.jflow-tip-grid dd { font-size: 11.5px; color: var(--text-secondary); margin: 0; }
+.jflow-tip-msg {
+  margin-top: 7px; padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono); font-size: 11px; line-height: 1.45;
+  color: var(--text-secondary); word-break: break-word;
+}
+
 .trace-toggle { margin-top: 12px; }
 
 /* Document metadata chips (from the public portal API) */

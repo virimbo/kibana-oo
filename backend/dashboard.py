@@ -9,6 +9,7 @@ from briefing import generate_briefing
 from cache import TTLCache
 from certificates import fetch_certificates
 from config import settings
+from documents import build_document_activity
 from monitoring import build_snapshot, resolve_data_view
 
 logger = logging.getLogger(__name__)
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/dashboard")
 _summary_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _briefing_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _cert_cache = TTLCache(ttl=3600)  # certificates change slowly
+_documents_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
 # Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
 ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
@@ -86,4 +88,27 @@ async def certificates(session: dict = Depends(require_admin)):
         raise HTTPException(status_code=502, detail=f"Failed to load certificates: {e}")
     payload = {"certificates": [c.model_dump() for c in certs]}
     _cert_cache.set("certs", payload)
+    return payload
+
+
+@router.get("/documents")
+async def documents(
+    period: int = Query(default=60),
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Document-flow activity: lifecycle events, types, errors, and a live feed."""
+    period = _period(period)
+    dv = resolve_data_view(data_view)
+    key = f"documents:{dv}:{period}"
+    cached = _documents_cache.get(key)
+    if cached is not None:
+        return cached
+    try:
+        activity = await build_document_activity(session["sid"], period, dv)
+    except Exception as e:
+        logger.error(f"Document activity failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to load document activity: {e}")
+    payload = activity.model_dump()
+    _documents_cache.set(key, payload)
     return payload

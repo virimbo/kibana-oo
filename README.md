@@ -2,6 +2,8 @@
 
 Ask questions about your Kibana logs in plain language. KIBANA-OO uses LLAMA (AI model running on your computer) to search and summarize your Elasticsearch logs.
 
+> **Developers:** see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full architecture, data-flow diagrams, modules, endpoints, configuration, and the monitoring dashboard design.
+
 ## What you need
 
 - **Windows 10/11**

@@ -2,9 +2,9 @@
 
 import json
 import logging
-import secrets
 
-from fastapi import FastAPI, HTTPException, Header
+import httpx
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
@@ -12,6 +12,8 @@ from sse_starlette.sse import EventSourceResponse
 from config import settings
 from elastic import get_recent_errors, get_recent_logs, keycloak_login, search_logs, search_metrics
 from llm import generate_answer, generate_answer_stream
+from session import create_session, drop_session, require_session
+from dashboard import router as dashboard_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,9 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory session store: token -> {username, sid}
-_sessions: dict[str, dict] = {}
-
+app.include_router(dashboard_router)
 
 class LoginRequest(BaseModel):
     username: str
@@ -41,7 +41,26 @@ class LoginRequest(BaseModel):
 class ChatRequest(BaseModel):
     question: str
     time_range_minutes: int = 60
+    data_view: str | None = None
     stream: bool = True
+
+
+# Friendly labels for the known data views (falls back to the raw id).
+DATA_VIEW_LABELS = {
+    "logs-*": "All logs",
+    "ds-prod5-koop-plooi*": "KOOP Plooi (prod5)",
+    "ds-prod5-koop-sp": "KOOP SP (prod5)",
+}
+
+
+def _resolve_data_view(requested: str | None) -> str:
+    """Validate a requested data view against the whitelist, else use the default."""
+    allowed = settings.data_view_list
+    if requested and requested in allowed:
+        return requested
+    if settings.default_data_view in allowed:
+        return settings.default_data_view
+    return allowed[0]
 
 
 class ChatResponse(BaseModel):
@@ -49,21 +68,22 @@ class ChatResponse(BaseModel):
     sources: list[dict]
 
 
-def _get_session(authorization: str | None) -> dict:
-    """Validate session token and return session data."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Not logged in")
-    token = authorization[7:]
-    session = _sessions.get(token)
-    if not session:
-        raise HTTPException(status_code=401, detail="Session expired. Please log in again.")
-    return session
-
-
 @app.get("/health")
 async def health():
     """Health check endpoint (no auth required)."""
     return {"status": "ok", "model": settings.ollama_model}
+
+
+@app.get("/data-views")
+async def data_views():
+    """List the data views (ES index patterns) the user may query."""
+    return {
+        "data_views": [
+            {"id": dv, "label": DATA_VIEW_LABELS.get(dv, dv)}
+            for dv in settings.data_view_list
+        ],
+        "default": _resolve_data_view(None),
+    }
 
 
 @app.post("/login")
@@ -77,13 +97,31 @@ async def login(request: LoginRequest):
 
     try:
         sid = await keycloak_login(username, password)
+    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout) as e:
+        logger.warning(f"Cannot reach Kibana for {username}: {e}")
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Cannot reach Kibana. Please check that you are connected to the "
+                "company network or VPN, then try again."
+            ),
+        )
     except Exception as e:
+        msg = str(e)
+        if "name resolution" in msg.lower() or "Errno -3" in msg or "Errno -5" in msg:
+            logger.warning(f"Cannot reach Kibana (DNS) for {username}: {e}")
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "Cannot reach Kibana. Please check that you are connected to the "
+                    "company network or VPN, then try again."
+                ),
+            )
         logger.warning(f"Login failed for {username}: {e}")
-        raise HTTPException(status_code=401, detail=str(e))
+        raise HTTPException(status_code=401, detail=msg)
 
     # Create session token
-    token = secrets.token_urlsafe(32)
-    _sessions[token] = {"username": username, "sid": sid}
+    token = create_session(username, sid)
 
     logger.info(f"User {username} logged in successfully")
     return {
@@ -96,18 +134,16 @@ async def login(request: LoginRequest):
 async def logout(authorization: str | None = Header(default=None)):
     """Clear the session."""
     if authorization and authorization.startswith("Bearer "):
-        token = authorization[7:]
-        _sessions.pop(token, None)
+        drop_session(authorization[7:])
     return {"status": "ok"}
 
 
 @app.post("/chat")
 async def chat(
     request: ChatRequest,
-    authorization: str | None = Header(default=None),
+    session: dict = Depends(require_session),
 ):
     """Process a chat question: search ES via Kibana, generate answer with LLAMA."""
-    session = _get_session(authorization)
     sid = session["sid"]
     username = session["username"]
 
@@ -115,15 +151,16 @@ async def chat(
     if not question:
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
-    logger.info(f"[{username}] Question: {question[:100]}")
+    data_view = _resolve_data_view(request.data_view)
+    logger.info(f"[{username}] [{data_view}] Question: {question[:100]}")
 
     # Step 1: Search Elasticsearch via Kibana
     try:
         # Always get recent logs for context
-        recent_logs = await get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes)
+        recent_logs = await get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
         # Also search for specific terms from the question
-        log_results = await search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes)
-        error_results = await get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes)
+        log_results = await search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
+        error_results = await get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view)
         # Merge, deduplicate by timestamp
         seen = set()
         merged_logs = []

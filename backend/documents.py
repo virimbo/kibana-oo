@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from elastic import _es_search
 from config import settings
 from monitoring import _flatten, _first_field, period_bounds, timeseries_interval, summarize_doc, resolve_data_view
+from portal import fetch_document_meta
 
 _ERROR_LEVELS = ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]
 
@@ -224,15 +225,23 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
     events = [summarize_event(h) for h in hits]
     errors = sum(1 for e in events if e["status"] == "error")
 
-    # Best-effort document title: first real document filename (skip system files).
-    title = None
+    # Title: prefer the authoritative official title from the public portal API;
+    # fall back to the first real document filename seen in the logs.
+    log_title = None
     for e in events:
         fn = e.get("filename")
         if fn and not _is_system_file(fn):
-            title = fn.rsplit(".", 1)[0]
+            log_title = fn.rsplit(".", 1)[0]
             break
 
+    meta = await fetch_document_meta(needle)  # None if not a portal id / unreachable
+    title = (meta.get("title") if meta else None) or log_title
+
     ronl = next((e["doc_id"] for e in events if e.get("doc_id") and e["doc_id"].lower().startswith("ronl")), None)
+    # Public link: the portal's canonical link wins; else a ronl document link.
+    portal_link = (meta.get("link") if meta else None) or (
+        settings.doc_link_template.format(id=ronl) if ronl else None
+    )
 
     # Per-service "stages": the document's journey, in the order it reached each
     # service, with counts, time span, errors, and the first meaningful message.
@@ -257,13 +266,14 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
         "id": needle,
         "data_view": dv,
         "title": title,
+        "portal_meta": meta,  # official metadata dict, or None if unresolved
         "found": len(events) > 0,
         "errors": errors,
         "stages": stages,
         "first_seen": events[0]["timestamp"] if events else None,
         "last_seen": events[-1]["timestamp"] if events else None,
         "doculoket_link": settings.doculoket_link_template.format(id=needle),
-        "portal_link": settings.doc_link_template.format(id=ronl) if ronl else None,
+        "portal_link": portal_link,
         "events": events,
     }
 

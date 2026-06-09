@@ -67,6 +67,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
   const [traceLoading, setTraceLoading] = useState(false);
   const [traceError, setTraceError] = useState("");
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const [ai, setAi] = useState(null); // { summary, provider, model, error }
+  const [aiLoading, setAiLoading] = useState(false);
 
   const runTrace = useCallback(async () => {
     const id = traceId.trim();
@@ -74,12 +76,25 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
     setTraceLoading(true);
     setTraceError("");
     setTrace(null);
+    setAi(null);
     try {
       const d = await getJSON(
         `/dashboard/document-trace?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
         token
       );
       setTrace(d);
+      // Kick off the grounded AI analysis in the background — the trace renders
+      // immediately; a failing/slow LLM never blocks it.
+      if (d.found) {
+        setAiLoading(true);
+        getJSON(
+          `/dashboard/document-trace/explain?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
+          token
+        )
+          .then((r) => setAi(r))
+          .catch((e) => setAi({ summary: e.message, error: true }))
+          .finally(() => setAiLoading(false));
+      }
     } catch (e) {
       if (e.message === "unauthorized") return onLogout();
       setTraceError(e.message);
@@ -282,20 +297,57 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                   (trace.found ? (
                     <>
                       <div className="trace-card">
-                        <div className="trace-title">{trace.title || "(no title found in logs)"}</div>
+                        <div className="trace-title">{trace.title || "(title unavailable)"}</div>
                         <div className="trace-id">
                           <code>{trace.id}</code>
                         </div>
+                        {trace.portal_meta && (
+                          <div className="trace-meta">
+                            {trace.portal_meta.type && <span className="meta-chip">{trace.portal_meta.type}</span>}
+                            {trace.portal_meta.status && (
+                              <span className="meta-chip meta-chip--status">{trace.portal_meta.status}</span>
+                            )}
+                            {trace.portal_meta.published && (
+                              <span className="meta-chip">📅 {trace.portal_meta.published}</span>
+                            )}
+                            {trace.portal_meta.pages != null && (
+                              <span className="meta-chip">
+                                {trace.portal_meta.pages} {trace.portal_meta.pages === 1 ? "page" : "pages"}
+                              </span>
+                            )}
+                            {trace.portal_meta.category && <span className="meta-chip">{trace.portal_meta.category}</span>}
+                            {trace.portal_meta.organization && (
+                              <span className="meta-chip meta-chip--org">{trace.portal_meta.organization}</span>
+                            )}
+                          </div>
+                        )}
                         <div className="trace-links">
                           <a className="btn btn--primary" href={trace.doculoket_link} target="_blank" rel="noreferrer">
                             Open in doculoket ↗
                           </a>
                           {trace.portal_link && (
                             <a className="btn btn--ghost" href={trace.portal_link} target="_blank" rel="noreferrer">
-                              Open on overheid.nl ↗
+                              View on open.overheid.nl ↗
                             </a>
                           )}
                         </div>
+                        {(aiLoading || ai) && (
+                          <div className={`trace-ai${ai?.error ? " trace-ai--err" : ""}`}>
+                            <div className="trace-ai-head">
+                              <span className="trace-ai-label">🤖 AI analysis</span>
+                              {ai && !ai.error && ai.provider && (
+                                <span className="trace-ai-badge">
+                                  {ai.provider} · {ai.model}
+                                </span>
+                              )}
+                            </div>
+                            {aiLoading ? (
+                              <p className="trace-ai-body muted">Analyzing the document journey…</p>
+                            ) : (
+                              <p className="trace-ai-body">{ai.summary}</p>
+                            )}
+                          </div>
+                        )}
                         <div className="trace-stats">
                           <span className={`trace-stat ${trace.errors > 0 ? "trace-stat--bad" : "trace-stat--ok"}`}>
                             {trace.errors > 0

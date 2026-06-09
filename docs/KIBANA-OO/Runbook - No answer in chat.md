@@ -18,6 +18,28 @@ That italic line is the **frontend's empty-content fallback** — it appears onl
 when the LLM streamed **zero tokens**. It does **not** necessarily mean ES had no
 data. Three independent causes:
 
+> [!tip]- Colour legend
+> 🟦 check · 🟩 resolved · 🟧 workaround
+
+```mermaid
+flowchart TD
+    S(["empty / 'No matching data'"]) --> A{selected view<br/>has data?}
+    A -->|"logs-* is empty"| A1["use ds-prod5-koop-plooi*<br/>(auto-escalates anyway)"]
+    A -->|yes| B{time window<br/>too narrow?}
+    B -->|"Last 15 min"| B1["widen range<br/>(auto-escalates to 24h)"]
+    B -->|no| C{model returned<br/>tokens?}
+    C -->|no| C1["switch AI model<br/>(Ollama) and retry"]
+    C -->|yes| OK(["answer"])
+    A1 --> OK
+    B1 --> OK
+    C1 --> OK
+
+    classDef ok fill:#10241c,stroke:#10b981,color:#bbf7d0;
+    classDef warn fill:#3a2418,stroke:#e3934d,color:#ffd9b0;
+    class OK ok;
+    class A1,B1,C1 warn;
+```
+
 ### 1. Wrong data view (empty index)
 `logs-*` is often nearly empty; the real logs live in **`ds-prod5-koop-plooi*`**
 (see [[KOOP Plooi log schema]]).

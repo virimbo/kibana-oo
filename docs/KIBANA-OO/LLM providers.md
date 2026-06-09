@@ -19,6 +19,26 @@ Back to [[Home]]. `backend/llm.py`, `frontend/src/ProviderSwitcher.jsx`.
   preference, else `settings.llm_provider` (env `LLM_PROVIDER`, default `ollama`).
 - `llm.provider_model(session)` returns the `(provider, model)` shown in the UI.
 
+> [!tip]- Colour legend
+> 🟩 local (Ollama) · 🟧 cloud (Mistral)
+
+```mermaid
+flowchart LR
+    req["chat / triage / explain"] --> g["_get_provider(session)"]
+    g --> c{session<br/>preference?}
+    c -->|set| use[use it]
+    c -->|none| env["settings.llm_provider<br/>(env LLM_PROVIDER)"]
+    env --> use
+    use --> sw{provider}
+    sw -->|ollama| ol["Ollama · llama3.2:3b<br/>local · CPU"]
+    sw -->|mistral| mi["Mistral · large-latest<br/>cloud · API key"]
+
+    classDef ok fill:#10241c,stroke:#10b981,color:#bbf7d0;
+    classDef warn fill:#3a2418,stroke:#e3934d,color:#ffd9b0;
+    class ol ok;
+    class mi warn;
+```
+
 ## The header switcher (every page)
 
 A colour-coded pill in **every** header (Chat / Dashboard / Documents). The whole

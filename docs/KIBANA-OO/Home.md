@@ -9,9 +9,26 @@ AI-assisted monitoring + chat over Elasticsearch/Kibana for the **KOOP / Plooi**
 Dutch open-data platform (Kibana space `koop-plooi-prod`).
 
 > [!info] How to use this vault
-> Open this folder (`docs/obsidian/`) as an Obsidian vault. Everything is
-> cross-linked — start here and follow the `[[wikilinks]]`. The graph view
+> Open this folder (`docs/KIBANA-OO/`) as an Obsidian vault. Everything is
+> cross-linked — start here and follow the wiki-links. The graph view
 > (Ctrl/Cmd-G) shows how the pieces connect.
+
+```mermaid
+flowchart TD
+    H["🏠 Home"] --> A["Architecture"]
+    A --> CP["Chat pipeline"]
+    A --> DT["Document tracer"]
+    A --> MD["Monitoring dashboard"]
+    A --> LP["LLM providers"]
+    CP --> RB["Runbook:<br/>No answer in chat"]
+    CP --> LS["KOOP Plooi<br/>log schema"]
+    DT --> OV["open.overheid.nl<br/>API"]
+    DT --> LS
+    A --> TC["Testing & CI"]
+
+    classDef hub fill:#0f243d,stroke:#2f6feb,stroke-width:2px,color:#dbeafe;
+    class H,A hub;
+```
 
 ## Map of content
 

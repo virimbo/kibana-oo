@@ -28,6 +28,22 @@ unreliable for structured questions.
 
 ## Where the data lives
 
+> [!tip]- Colour legend
+> 🟩 has data · 🟥 usually empty
+
+```mermaid
+flowchart LR
+    q["chat / dashboard query"] --> dv{data view}
+    dv -->|"ds-prod5-koop-plooi*"| good[("real pipeline logs<br/>(269+ events / doc)")]
+    dv -->|"logs-* — All logs"| bad[("nearly empty<br/>→ 'No matching data'")]
+    dv -->|"ds-prod5-koop-sp"| sp[("search-portal logs")]
+
+    classDef ok fill:#10241c,stroke:#10b981,color:#bbf7d0;
+    classDef err fill:#3a1d1d,stroke:#ef4444,color:#fecaca;
+    class good,sp ok;
+    class bad err;
+```
+
 - Real pipeline logs: **`ds-prod5-koop-plooi*`**.
 - `logs-*` ("All logs") is often **nearly empty** — selecting it is the usual
   cause of an empty chat result. See [[Runbook - No answer in chat]].

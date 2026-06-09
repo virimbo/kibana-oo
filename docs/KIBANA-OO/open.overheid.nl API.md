@@ -13,6 +13,22 @@ The public portal `open.overheid.nl/details/<uuid>` is a **JavaScript SPA** —
 fetching it returns ~600 bytes with the title "Open overheid" only. The real
 metadata comes from its JSON API.
 
+```mermaid
+sequenceDiagram
+    autonumber
+    participant BE as backend (portal.py)
+    participant SPA as details page (HTML)
+    participant API as openbaarmakingen API
+
+    Note over BE,SPA: ❌ scraping the page is useless
+    BE-->>SPA: GET /details/{uuid}
+    SPA-->>BE: ~600 bytes, title "Open overheid"
+
+    Note over BE,API: ✅ hit the JSON API instead
+    BE->>API: GET /openbaarmakingen/api/v0/zoek/{uuid}
+    API-->>BE: officieleTitel, type, org, status, …
+```
+
 ## Endpoint
 
 ```

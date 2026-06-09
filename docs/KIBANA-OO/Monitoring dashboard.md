@@ -21,6 +21,25 @@ Back to [[Home]]. Admin-only (`DASHBOARD_ADMINS`). `frontend/src/Dashboard.jsx`,
   (NVS). OVS is not present in this data (earlier OVS matches were filename
   false-positives), so the panel is NVS-only.
 
+## Fact flow (grounded triage)
+
+> [!tip]- Colour legend
+> 🟦 deterministic facts · 🟪 LLM narration
+
+```mermaid
+flowchart LR
+    es[("Elasticsearch")] --> snap["build_snapshot()<br/>criticals · 5xx · APM · deltas"]
+    snap --> facts[/"strict JSON facts"/]
+    facts --> llm["LLM · grounded prompt"]
+    llm --> brief["plain-language briefing"]
+    snap --> cards["KPI cards · timeline ·<br/>cert-expiry · NVS pipeline"]
+
+    classDef llm fill:#241a3a,stroke:#8b5cf6,color:#e9d5ff;
+    classDef ext fill:#1b222e,stroke:#3a4659,color:#cbd5e1;
+    class llm llm;
+    class es ext;
+```
+
 ## Design principles
 
 - Deterministic **fact layer** (`monitoring.build_snapshot`) → strict facts →

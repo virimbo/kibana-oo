@@ -9,19 +9,30 @@ Back to [[Home]]. Endpoint: `POST /chat` in `backend/main.py`.
 
 ## What happens to a question
 
+> [!tip]- Colour legend
+> 🟪 LLM step · 🟦 our code · 🟧 fallback / degraded
+
+```mermaid
+flowchart TD
+    Q[["POST /chat<br/>question + image? + autocorrect"]] --> I{image<br/>attached?}
+    I -->|yes| OCR["OCR · Tesseract<br/>off-thread"]
+    I -->|no| T["typed text"]
+    OCR --> C["combined text"]
+    T --> C
+    C --> D["extract_doc_ids()<br/>UUID · ronl-…"]
+    D --> POL["polish_text()<br/>grammar · id-safe"]
+    D --> S["_do_search()<br/>grounding"]
+    POL --> OUT(["SSE stream<br/>question → chunk… → sources → done"])
+    S --> OUT
+
+    classDef llm fill:#241a3a,stroke:#8b5cf6,color:#e9d5ff;
+    classDef ok fill:#10241c,stroke:#10b981,color:#bbf7d0;
+    class POL llm;
+    class OUT ok;
 ```
-question (+ optional image, autocorrect flag)
-   │
-   ├─ OCR the image (ocr.image_to_text, off-thread)  ──> fold text into the question
-   │
-   ├─ extract_doc_ids(text)  (UUID or ronl-…)
-   │
-   ├─ CONCURRENTLY:
-   │     • polish_text(question)         (spelling/grammar, id-safe)   [[LLM providers]]
-   │     • _do_search()                  (the search below)
-   │
-   └─ stream the answer (SSE: question → chunk… → sources → done)
-```
+
+`polish_text()` and `_do_search()` run **concurrently**, so auto-correct adds
+~no wall-clock time.
 
 ## Two search paths (`_do_search`)
 

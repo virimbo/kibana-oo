@@ -26,6 +26,33 @@ Given a document id (UUID or `ronl-…`), it reconstructs the document's full
 - Links to **doculoket** (`doculoket.overheid.nl/#/aanleveren/<id>`) and the
   public portal.
 
+## How a trace is assembled
+
+> [!tip]- Colour legend
+> 🟦 our code · ⬜ external API · 🟪 LLM · 🟩 healthy stage · 🟥 errored stage
+
+```mermaid
+flowchart LR
+    id["doc id<br/>UUID · ronl-…"] --> scan{{for each<br/>data view}}
+    scan --> q["_search by id<br/>wide window"]
+    q --> merge["merge · dedupe · sort<br/>tolerate failures"]
+    merge --> stages["per-service stages"]
+
+    id --> portal["open.overheid.nl API"]
+    portal --> meta["title · type · org · status"]
+
+    stages --> ui["Journey diagram<br/>🟩 ok · 🟥 error"]
+    meta --> ui
+    stages --> ai["explain (grounded LLM)"]
+    meta --> ai
+    ai --> verdict["Verdict:<br/>HEALTHY / NEEDS ATTENTION"]
+
+    classDef ext fill:#1b222e,stroke:#3a4659,color:#cbd5e1;
+    classDef llm fill:#241a3a,stroke:#8b5cf6,color:#e9d5ff;
+    class portal ext;
+    class ai,verdict llm;
+```
+
 ## Backend shape
 
 - `documents.trace_document(sid, id, data_view)` → title, `portal_meta`, stages,

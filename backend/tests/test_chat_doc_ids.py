@@ -37,3 +37,43 @@ def test_search_by_document_id_builds_wide_window_id_query(monkeypatch):
     assert "5caff8b8-1c3e-4517-a95f-b21d8ca8746b" in qs
     assert captured["body"]["sort"][0]["@timestamp"]["order"] == "asc"  # oldest first
     assert captured["index"] == "logs-*"
+
+
+async def test_collect_doc_events_searches_all_views_and_finds_doc_outside_selection(monkeypatch):
+    """The exact bug: the doc's logs live in ds-prod5-koop-plooi*, not the
+    selected logs-*. _collect_doc_events must search EVERY view, dedupe, and
+    sort oldest-first so the audit finds the events anyway."""
+    import main
+
+    monkeypatch.setattr(main.settings, "data_views", "logs-*,ds-prod5-koop-plooi*")
+    seen_indices = []
+
+    async def fake(sid, doc_id, index, size, days):
+        seen_indices.append(index)
+        if index == "ds-prod5-koop-plooi*":
+            return [
+                {"timestamp": "2026-06-09T12:03:00Z", "message": "published ok", "index": "ds-x"},
+                {"timestamp": "2026-06-09T11:41:00Z", "message": "pending invalid date", "index": "ds-x"},
+                {"timestamp": "2026-06-09T11:41:00Z", "message": "pending invalid date", "index": "ds-x"},  # dup
+            ]
+        return []  # logs-* (selected) has nothing — the original failure
+
+    monkeypatch.setattr(main, "search_by_document_id", fake)
+    out = await main._collect_doc_events("sid", "5caff8b8-1c3e-4517-a95f-b21d8ca8746b")
+    assert set(seen_indices) == {"logs-*", "ds-prod5-koop-plooi*"}  # searched ALL views
+    assert [e["message"] for e in out] == ["pending invalid date", "published ok"]  # sorted asc + deduped
+
+
+async def test_collect_doc_events_tolerates_a_failing_view(monkeypatch):
+    import main
+
+    monkeypatch.setattr(main.settings, "data_views", "logs-*,ds-prod5-koop-plooi*")
+
+    async def fake(sid, doc_id, index, size, days):
+        if index == "logs-*":
+            raise RuntimeError("view down")
+        return [{"timestamp": "t", "message": "ok", "index": "ds"}]
+
+    monkeypatch.setattr(main, "search_by_document_id", fake)
+    out = await main._collect_doc_events("sid", "ronl-x")
+    assert len(out) == 1  # the failing view did not block the working one

@@ -28,11 +28,26 @@
   --success: #46c97a;
   --warn: #e3b341;
 
+  /* Active AI-model accent — defaults to Ollama (emerald). Overridden per
+     provider on :root[data-provider=...] so every header is themed to match. */
+  --provider-accent: #10b981;
+  --provider-accent-2: #34d399;
+  --provider-glow: rgba(16, 185, 129, 0.18);
+  --provider-name: "Ollama";
+
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
   --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+}
+
+/* Mistral = warm amber/orange (brand-adjacent). Ollama keeps the :root default. */
+:root[data-provider="mistral"] {
+  --provider-accent: #fb6f3d;
+  --provider-accent-2: #ffa94d;
+  --provider-glow: rgba(251, 111, 61, 0.2);
+  --provider-name: "Mistral";
 }
 
 body {
@@ -107,14 +122,33 @@ body {
 
 /* ── Header ───────────────────────────────────────────── */
 .header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 22px;
-  background: rgba(17, 22, 31, 0.85);
+  background:
+    linear-gradient(180deg, var(--provider-glow), transparent 58%),
+    rgba(17, 22, 31, 0.85);
   backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   z-index: 10;
+  transition: background 0.45s ease;
+}
+/* Provider-coloured accent bar across the top of every header */
+.header::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--provider-accent), var(--provider-accent-2));
+  box-shadow: 0 0 14px var(--provider-glow);
+  transition: background 0.45s ease, box-shadow 0.45s ease;
+}
+/* The brand mark also picks up the active-provider colour for a cohesive look */
+.header .brand-mark {
+  color: var(--provider-accent);
+  transition: color 0.45s ease;
 }
 
 .header-right {
@@ -139,17 +173,60 @@ body {
   border-radius: 999px;
 }
 
-.provider-select {
-  border: 1px solid var(--border);
+/* Colour-coded AI-model switcher pill (every page header) */
+.provider-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 28px 5px 12px;
   border-radius: 999px;
-  padding: 5px 10px;
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--bg-input);
   cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--provider-accent) 55%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--provider-accent) 16%, transparent), transparent),
+    var(--bg-elevated);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  user-select: none;
 }
-.provider-select:hover { border-color: var(--border-strong); }
-.provider-select:focus { border-color: var(--accent); outline: none; }
+.provider-switch:hover {
+  border-color: var(--provider-accent);
+  box-shadow: 0 0 0 3px var(--provider-glow);
+}
+.provider-switch:focus-within {
+  border-color: var(--provider-accent);
+  box-shadow: 0 0 0 3px var(--provider-glow);
+}
+.provider-switch-dot {
+  flex: none;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--provider-accent);
+  box-shadow: 0 0 8px var(--provider-accent);
+}
+.provider-switch-text { display: flex; flex-direction: column; line-height: 1.12; }
+.provider-switch-kicker {
+  font-size: 8.5px; letter-spacing: 0.7px; text-transform: uppercase;
+  color: var(--text-faint);
+}
+.provider-switch-name { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+.provider-switch-name em {
+  font-style: normal; font-weight: 600; font-size: 10.5px;
+  color: var(--provider-accent); margin-left: 3px;
+}
+.provider-switch-caret {
+  position: absolute; right: 9px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--provider-accent);
+  pointer-events: none;
+}
+/* The native select sits invisibly over the pill for accessible, native UX */
+.provider-switch select {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  opacity: 0; cursor: pointer;
+  border: none; appearance: none; -webkit-appearance: none;
+}
 
 .status-dot {
   width: 8px;

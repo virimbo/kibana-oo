@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
+import ProviderSwitcher from "./ProviderSwitcher";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -102,7 +103,7 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -203,6 +204,9 @@ export default function DashboardPage({ token, username, onLogout, onNavigate })
           </div>
         </div>
         <div className="header-right">
+          {onProviderChange && (
+            <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
+          )}
           <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>
             Chat
           </button>

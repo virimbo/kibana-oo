@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 import DashboardPage from "./Dashboard";
 import DocumentsPage from "./Documents";
+import ProviderSwitcher from "./ProviderSwitcher";
 
 const SUGGESTIONS = [
   {
@@ -43,9 +44,6 @@ const DATA_VIEW_KEY = "kibana_oo_dataview";
 const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
-
-// Available LLM providers
-const LLM_PROVIDERS = ["ollama", "mistral"];
 
 const fmtTime = (date) =>
   new Intl.DateTimeFormat(undefined, {
@@ -287,16 +285,13 @@ function UserMessage({ msg }) {
 
 // ─── Chat Page ──────────────────────────────────────────────
 
-function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
+function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider, onProviderChange }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [timeRange, setTimeRange] = useState(60);
   const [dataViews, setDataViews] = useState(DEFAULT_DATA_VIEWS);
   const [dataView, setDataView] = useState(
     () => sessionStorage.getItem(DATA_VIEW_KEY) || DEFAULT_DATA_VIEWS[0].id
-  );
-  const [llmProvider, setLlmProvider] = useState(
-    () => sessionStorage.getItem(LLM_PROVIDER_KEY) || "ollama"
   );
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null); // null = unknown
@@ -347,22 +342,6 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
   useEffect(() => {
     sessionStorage.setItem(DATA_VIEW_KEY, dataView);
   }, [dataView]);
-
-  // Persist the selected LLM provider across reloads
-  useEffect(() => {
-    sessionStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
-  }, [llmProvider]);
-
-  // When the LLM provider changes (and on load), update the backend session.
-  // The endpoint takes `provider` as a query parameter.
-  useEffect(() => {
-    if (token) {
-      fetch(`${BACKEND_URL}/llm-provider?provider=${encodeURIComponent(llmProvider)}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-      }).catch(() => {});
-    }
-  }, [llmProvider, token]);
 
   // Health poll for the connection indicator
   useEffect(() => {
@@ -522,15 +501,7 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
-          <select
-            className="control-select provider-select"
-            value={llmProvider}
-            onChange={(e) => setLlmProvider(e.target.value)}
-            title="AI model provider (chat & dashboard triage)"
-          >
-            <option value="ollama">AI: Ollama (local)</option>
-            <option value="mistral">AI: Mistral (cloud)</option>
-          </select>
+          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} disabled={loading} />
           {isAdmin && (
             <>
               <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
@@ -593,23 +564,6 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
       <div className="composer">
         <div className="composer-inner">
           <div className="composer-controls">
-            <label className="control">
-              <span className="control-label">LLM Provider</span>
-              <select
-                className="control-select"
-                value={llmProvider}
-                onChange={(e) => setLlmProvider(e.target.value)}
-                disabled={loading}
-                title="Select LLM provider (Ollama for local Llama, Mistral for cloud)"
-              >
-                {LLM_PROVIDERS.map((p) => (
-                  <option key={p} value={p}>
-                    {p.charAt(0).toUpperCase() + p.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
             <label className="control">
               <span className="control-label">Data view</span>
               <select
@@ -748,8 +702,28 @@ export default function App() {
   const [username, setUsername] = useState(
     () => sessionStorage.getItem("kibana_oo_user") || ""
   );
-  const [view, setView] = useState("chat"); // "chat" | "dashboard"
+  const [view, setView] = useState("chat"); // "chat" | "dashboard" | "documents"
   const [isAdmin, setIsAdmin] = useState(false);
+  // LLM provider is global: visible + switchable from every page, persisted,
+  // and synced to the backend session here so it applies no matter which page
+  // you switch it on.
+  const [llmProvider, setLlmProvider] = useState(
+    () => sessionStorage.getItem(LLM_PROVIDER_KEY) || "ollama"
+  );
+
+  useEffect(() => {
+    sessionStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
+    document.documentElement.dataset.provider = llmProvider; // themes every header
+  }, [llmProvider]);
+
+  // Push the provider to the backend session (query param) whenever it changes.
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${BACKEND_URL}/llm-provider?provider=${encodeURIComponent(llmProvider)}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  }, [llmProvider, token]);
 
   // Probe admin access: 403 means non-admin; 200/502 means admin (endpoint reached).
   useEffect(() => {
@@ -798,6 +772,8 @@ export default function App() {
         username={username}
         onLogout={handleLogout}
         onNavigate={setView}
+        llmProvider={llmProvider}
+        onProviderChange={setLlmProvider}
       />
     );
   }
@@ -809,6 +785,8 @@ export default function App() {
         username={username}
         onLogout={handleLogout}
         onNavigate={setView}
+        llmProvider={llmProvider}
+        onProviderChange={setLlmProvider}
       />
     );
   }
@@ -820,6 +798,8 @@ export default function App() {
       onLogout={handleLogout}
       isAdmin={isAdmin}
       onNavigate={setView}
+      llmProvider={llmProvider}
+      onProviderChange={setLlmProvider}
     />
   );
 }

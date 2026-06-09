@@ -224,33 +224,40 @@ async def chat(
                 )
             return results, ctx, None
 
-        # Generic path: search the SELECTED view; if it's empty, automatically
-        # broaden to ALL data views (the real logs often live in a different
-        # index than the one selected) so the chat finds data wherever it lives.
-        logs, errors = await _fetch_generic(sid, search_text, request.time_range_minutes, data_view)
-        scope = data_view
+        # Generic path: search the SELECTED view + window first. If that is empty,
+        # automatically broaden BOTH the index (all data views) AND the time window
+        # (recent activity may simply be older than the narrow selected range) so
+        # the chat finds data wherever — and whenever — it lives.
+        minutes = request.time_range_minutes
         all_views = settings.data_view_list
-        if not logs and not errors and len(all_views) > 1:
+        logs, errors = await _fetch_generic(sid, search_text, minutes, data_view)
+        scope, window = data_view, f"the last {minutes} min"
+        broadened = False
+        if not logs and not errors:
+            wide_minutes = max(minutes, settings.chat_widen_minutes)  # e.g. 24h
             logs, errors = await _fetch_generic(
-                sid, search_text, request.time_range_minutes, ",".join(all_views)
+                sid, search_text, wide_minutes, ",".join(all_views)
             )
-            scope = "all data views"
+            scope, window = "all data views", f"the last {wide_minutes // 60} h"
+            broadened = True
 
         results = logs + errors
         if not results:
             instant = (
-                f"I searched **{scope}** over the last **{request.time_range_minutes} min** "
-                "and found no log events to analyse.\n\n"
-                "Try one of these:\n"
-                "- Pick a **longer time range** (top of the composer)\n"
-                "- Choose a different **data view**\n"
+                f"I searched **{scope}** over {window} and found no log events to "
+                "analyse.\n\nTry one of these:\n"
+                "- Pick a different **data view**\n"
+                "- The cluster may simply be quiet right now\n"
                 "- For a specific document, paste or type its **id** and I'll trace it across every view"
             )
             return [], "", instant
 
         ctx = _build_context(logs, [], errors)
-        if scope != data_view:
-            ctx += f"\n\n(Note: no events in '{data_view}'; these results are from all data views.)"
+        if broadened:
+            ctx += (
+                f"\n\n(Note: no events matched in '{data_view}' for the selected range; "
+                f"these results are from all data views over {window}. Mention this to the user.)"
+            )
         return results, ctx, None
 
     # Step 1+2+polish: search Kibana AND spell/grammar-correct the typed question
@@ -347,8 +354,24 @@ async def _stream_response(
     try:
         if display_question:
             yield {"event": "question", "data": display_question}
+        produced = False
         async for chunk in generate_answer_stream(question, context, session=session):
-            yield {"event": "chunk", "data": chunk}
+            if chunk:
+                produced = True
+                yield {"event": "chunk", "data": chunk}
+        if not produced:
+            # The model returned nothing (transient provider issue / over-strict
+            # refusal). Never leave the user with a blank bubble — say so and
+            # offer a concrete next step.
+            yield {
+                "event": "chunk",
+                "data": (
+                    "The AI model returned an empty response. This is usually a "
+                    "transient issue with the selected provider.\n\n"
+                    "- Try sending the question again\n"
+                    "- Or switch the **AI model** (top of the page) and retry"
+                ),
+            }
         yield {"event": "sources", "data": json.dumps(sources[:5])}
         yield {"event": "done", "data": ""}
     except Exception as e:

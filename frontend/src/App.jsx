@@ -353,16 +353,13 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
     sessionStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
   }, [llmProvider]);
 
-  // When LLM provider changes, update the backend
+  // When the LLM provider changes (and on load), update the backend session.
+  // The endpoint takes `provider` as a query parameter.
   useEffect(() => {
     if (token) {
-      fetch(`${BACKEND_URL}/llm-provider`, {
+      fetch(`${BACKEND_URL}/llm-provider?provider=${encodeURIComponent(llmProvider)}`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ provider: llmProvider }),
+        headers: { Authorization: `Bearer ${token}` },
       }).catch(() => {});
     }
   }, [llmProvider, token]);
@@ -525,6 +522,15 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
+          <select
+            className="control-select provider-select"
+            value={llmProvider}
+            onChange={(e) => setLlmProvider(e.target.value)}
+            title="AI model provider (chat & dashboard triage)"
+          >
+            <option value="ollama">AI: Ollama (local)</option>
+            <option value="mistral">AI: Mistral (cloud)</option>
+          </select>
           {isAdmin && (
             <>
               <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>

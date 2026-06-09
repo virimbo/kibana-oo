@@ -139,6 +139,18 @@ body {
   border-radius: 999px;
 }
 
+.provider-select {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  cursor: pointer;
+}
+.provider-select:hover { border-color: var(--border-strong); }
+.provider-select:focus { border-color: var(--accent); outline: none; }
+
 .status-dot {
   width: 8px;
   height: 8px;

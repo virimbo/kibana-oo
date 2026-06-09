@@ -25,6 +25,13 @@ const fmtTime = (iso) => {
   const d = new Date(iso);
   return isNaN(d) ? "" : d.toLocaleTimeString();
 };
+const fmtDate = (iso) => {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return isNaN(d)
+    ? ""
+    : new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(d);
+};
 
 function ActionBadge({ action }) {
   return <span className={`act act--${action}`}>{action}</span>;
@@ -164,6 +171,48 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
 
           {data && (
             <>
+              <section className={`panel ${data.alert_level !== "ok" ? "panel--alert" : ""}`}>
+                <h3>
+                  Document health
+                  <InfoTip text="Early warning: document errors in this window vs the prior period. A spike turns this red so you can act before users notice a broken or missing document." />
+                </h3>
+                {data.alert_level === "ok" ? (
+                  <p className="pipe-ok">✓ No document errors in this window.</p>
+                ) : (
+                  <p className="pipe-alert">
+                    ⚠ {data.errors} document error{data.errors === 1 ? "" : "s"} in this window
+                    {data.error_pct_change != null && (
+                      <>
+                        {" · "}
+                        <span className={`delta ${data.error_pct_change > 0 ? "delta--up" : "delta--down"}`}>
+                          {data.error_pct_change > 0 ? "▲" : "▼"} {Math.abs(data.error_pct_change)}% vs prior period
+                        </span>
+                      </>
+                    )}
+                    {" — fix the failed documents below before users hit them."}
+                  </p>
+                )}
+                {data.failed && data.failed.length > 0 && (
+                  <ul className="doc-list">
+                    {data.failed.map((f, i) => (
+                      <li key={i}>
+                        <span className="doc-row">
+                          <span className={`act act--${f.action}`}>{f.action}</span>
+                          {f.link ? (
+                            <a href={f.link} target="_blank" rel="noreferrer" className="doc-link">
+                              {f.doc_id || f.filename || "document"}
+                            </a>
+                          ) : (
+                            <span className="doc-link doc-link--plain">{f.filename || f.doc_id || "document"}</span>
+                          )}
+                        </span>
+                        <span className="doc-preview">{f.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
+
               <div className="kpis">
                 <div className="kpi">
                   <span className="kpi-value">{data.total}</span>
@@ -260,9 +309,11 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                   <table className="dash-table feed-table">
                     <thead>
                       <tr>
+                        <th>Date</th>
                         <th>Time</th>
                         <th>Action</th>
                         <th>Type</th>
+                        <th>Organization</th>
                         <th>Document</th>
                         <th>Status</th>
                         <th>Message</th>
@@ -271,9 +322,11 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                     <tbody>
                       {filtered.map((e, i) => (
                         <tr key={i}>
+                          <td className="feed-time">{fmtDate(e.timestamp)}</td>
                           <td className="feed-time">{fmtTime(e.timestamp)}</td>
                           <td><ActionBadge action={e.action} /></td>
                           <td>{e.type || "—"}</td>
+                          <td>{e.org || <span className="muted">—</span>}</td>
                           <td>
                             {e.link ? (
                               <a href={e.link} target="_blank" rel="noreferrer" className="doc-link">

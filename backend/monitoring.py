@@ -368,10 +368,8 @@ class DashboardSnapshot(BaseModel):
     failing_urls: list[dict]
     not_found_total: int = 0
     not_found_urls: list[dict] = []
-    ovs_count: int = 0   # documents via the old pipeline (oude verwerkingsstraat)
-    nvs_count: int = 0   # documents via the new pipeline (nieuwe verwerkingsstraat)
-    ovs_docs: list[dict] = []   # the actual OVS documents (drill-down, clickable)
-    ovs_new_count: int = 0      # of those, how many are brand-NEW (not updates)
+    nvs_count: int = 0   # documents processed via the new pipeline (nieuwe verwerkingsstraat)
+    nvs_docs: list[dict] = []   # the actual NVS documents (drill-down, clickable)
     portal_base: str = ""       # base URL for building document links
     partial: bool
 
@@ -410,17 +408,16 @@ async def build_snapshot(
     nf_task = _es_search(sid, dv, not_found_body(start, end))
     # Count UNIQUE documents per pipeline (de-duplicated), so the tile number always
     # matches the list — many log lines often refer to the same document.
-    ovs_docs_task = fetch_pipeline_docs(sid, dv, start, end, settings.pipeline_ovs_query)
     nvs_docs_task = fetch_pipeline_docs(sid, dv, start, end, settings.pipeline_nvs_query)
     view_tasks = [_count(sid, v, start, end) for v in views]
 
     results = await asyncio.gather(
-        agg_task, prev_task, nf_task, ovs_docs_task, nvs_docs_task,
+        agg_task, prev_task, nf_task, nvs_docs_task,
         *view_tasks, return_exceptions=True
     )
     agg_res, prev_res, nf_res = results[0], results[1], results[2]
-    ovs_docs_res, nvs_docs_res = results[3], results[4]
-    view_counts = results[5:]
+    nvs_docs_res = results[3]
+    view_counts = results[4:]
 
     if isinstance(agg_res, Exception):
         raise agg_res  # core query failed — surfaced as 502 by the router
@@ -432,11 +429,8 @@ async def build_snapshot(
         not_found_total, not_found_urls = 0, []
     else:
         not_found_total, not_found_urls = parse_not_found(nf_res)
-    ovs_docs = [] if isinstance(ovs_docs_res, Exception) else ovs_docs_res
     nvs_docs = [] if isinstance(nvs_docs_res, Exception) else nvs_docs_res
-    ovs_count = len(ovs_docs)   # unique documents — matches the list
-    nvs_count = len(nvs_docs)
-    ovs_new_count = sum(1 for d in ovs_docs if is_new_action(d.get("action")))
+    nvs_count = len(nvs_docs)   # unique NVS documents — matches the list
 
     systems: list[SystemBreakdown] = []
     for view, count in zip(views, view_counts):
@@ -464,10 +458,8 @@ async def build_snapshot(
         failing_urls=parsed["failing_urls"],
         not_found_total=not_found_total,
         not_found_urls=not_found_urls,
-        ovs_count=ovs_count,
         nvs_count=nvs_count,
-        ovs_docs=ovs_docs,
-        ovs_new_count=ovs_new_count,
+        nvs_docs=nvs_docs,
         portal_base=settings.portal_base_url,
         partial=partial,
     )

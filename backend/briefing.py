@@ -33,11 +33,7 @@ def build_facts(snap: DashboardSnapshot) -> str:
         "http_5xx": snap.status_codes,
         "failing_urls": snap.failing_urls,
         "documents_not_found_404": {"total": snap.not_found_total, "top_urls": snap.not_found_urls},
-        "processing_pipelines": {
-            "ovs_old": snap.ovs_count,
-            "nvs_new": snap.nvs_count,
-            "new_documents_on_old_pipeline": snap.ovs_new_count,
-        },
+        "nvs_documents_processed": snap.nvs_count,
         "data_partial": snap.partial,
     }
     return json.dumps(facts, indent=2, default=str)

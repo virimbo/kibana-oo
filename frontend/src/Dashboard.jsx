@@ -51,55 +51,31 @@ function Delta({ pct }) {
 
 const isNewAction = (a) => /new|create|aanmaak|nieuw|insert/i.test(a || "");
 
-function Pipelines({ ovs, nvs, ovsDocs, ovsNew }) {
-  const total = ovs + nvs;
-  const nvsShare = total ? Math.round((nvs / total) * 100) : null;
+function Pipelines({ nvs, nvsDocs, onNavigate }) {
   return (
-    <section className={`panel ${ovs > 0 ? "panel--alert" : ""}`}>
+    <section className="panel">
       <h3>
-        Verwerkingsstraat — OVS → NVS
-        <InfoTip text="Documents processed via the old pipeline (OVS, oude verwerkingsstraat) vs the new one (NVS, nieuwe verwerkingsstraat) in this window. You're migrating to NVS, so OVS should trend toward zero — any OVS activity is flagged. NEW documents on OVS are the most serious leak." />
+        Verwerkingsstraat — NVS (new pipeline)
+        <InfoTip text="Documents processed via the new pipeline (NVS, nieuwe verwerkingsstraat) in this window. The old pipeline (OVS) is not present in this monitoring data. Open the Documents tab for the full per-document flow." />
       </h3>
-      {ovsNew > 0 && (
-        <div className="pipe-new-alert">
-          ⚠ {ovsNew} NEW document{ovsNew === 1 ? "" : "s"} entered the OLD pipeline (OVS) —
-          a brand-new document should go to NVS, not OVS. Check the list below.
-        </div>
-      )}
       <div className="pipe-row">
         <div className="pipe pipe--nvs">
-          <span className="pipe-label">NVS · new pipeline</span>
+          <span className="pipe-label">NVS · documents processed</span>
           <span className="pipe-count">{nvs}</span>
         </div>
-        <div className={`pipe ${ovs > 0 ? "pipe--ovs-active" : "pipe--ovs"}`}>
-          <span className="pipe-label">OVS · old pipeline</span>
-          <span className="pipe-count">{ovs}</span>
-        </div>
       </div>
-      {ovs > 0 ? (
-        <p className="pipe-alert">
-          ⚠ {ovs} document{ovs === 1 ? "" : "s"} still went through the OLD pipeline (OVS) in this window.
-        </p>
-      ) : total > 0 ? (
-        <p className="pipe-ok">✓ All {nvs} documents went through the new pipeline (NVS).</p>
-      ) : (
-        <p className="muted">
-          No documents matched OVS/NVS in this window. If you expected some, the match terms may
-          need tuning — tell me what you see.
-        </p>
+      {nvs === 0 && (
+        <p className="muted">No documents processed via NVS in this window.</p>
       )}
-      {ovs > 0 && ovsDocs && ovsDocs.length > 0 && (
+      {nvsDocs && nvsDocs.length > 0 && (
         <div className="pipe-docs">
-          <p className="pipe-docs-title">OVS documents — click to check each on open.overheid.nl:</p>
+          <p className="pipe-docs-title">Recent NVS documents — click to open on open.overheid.nl:</p>
           <ul className="doc-list">
-            {ovsDocs.map((d, i) => (
+            {nvsDocs.slice(0, 10).map((d, i) => (
               <li key={i}>
                 <span className="doc-row">
                   {d.action && (
-                    <span
-                      className={`doc-action doc-action--${isNewAction(d.action) ? "new" : "update"}`}
-                      title={isNewAction(d.action) ? "brand-new document" : "update of an existing document"}
-                    >
+                    <span className={`doc-action doc-action--${isNewAction(d.action) ? "new" : "update"}`}>
                       {d.action}
                     </span>
                   )}
@@ -117,13 +93,10 @@ function Pipelines({ ovs, nvs, ovsDocs, ovsNew }) {
           </ul>
         </div>
       )}
-      {nvsShare != null && (
-        <>
-          <div className="pipe-bar">
-            <div className="pipe-bar-fill" style={{ width: `${nvsShare}%` }} />
-          </div>
-          <p className="muted">{nvsShare}% processed via NVS.</p>
-        </>
+      {onNavigate && (
+        <button className="btn btn--ghost trace-toggle" onClick={() => onNavigate("documents")}>
+          Open Documents tab for full document flow →
+        </button>
       )}
     </section>
   );
@@ -408,12 +381,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate })
                 )}
               </section>
 
-              <Pipelines
-                ovs={snap.ovs_count}
-                nvs={snap.nvs_count}
-                ovsDocs={snap.ovs_docs}
-                ovsNew={snap.ovs_new_count}
-              />
+              <Pipelines nvs={snap.nvs_count} nvsDocs={snap.nvs_docs} onNavigate={onNavigate} />
 
               <section className="panel">
                 <h3>

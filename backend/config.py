@@ -46,6 +46,8 @@ class Settings(BaseSettings):
     # Documents activity tab: which logs count as document events, and how many to feed.
     document_event_query: str = "ronl OR document OR bestand OR upload OR publicatie OR versie"
     document_event_size: int = 200
+    # Best-effort source fields for a document's organization (tune to your logs).
+    doc_org_fields: str = "organisatie,bronorganisatie,publisher,organization,source.organization,verantwoordelijke,bron,afzender"
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"

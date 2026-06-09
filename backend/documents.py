@@ -11,7 +11,9 @@ from pydantic import BaseModel
 
 from elastic import _es_search
 from config import settings
-from monitoring import _flatten, period_bounds, timeseries_interval, summarize_doc, resolve_data_view
+from monitoring import _flatten, _first_field, period_bounds, timeseries_interval, summarize_doc, resolve_data_view
+
+_ERROR_LEVELS = ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]
 
 # Ordered: the first rule that matches the log message wins.
 _ACTION_RULES = [
@@ -55,6 +57,7 @@ def summarize_event(hit: dict) -> dict:
     message = str(flat.get("message", "") or "")
     level = str(flat.get("level") or flat.get("log.level") or "")
     filename, ftype = extract_file(message)
+    org = _first_field(src, settings.doc_org_fields)
     return {
         "timestamp": src.get("@timestamp"),
         "action": classify_action(message),
@@ -63,6 +66,7 @@ def summarize_event(hit: dict) -> dict:
         "link": base.get("link"),
         "filename": filename,
         "type": ftype,
+        "org": org if isinstance(org, str) else None,
         "service": _service(flat),
         "message": message[:200],
     }
@@ -100,6 +104,41 @@ def _feed_body(start: datetime, end: datetime) -> dict:
     }
 
 
+def _error_query(start: datetime, end: datetime) -> dict:
+    """Document events that are errors (top-level `level`, ECS `log.level`, or error.message)."""
+    q = _event_query(start, end)
+    q["bool"]["filter"].append({
+        "bool": {
+            "minimum_should_match": 1,
+            "should": [
+                {"terms": {"level": _ERROR_LEVELS}},
+                {"terms": {"log.level": _ERROR_LEVELS}},
+                {"exists": {"field": "error.message"}},
+            ],
+        }
+    })
+    return q
+
+
+def _failed_body(start: datetime, end: datetime) -> dict:
+    return {
+        "size": 20,
+        "track_total_hits": True,
+        "sort": [{"@timestamp": {"order": "desc"}}],
+        "query": _error_query(start, end),
+    }
+
+
+def _error_count_body(start: datetime, end: datetime) -> dict:
+    return {"size": 0, "track_total_hits": True, "query": _error_query(start, end)}
+
+
+def _alert_level(errors: int, pct_change: float | None) -> str:
+    if errors >= 10 or (errors > 0 and pct_change is not None and pct_change >= 100):
+        return "critical"
+    return "warning" if errors > 0 else "ok"
+
+
 class DocumentActivity(BaseModel):
     period_minutes: int
     data_view: str
@@ -109,6 +148,10 @@ class DocumentActivity(BaseModel):
     total: int
     unique_documents: int
     errors: int
+    errors_prior: int = 0
+    error_pct_change: float | None = None
+    alert_level: str = "ok"   # ok | warning | critical
+    failed: list[dict] = []   # the specific documents that errored
     by_action: list[dict]
     by_type: list[dict]
     timeseries: list[dict]
@@ -118,11 +161,14 @@ class DocumentActivity(BaseModel):
 async def build_document_activity(sid: str, period_minutes: int, data_view: str | None) -> DocumentActivity:
     dv = resolve_data_view(data_view)
     start, end = period_bounds(period_minutes)
+    prev_start = start - (end - start)
     interval = timeseries_interval(period_minutes)
 
-    ts_res, feed_res = await asyncio.gather(
+    ts_res, feed_res, failed_res, prior_res = await asyncio.gather(
         _es_search(sid, dv, _timeseries_body(start, end, interval)),
         _es_search(sid, dv, _feed_body(start, end)),
+        _es_search(sid, dv, _failed_body(start, end)),
+        _es_search(sid, dv, _error_count_body(prev_start, start)),
         return_exceptions=True,
     )
     if isinstance(feed_res, Exception):
@@ -139,9 +185,26 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
             for b in ts_res.get("aggregations", {}).get("over_time", {}).get("buckets", [])
         ]
 
+    # Proactive: accurate error count + the specific failed documents + spike vs prior period.
+    if isinstance(failed_res, Exception):
+        errors = sum(1 for e in events if e["status"] == "error")
+        failed: list[dict] = []
+    else:
+        errors = failed_res.get("hits", {}).get("total", {}).get("value", 0)
+        seen: set[str] = set()
+        failed = []
+        for ev in (summarize_event(h) for h in failed_res.get("hits", {}).get("hits", [])):
+            key = ev.get("doc_id") or ev.get("filename") or ev.get("message")
+            if key in seen:
+                continue
+            seen.add(key)
+            failed.append(ev)
+    errors_prior = 0 if isinstance(prior_res, Exception) else prior_res.get("hits", {}).get("total", {}).get("value", 0)
+    error_pct_change = round((errors - errors_prior) / errors_prior * 100, 1) if errors_prior else None
+    alert_level = _alert_level(errors, error_pct_change)
+
     by_action = [{"action": a, "count": c} for a, c in Counter(e["action"] for e in events).most_common()]
     by_type = [{"type": t, "count": c} for t, c in Counter(e["type"] for e in events if e["type"]).most_common()]
-    errors = sum(1 for e in events if e["status"] == "error")
     unique = len({(e["doc_id"] or e["filename"] or e["message"]) for e in events})
 
     return DocumentActivity(
@@ -153,6 +216,10 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
         total=total,
         unique_documents=unique,
         errors=errors,
+        errors_prior=errors_prior,
+        error_pct_change=error_pct_change,
+        alert_level=alert_level,
+        failed=failed,
         by_action=by_action,
         by_type=by_type,
         timeseries=timeseries,

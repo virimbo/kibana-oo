@@ -80,6 +80,9 @@ async def test_trace_document(monkeypatch):
     assert trace["title"] == "besluit"                          # from "besluit.pdf"
     assert trace["doculoket_link"].endswith("/aanleveren/ronl-x")
     assert trace["portal_link"].endswith("/documenten/ronl-x")
+    assert len(trace["stages"]) == 1                            # both events from "(unknown)" service
+    assert trace["stages"][0]["events"] == 2
+    assert trace["stages"][0]["errors"] == 1
 
 
 @pytest.fixture

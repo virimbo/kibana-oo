@@ -71,7 +71,8 @@ class ChatResponse(BaseModel):
 @app.get("/health")
 async def health():
     """Health check endpoint (no auth required)."""
-    return {"status": "ok", "model": settings.ollama_model}
+    model = settings.mistral_model if settings.llm_provider == "mistral" else settings.ollama_model
+    return {"status": "ok", "model": model, "provider": settings.llm_provider}
 
 
 @app.get("/data-views")

@@ -57,6 +57,14 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"
 
+    # Mistral (OpenAI-compatible API)
+    mistral_api_key: str = ""
+    mistral_base_url: str = "https://api.mistral.ai/v1"
+    mistral_model: str = "mistral-large-latest"
+
+    # LLM Provider selection: "ollama" or "mistral"
+    llm_provider: str = "ollama"
+
     # Backend
     backend_port: int = 8000
     frontend_origin: str = "http://localhost:3000"

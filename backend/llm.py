@@ -1,4 +1,4 @@
-"""Ollama/LLAMA client for generating answers from context."""
+"""LLM client for generating answers from context. Supports Ollama and Mistral."""
 
 from collections.abc import AsyncIterator
 
@@ -40,17 +40,41 @@ async def generate_answer(question: str, context: str, system: str | None = None
     """Generate a complete answer (non-streaming)."""
     messages = _build_prompt(question, context, system=system)
 
+    if settings.llm_provider == "mistral":
+        return await _generate_mistral_answer(messages)
+    else:
+        return await _generate_ollama_answer(messages, stream=False)
+
+
+async def _generate_ollama_answer(messages: list[dict], stream: bool = False) -> str:
+    """Generate answer using Ollama API."""
     async with httpx.AsyncClient(timeout=600.0) as client:
         response = await client.post(
             f"{settings.ollama_base_url}/api/chat",
             json={
                 "model": settings.ollama_model,
                 "messages": messages,
-                "stream": False,
+                "stream": stream,
             },
         )
         response.raise_for_status()
         return response.json()["message"]["content"]
+
+
+async def _generate_mistral_answer(messages: list[dict]) -> str:
+    """Generate answer using Mistral OpenAI-compatible API."""
+    async with httpx.AsyncClient(timeout=600.0) as client:
+        response = await client.post(
+            f"{settings.mistral_base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {settings.mistral_api_key}"},
+            json={
+                "model": settings.mistral_model,
+                "messages": messages,
+                "temperature": 0.7,
+            },
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
 
 
 async def generate_answer_stream(
@@ -59,6 +83,16 @@ async def generate_answer_stream(
     """Generate a streaming answer, yielding chunks as they arrive."""
     messages = _build_prompt(question, context)
 
+    if settings.llm_provider == "mistral":
+        async for chunk in _generate_mistral_answer_stream(messages):
+            yield chunk
+    else:
+        async for chunk in _generate_ollama_answer_stream(messages):
+            yield chunk
+
+
+async def _generate_ollama_answer_stream(messages: list[dict]) -> AsyncIterator[str]:
+    """Generate streaming answer using Ollama API."""
     async with httpx.AsyncClient(timeout=600.0) as client:
         async with client.stream(
             "POST",
@@ -77,3 +111,31 @@ async def generate_answer_stream(
                     chunk = json.loads(line)
                     if "message" in chunk and "content" in chunk["message"]:
                         yield chunk["message"]["content"]
+
+
+async def _generate_mistral_answer_stream(messages: list[dict]) -> AsyncIterator[str]:
+    """Generate streaming answer using Mistral OpenAI-compatible API."""
+    async with httpx.AsyncClient(timeout=600.0) as client:
+        async with client.stream(
+            "POST",
+            f"{settings.mistral_base_url}/chat/completions",
+            headers={"Authorization": f"Bearer {settings.mistral_api_key}"},
+            json={
+                "model": settings.mistral_model,
+                "messages": messages,
+                "stream": True,
+                "temperature": 0.7,
+            },
+        ) as response:
+            response.raise_for_status()
+            import json
+
+            async for line in response.aiter_lines():
+                if line.strip() and line.startswith("data:"):
+                    data = line[5:].strip()
+                    if data != "[DONE]":
+                        chunk = json.loads(data)
+                        if "choices" in chunk and len(chunk["choices"]) > 0:
+                            content = chunk["choices"][0].get("delta", {}).get("content", "")
+                            if content:
+                                yield content

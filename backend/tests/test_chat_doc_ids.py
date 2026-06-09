@@ -77,3 +77,33 @@ async def test_collect_doc_events_tolerates_a_failing_view(monkeypatch):
     monkeypatch.setattr(main, "search_by_document_id", fake)
     out = await main._collect_doc_events("sid", "ronl-x")
     assert len(out) == 1  # the failing view did not block the working one
+
+
+async def test_fetch_generic_merges_and_tolerates_a_failing_query(monkeypatch):
+    import main
+
+    async def rl(sid, size, time_range_minutes, index):
+        return [{"timestamp": "t2", "message": "recent log line"}]
+
+    async def sl(sid, query, size, time_range_minutes, index):
+        raise RuntimeError("keyword search failed")  # must not empty the context
+
+    async def re_(sid, size, time_range_minutes, index):
+        return [{"timestamp": "t1", "message": "an error happened"}]
+
+    monkeypatch.setattr(main, "get_recent_logs", rl)
+    monkeypatch.setattr(main, "search_logs", sl)
+    monkeypatch.setattr(main, "get_recent_errors", re_)
+
+    logs, errors = await main._fetch_generic("sid", "q", 15, "logs-*")
+    assert [l["message"] for l in logs] == ["recent log line"]
+    assert len(errors) == 1  # error query still contributed despite the failure
+
+
+async def test_instant_response_streams_question_chunk_done():
+    import main
+    events = [e async for e in main._instant_response("no data here", display_question="hello")]
+    kinds = [e["event"] for e in events]
+    assert kinds[0] == "question"
+    assert "chunk" in kinds and kinds[-1] == "done"
+    assert any(e.get("data") == "no data here" for e in events)

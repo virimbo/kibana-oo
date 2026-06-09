@@ -42,6 +42,7 @@ const DEFAULT_DATA_VIEWS = [
 
 const DATA_VIEW_KEY = "kibana_oo_dataview";
 const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
+const AUTOCORRECT_KEY = "kibana_oo_autocorrect";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -78,6 +79,11 @@ const Icon = {
   Check: (p) => (
     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" {...p}>
       <path d="M20 6L9 17l-5-5" />
+    </svg>
+  ),
+  Paperclip: (p) => (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
     </svg>
   ),
 };
@@ -274,10 +280,18 @@ function UserMessage({ msg }) {
     <div className="msg msg--user">
       <div className="msg-body">
         <div className="msg-head">
+          {msg.corrected && (
+            <span className="corrected-badge" title="Spelling/grammar auto-corrected">
+              ✓ corrected
+            </span>
+          )}
           {msg.time && <span className="msg-time">{fmtTime(msg.time)}</span>}
           <span className="msg-name">You</span>
         </div>
-        <div className="bubble bubble--user">{msg.content}</div>
+        <div className="bubble bubble--user">
+          {msg.image && <img src={msg.image} alt="attached" className="bubble-image" />}
+          {msg.content && <div className="bubble-text">{msg.content}</div>}
+        </div>
       </div>
     </div>
   );
@@ -295,10 +309,44 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
   );
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null); // null = unknown
+  const [image, setImage] = useState(null); // { dataUrl, name } of an attached screenshot
+  const [autocorrect, setAutocorrect] = useState(
+    () => sessionStorage.getItem(AUTOCORRECT_KEY) !== "off"
+  );
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
   const stickRef = useRef(true);
+  const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    sessionStorage.setItem(AUTOCORRECT_KEY, autocorrect ? "on" : "off");
+  }, [autocorrect]);
+
+  // Read an image File into a data URL (capped so we don't ship huge payloads).
+  function attachImageFile(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Image is larger than 10 MB — please attach a smaller screenshot.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setImage({ dataUrl: reader.result, name: file.name || "screenshot" });
+    reader.readAsDataURL(file);
+  }
+
+  function onPickImage(e) {
+    attachImageFile(e.target.files?.[0]);
+    e.target.value = ""; // allow re-selecting the same file
+  }
+
+  function onPasteComposer(e) {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+    if (item) {
+      e.preventDefault();
+      attachImageFile(item.getAsFile());
+    }
+  }
 
   // Auto-scroll while the user is near the bottom
   useEffect(() => {
@@ -392,14 +440,16 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
   const sendMessage = useCallback(
     async function sendMessage(question) {
       const q = question.trim();
-      if (!q || loading) return;
+      const img = image; // capture; cleared below
+      if ((!q && !img) || loading) return;
 
       stickRef.current = true;
       setInput("");
+      setImage(null);
       setLoading(true);
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: q, time: new Date() },
+        { role: "user", content: q, image: img?.dataUrl, time: new Date() },
         { role: "assistant", content: "", sources: [], status: "streaming", time: new Date() },
       ]);
 
@@ -418,6 +468,8 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
             time_range_minutes: timeRange,
             data_view: dataView,
             stream: true,
+            image: img?.dataUrl || null,
+            autocorrect,
           }),
           signal: controller.signal,
         });
@@ -435,6 +487,16 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
           onChunk: (text) =>
             updateLast((m) => ({ ...m, content: m.content + text })),
           onSources: (sources) => updateLast({ sources }),
+          onQuestion: (corrected) =>
+            // Update the *user* bubble (second from the end) to the cleaned text.
+            setMessages((prev) => {
+              const next = [...prev];
+              const ui = next.length - 2;
+              if (ui >= 0 && next[ui].role === "user" && corrected.trim()) {
+                next[ui] = { ...next[ui], content: corrected, corrected: corrected !== q };
+              }
+              return next;
+            }),
           onError: (detail) => {
             throw new Error(detail);
           },
@@ -470,7 +532,7 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
         setLoading(false);
       }
     },
-    [loading, timeRange, dataView, token, onLogout]
+    [loading, timeRange, dataView, token, onLogout, image, autocorrect]
   );
 
   function stop() {
@@ -597,17 +659,68 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
                 ))}
               </select>
             </label>
+
+            <button
+              type="button"
+              className={`autocorrect-toggle${autocorrect ? " is-on" : ""}`}
+              onClick={() => setAutocorrect((v) => !v)}
+              title="Automatically fix spelling and grammar in your question (IDs and codes are preserved)"
+              aria-pressed={autocorrect}
+            >
+              <span className="autocorrect-led" />
+              Auto-correct {autocorrect ? "on" : "off"}
+            </button>
           </div>
 
+          {image && (
+            <div className="attach-preview">
+              <img src={image.dataUrl} alt={image.name} className="attach-thumb" />
+              <span className="attach-name">{image.name}</span>
+              <span className="attach-hint">— I'll read the text from this image</span>
+              <button
+                type="button"
+                className="attach-remove"
+                onClick={() => setImage(null)}
+                title="Remove image"
+                aria-label="Remove image"
+              >
+                ×
+              </button>
+            </div>
+          )}
+
           <div className="composer-row">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              hidden
+              onChange={onPickImage}
+            />
+            <button
+              type="button"
+              className="btn btn--ghost btn--attach"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={loading}
+              title="Attach a screenshot (or paste an image)"
+              aria-label="Attach image"
+            >
+              <Icon.Paperclip />
+            </button>
+
             <div className="composer-field">
               <textarea
                 ref={textareaRef}
                 rows={1}
-                placeholder="Ask about your logs and metrics…  (Enter to send, Shift+Enter for a new line)"
+                placeholder={
+                  image
+                    ? "Add a question about the image… (optional)"
+                    : "Ask about your logs and metrics…  (Enter to send, Shift+Enter for a new line, paste a screenshot)"
+                }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
+                onPaste={onPasteComposer}
                 disabled={loading}
               />
             </div>
@@ -621,7 +734,7 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
               <button
                 className="btn btn--primary btn--send"
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim()}
+                disabled={!input.trim() && !image}
                 title="Send"
               >
                 <Icon.Send />
@@ -640,7 +753,7 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
 
 // ─── SSE parsing ────────────────────────────────────────────
 
-async function consumeSSE(body, signal, { onChunk, onSources, onError }) {
+async function consumeSSE(body, signal, { onChunk, onSources, onError, onQuestion }) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
@@ -680,6 +793,8 @@ async function consumeSSE(body, signal, { onChunk, onSources, onError }) {
 
     if (event === "chunk") {
       onChunk(data);
+    } else if (event === "question") {
+      onQuestion?.(data);
     } else if (event === "sources") {
       try {
         onSources(JSON.parse(data));

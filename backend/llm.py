@@ -65,6 +65,39 @@ def provider_model(session: dict | None = None) -> tuple[str, str]:
     return provider, model
 
 
+_POLISH_SYSTEM = (
+    "You are a text corrector. Fix spelling, grammar and punctuation in the "
+    "user's message so it reads as clear, professional English. PRESERVE exactly: "
+    "all IDs, UUIDs, codes, numbers, dates, URLs, field names and technical terms. "
+    "Do NOT answer the message, do NOT add commentary or quotes. Return ONLY the "
+    "corrected message text."
+)
+
+
+async def polish_text(text: str, session: dict | None = None) -> str:
+    """Return a spelling/grammar-corrected version of `text`. Best-effort: on any
+    error (or an over-long/empty input) the original text is returned unchanged so
+    a correction failure never blocks the question."""
+    cleaned = (text or "").strip()
+    if len(cleaned) < 3 or len(cleaned) > 2000:
+        return cleaned
+    messages = [
+        {"role": "system", "content": _POLISH_SYSTEM},
+        {"role": "user", "content": cleaned},
+    ]
+    provider = _get_provider(session)
+    try:
+        if provider == "mistral":
+            result = await _generate_mistral_answer(messages)
+        else:
+            result = await _generate_ollama_answer(messages, stream=False)
+    except (httpx.HTTPStatusError, httpx.RequestError, KeyError):
+        return cleaned
+    result = (result or "").strip().strip('"').strip()
+    # Guard against a model that "helpfully" answered instead of correcting.
+    return result if result and len(result) <= len(cleaned) * 3 else cleaned
+
+
 async def generate_answer(question: str, context: str, system: str | None = None, session: dict | None = None) -> str:
     """Generate a complete answer (non-streaming)."""
     messages = _build_prompt(question, context, system=system)

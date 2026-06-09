@@ -136,7 +136,7 @@ function LoginPage({ onLogin }) {
           logs and metrics in plain language.
         </p>
         <p className="ai-disclosure">
-          This application uses an AI system (Llama) to generate answers based
+          This application uses an AI system (Llama or Mistral) to generate answers based
           on your log data. Responses are AI-generated and should be verified.
         </p>
 
@@ -551,13 +551,12 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
               </span>
               <h2>Ask anything about your logs &amp; metrics</h2>
               <p>
-                KIBANA-OO searches your Elasticsearch cluster and uses a local
-                AI model to answer in natural language — with the source log entries
-                cited.
+                KIBANA-OO searches your Elasticsearch cluster and uses an AI model
+                to answer in natural language — with the source log entries cited.
               </p>
               <p className="ai-disclosure ai-disclosure--chat">
                 You are interacting with an AI system. Responses are generated
-                by a Llama language model and may contain inaccuracies. Always
+                by a Llama or Mistral language model and may contain inaccuracies. Always
                 verify critical findings in Kibana.
               </p>
               <div className="suggestions">

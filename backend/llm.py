@@ -36,9 +36,8 @@ def _build_prompt(question: str, context: str, system: str | None = None) -> lis
     ]
 
 
-def _llm_error_message(exc: Exception) -> str:
+def _llm_error_message(exc: Exception, provider: str) -> str:
     """Translate a provider error into a clear, user-facing message."""
-    provider = settings.llm_provider
     if isinstance(exc, httpx.HTTPStatusError):
         code = exc.response.status_code
         if code in (401, 403):
@@ -67,7 +66,7 @@ async def generate_answer(question: str, context: str, system: str | None = None
             return await _generate_mistral_answer(messages)
         return await _generate_ollama_answer(messages, stream=False)
     except (httpx.HTTPStatusError, httpx.RequestError) as e:
-        raise RuntimeError(_llm_error_message(e)) from e
+        raise RuntimeError(_llm_error_message(e, provider)) from e
 
 
 async def _generate_ollama_answer(messages: list[dict], stream: bool = False) -> str:
@@ -115,7 +114,7 @@ async def generate_answer_stream(
             async for chunk in _generate_ollama_answer_stream(messages):
                 yield chunk
     except (httpx.HTTPStatusError, httpx.RequestError) as e:
-        raise RuntimeError(_llm_error_message(e)) from e
+        raise RuntimeError(_llm_error_message(e, provider)) from e
 
 
 async def _generate_ollama_answer_stream(messages: list[dict]) -> AsyncIterator[str]:

@@ -139,6 +139,117 @@ def _alert_level(errors: int, pct_change: float | None) -> str:
     return "warning" if errors > 0 else "ok"
 
 
+_WARN_ERROR_LEVELS = ["warn", "WARN", "warning", "WARNING"] + _ERROR_LEVELS
+
+
+def _issues_query(start: datetime, end: datetime) -> dict:
+    """Document events at WARN or ERROR level (covers mapping warnings + errors)."""
+    q = _event_query(start, end)
+    q["bool"]["filter"].append({
+        "bool": {
+            "minimum_should_match": 1,
+            "should": [
+                {"terms": {"level": _WARN_ERROR_LEVELS}},
+                {"terms": {"log.level": _WARN_ERROR_LEVELS}},
+                {"exists": {"field": "error.message"}},
+            ],
+        }
+    })
+    return q
+
+
+def _issues_body(start: datetime, end: datetime) -> dict:
+    return {"size": 300, "sort": [{"@timestamp": {"order": "desc"}}], "query": _issues_query(start, end)}
+
+
+def detect_source(doc_id: str | None, message: str | None) -> str:
+    """Best-effort: the document source (bron), from the id prefix or the message."""
+    text = f"{doc_id or ''} {message or ''}".lower()
+    for s in settings.processing_source_list:  # longest-first
+        sl = s.lower()
+        if doc_id and doc_id.lower().startswith(sl + "-"):
+            return s
+        if re.search(rf"(?<![\w-]){re.escape(sl)}(?![\w-])", text):
+            return s
+    return "other"
+
+
+def classify_error_category(message: str | None, level: str | None) -> str:
+    low = (message or "").lower()
+    lvl = (level or "").upper()
+    if "mapping" in low:
+        if lvl.startswith("WARN") or "waarschuw" in low or "warn" in low:
+            return "mapping_warning"
+        return "mapping_error"
+    return "processing_error"
+
+
+def build_source_errors(issues_hits: list[dict]) -> list[dict]:
+    """Group WARN/ERROR document events into source x category counts."""
+    rows: dict[str, dict] = {}
+    for hit in issues_hits:
+        src = hit.get("_source", {})
+        flat = _flatten(src)
+        message = str(flat.get("message", "") or "")
+        level = str(flat.get("level") or flat.get("log.level") or "")
+        doc_id = summarize_doc(hit).get("code")
+        source = detect_source(doc_id, message)
+        cat = classify_error_category(message, level)
+        row = rows.setdefault(
+            source, {"source": source, "processing_error": 0, "mapping_warning": 0, "mapping_error": 0, "total": 0}
+        )
+        row[cat] += 1
+        row["total"] += 1
+    return sorted(rows.values(), key=lambda r: r["total"], reverse=True)
+
+
+def _is_system_file(filename: str) -> bool:
+    low = filename.lower()
+    return low.endswith(".json") or low.startswith(("manifest", "metadata"))
+
+
+async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict:
+    """Fetch the full lifecycle of one document (all log events mentioning its id),
+    oldest first, so an admin can trace where its flow succeeded or failed — with the
+    document title, the services it passed through, and management/portal links."""
+    dv = resolve_data_view(data_view)
+    needle = plooi_id.strip()
+    body = {
+        "size": 300,
+        "sort": [{"@timestamp": {"order": "asc"}}],
+        "query": {"query_string": {"query": f"\"{needle}\"", "default_field": "*", "lenient": True}},
+    }
+    resp = await _es_search(sid, dv, body)
+    hits = resp.get("hits", {}).get("hits", [])
+    events = [summarize_event(h) for h in hits]
+    errors = sum(1 for e in events if e["status"] == "error")
+
+    # Best-effort document title: first real document filename (skip system files).
+    title = None
+    for e in events:
+        fn = e.get("filename")
+        if fn and not _is_system_file(fn):
+            title = fn.rsplit(".", 1)[0]
+            break
+
+    ronl = next((e["doc_id"] for e in events if e.get("doc_id") and e["doc_id"].lower().startswith("ronl")), None)
+    services = sorted({e["service"] for e in events if e.get("service")})
+
+    return {
+        "id": needle,
+        "data_view": dv,
+        "title": title,
+        "found": len(events) > 0,
+        "errors": errors,
+        "services": services,
+        "first_seen": events[0]["timestamp"] if events else None,
+        "last_seen": events[-1]["timestamp"] if events else None,
+        "doculoket_link": settings.doculoket_link_template.format(id=needle),
+        "portal_link": settings.doc_link_template.format(id=ronl) if ronl else None,
+        "events": events,
+    }
+
+
 class DocumentActivity(BaseModel):
     period_minutes: int
     data_view: str
@@ -152,6 +263,7 @@ class DocumentActivity(BaseModel):
     error_pct_change: float | None = None
     alert_level: str = "ok"   # ok | warning | critical
     failed: list[dict] = []   # the specific documents that errored
+    by_source: list[dict] = []  # errors per source (bron) x category
     by_action: list[dict]
     by_type: list[dict]
     timeseries: list[dict]
@@ -164,11 +276,12 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
     prev_start = start - (end - start)
     interval = timeseries_interval(period_minutes)
 
-    ts_res, feed_res, failed_res, prior_res = await asyncio.gather(
+    ts_res, feed_res, failed_res, prior_res, issues_res = await asyncio.gather(
         _es_search(sid, dv, _timeseries_body(start, end, interval)),
         _es_search(sid, dv, _feed_body(start, end)),
         _es_search(sid, dv, _failed_body(start, end)),
         _es_search(sid, dv, _error_count_body(prev_start, start)),
+        _es_search(sid, dv, _issues_body(start, end)),
         return_exceptions=True,
     )
     if isinstance(feed_res, Exception):
@@ -206,6 +319,7 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
     by_action = [{"action": a, "count": c} for a, c in Counter(e["action"] for e in events).most_common()]
     by_type = [{"type": t, "count": c} for t, c in Counter(e["type"] for e in events if e["type"]).most_common()]
     unique = len({(e["doc_id"] or e["filename"] or e["message"]) for e in events})
+    by_source = [] if isinstance(issues_res, Exception) else build_source_errors(issues_res.get("hits", {}).get("hits", []))
 
     return DocumentActivity(
         period_minutes=period_minutes,
@@ -220,6 +334,7 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
         error_pct_change=error_pct_change,
         alert_level=alert_level,
         failed=failed,
+        by_source=by_source,
         by_action=by_action,
         by_type=by_type,
         timeseries=timeseries,

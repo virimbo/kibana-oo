@@ -37,6 +37,21 @@ function ActionBadge({ action }) {
   return <span className={`act act--${action}`}>{action}</span>;
 }
 
+// Collapse runs of identical consecutive events (same service/action/status/message)
+// so a 200-line trace reads as a handful of meaningful steps with a ×count.
+function collapse(events) {
+  const out = [];
+  for (const e of events) {
+    const p = out[out.length - 1];
+    if (p && p.service === e.service && p.action === e.action && p.status === e.status && (p.message || "") === (e.message || "")) {
+      p.count += 1;
+    } else {
+      out.push({ ...e, count: 1 });
+    }
+  }
+  return out;
+}
+
 export default function DocumentsPage({ token, username, onLogout, onNavigate }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -47,6 +62,30 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
   const [loadedAt, setLoadedAt] = useState(null);
   const [q, setQ] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
+  const [traceId, setTraceId] = useState("");
+  const [trace, setTrace] = useState(null);
+  const [traceLoading, setTraceLoading] = useState(false);
+  const [traceError, setTraceError] = useState("");
+
+  const runTrace = useCallback(async () => {
+    const id = traceId.trim();
+    if (!id) return;
+    setTraceLoading(true);
+    setTraceError("");
+    setTrace(null);
+    try {
+      const d = await getJSON(
+        `/dashboard/document-trace?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
+        token
+      );
+      setTrace(d);
+    } catch (e) {
+      if (e.message === "unauthorized") return onLogout();
+      setTraceError(e.message);
+    } finally {
+      setTraceLoading(false);
+    }
+  }, [traceId, dataView, token, onLogout]);
 
   useEffect(() => {
     let active = true;
@@ -108,8 +147,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
         <div className="brand">
           <span className="brand-mark">▤</span>
           <div className="brand-text">
-            <span className="brand-name">Documents</span>
-            <span className="brand-sub">Document flow · {dataView}</span>
+            <span className="brand-name">Documents · NVS</span>
+            <span className="brand-sub">New pipeline (nieuwe verwerkingsstraat) · {dataView}</span>
           </div>
         </div>
         <div className="header-right">
@@ -210,6 +249,146 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                       </li>
                     ))}
                   </ul>
+                )}
+              </section>
+
+              <section className="panel">
+                <div className="panel-head">
+                  <h3>
+                    Trace a document
+                    <InfoTip text="Enter a Plooi/document id (ronl-…) to see its full lifecycle across services — every step, status, and any errors — so you can find where its flow failed." />
+                  </h3>
+                </div>
+                <form
+                  className="trace-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    runTrace();
+                  }}
+                >
+                  <input
+                    className="feed-search trace-input"
+                    placeholder="e.g. ronl-d9d80f3d0fb042bf7fd2eea4708b937f"
+                    value={traceId}
+                    onChange={(e) => setTraceId(e.target.value)}
+                  />
+                  <button className="btn btn--primary" type="submit" disabled={traceLoading || !traceId.trim()}>
+                    {traceLoading ? "Tracing…" : "Trace"}
+                  </button>
+                </form>
+                {traceError && <p className="muted">{traceError}</p>}
+                {trace &&
+                  (trace.found ? (
+                    <>
+                      <div className="trace-card">
+                        <div className="trace-title">{trace.title || "(no title found in logs)"}</div>
+                        <div className="trace-id">
+                          <code>{trace.id}</code>
+                        </div>
+                        <div className="trace-links">
+                          <a className="btn btn--primary" href={trace.doculoket_link} target="_blank" rel="noreferrer">
+                            Open in doculoket ↗
+                          </a>
+                          {trace.portal_link && (
+                            <a className="btn btn--ghost" href={trace.portal_link} target="_blank" rel="noreferrer">
+                              Open on overheid.nl ↗
+                            </a>
+                          )}
+                        </div>
+                        <div className="trace-stats">
+                          <span className={`trace-stat ${trace.errors > 0 ? "trace-stat--bad" : "trace-stat--ok"}`}>
+                            {trace.errors > 0
+                              ? `⚠ ${trace.errors} error${trace.errors === 1 ? "" : "s"}`
+                              : "✓ no errors"}
+                          </span>
+                          <span className="trace-stat">{trace.events.length} events</span>
+                          {trace.first_seen && (
+                            <span className="trace-stat">
+                              {fmtDate(trace.first_seen)} {fmtTime(trace.first_seen)} → {fmtTime(trace.last_seen)}
+                            </span>
+                          )}
+                        </div>
+                        {trace.services && trace.services.length > 0 && (
+                          <div className="trace-services">
+                            <span className="trace-services-label">Services:</span>
+                            {trace.services.map((s) => (
+                              <span key={s} className="source-chip">{s}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <table className="dash-table feed-table">
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th>Service</th>
+                            <th>Message</th>
+                            <th></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {collapse(trace.events).map((e, i) => (
+                            <tr key={i} className={e.status === "error" ? "row-err" : ""}>
+                              <td className="feed-time">{fmtTime(e.timestamp)}</td>
+                              <td><ActionBadge action={e.action} /></td>
+                              <td>
+                                <span className={`feed-status feed-status--${e.status}`} />
+                                {e.status}
+                              </td>
+                              <td>{e.service || "—"}</td>
+                              <td className="feed-msg" title={e.message}>
+                                {e.message || <span className="muted">—</span>}
+                              </td>
+                              <td className="feed-time">{e.count > 1 ? `×${e.count}` : ""}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  ) : (
+                    <p className="muted">No events found for that id in this data view.</p>
+                  ))}
+              </section>
+
+              <section className="panel">
+                <h3>
+                  Errors by source
+                  <InfoTip text="Processing and mapping issues grouped by document source (bron) in this window — spot which feed is failing. Best-effort source detection (tunable)." />
+                </h3>
+                {!data.by_source || data.by_source.length === 0 ? (
+                  <p className="muted">No processing or mapping issues in this window.</p>
+                ) : (
+                  <table className="dash-table">
+                    <thead>
+                      <tr>
+                        <th>Source</th>
+                        <th>Processing errors</th>
+                        <th>Mapping warnings</th>
+                        <th>Mapping errors</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.by_source.map((r) => (
+                        <tr key={r.source}>
+                          <td>{r.source}</td>
+                          <td className={r.processing_error ? "num-bad" : "num-zero"}>{r.processing_error}</td>
+                          <td className={r.mapping_warning ? "num-warn" : "num-zero"}>{r.mapping_warning}</td>
+                          <td className={r.mapping_error ? "num-bad" : "num-zero"}>{r.mapping_error}</td>
+                          <td><strong>{r.total}</strong></td>
+                        </tr>
+                      ))}
+                      <tr className="row-total">
+                        <td><strong>Total</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.processing_error, 0)}</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.mapping_warning, 0)}</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.mapping_error, 0)}</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.total, 0)}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 )}
               </section>
 

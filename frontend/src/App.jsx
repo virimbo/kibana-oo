@@ -505,7 +505,9 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
         updateLast((m) => ({
           ...m,
           status: "done",
-          content: m.content || "_No matching data found for this time range._",
+          content:
+            m.content ||
+            "_The AI model returned an empty response. Please try again, or switch the AI model in the header._",
         }));
       } catch (err) {
         if (err.name === "AbortError") {

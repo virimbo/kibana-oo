@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     # so "why was this published twice?" finds events from hours/days earlier.
     chat_doc_scan_days: int = 30
     chat_doc_scan_size: int = 200
+    # When a generic question finds nothing in the selected view+window, broaden
+    # the search to all views over this many minutes (default 24h) before giving up.
+    chat_widen_minutes: int = 1440
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"

@@ -107,3 +107,19 @@ async def test_instant_response_streams_question_chunk_done():
     assert kinds[0] == "question"
     assert "chunk" in kinds and kinds[-1] == "done"
     assert any(e.get("data") == "no data here" for e in events)
+
+
+async def test_stream_response_never_ends_empty(monkeypatch):
+    """If the model yields zero tokens, the user must still get a clear message
+    (not a blank bubble that the frontend turns into a misleading fallback)."""
+    import main
+
+    async def empty_stream(question, context, session=None):
+        return
+        yield  # unreachable — makes this an (empty) async generator
+
+    monkeypatch.setattr(main, "generate_answer_stream", empty_stream)
+    events = [e async for e in main._stream_response("q", "ctx", [], {"llm_provider": "ollama"})]
+    chunks = [e for e in events if e["event"] == "chunk"]
+    assert len(chunks) == 1 and "empty response" in chunks[0]["data"].lower()
+    assert events[-1]["event"] == "done"

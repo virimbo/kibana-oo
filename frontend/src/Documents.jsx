@@ -132,8 +132,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
         <div className="brand">
           <span className="brand-mark">▤</span>
           <div className="brand-text">
-            <span className="brand-name">Documents</span>
-            <span className="brand-sub">Document flow · {dataView}</span>
+            <span className="brand-name">Documents · NVS</span>
+            <span className="brand-sub">New pipeline (nieuwe verwerkingsstraat) · {dataView}</span>
           </div>
         </div>
         <div className="header-right">

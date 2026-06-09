@@ -5,11 +5,12 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from auth import require_admin
-from briefing import generate_briefing
+from briefing import explain_trace, generate_briefing
 from cache import TTLCache
 from certificates import fetch_certificates
 from config import settings
 from documents import build_document_activity, trace_document
+from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ _summary_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _briefing_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _cert_cache = TTLCache(ttl=3600)  # certificates change slowly
 _documents_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
+_trace_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
 # Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
 ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
@@ -114,6 +116,17 @@ async def documents(
     return payload
 
 
+async def _get_trace(sid: str, doc_id: str, dv: str) -> dict:
+    """Trace one document, cached briefly so the AI-explain call reuses it."""
+    key = f"trace:{dv}:{doc_id}"
+    cached = _trace_cache.get(key)
+    if cached is not None:
+        return cached
+    result = await trace_document(sid, doc_id, dv)
+    _trace_cache.set(key, result)
+    return result
+
+
 @router.get("/document-trace")
 async def document_trace(
     id: str = Query(..., min_length=2, max_length=200),
@@ -123,7 +136,35 @@ async def document_trace(
     """Trace one document's full lifecycle across services by its Plooi/ronl id."""
     dv = resolve_data_view(data_view)
     try:
-        return await trace_document(session["sid"], id, dv)
+        return await _get_trace(session["sid"], id, dv)
     except Exception as e:
         logger.error(f"Document trace failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to trace document: {e}")
+
+
+@router.get("/document-trace/explain")
+async def document_trace_explain(
+    id: str = Query(..., min_length=2, max_length=200),
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Grounded, plain-language AI summary of one document's journey. Reports the
+    provider/model used. Never fails the request on an LLM error — the error is
+    returned inline so the UI can show it without losing the deterministic trace."""
+    dv = resolve_data_view(data_view)
+    provider, model = provider_model(session)
+    try:
+        trace = await _get_trace(session["sid"], id, dv)
+    except Exception as e:
+        logger.error(f"Document trace (for explain) failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to trace document: {e}")
+
+    if not trace.get("found"):
+        return {"summary": "No log events for this id in this data view, so there is nothing to analyze.",
+                "provider": provider, "model": model, "error": False}
+    try:
+        summary = await explain_trace(trace, session=session)
+        return {"summary": summary, "provider": provider, "model": model, "error": False}
+    except Exception as e:
+        logger.error(f"Trace AI explain failed: {e}")
+        return {"summary": str(e), "provider": provider, "model": model, "error": True}

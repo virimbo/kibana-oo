@@ -39,6 +39,61 @@ def build_facts(snap: DashboardSnapshot) -> str:
     return json.dumps(facts, indent=2, default=str)
 
 
+TRACE_SYSTEM = (
+    "You are KIBANA-OO's document-flow analyst. You are given EXACT facts about "
+    "ONE document's journey through the publication pipeline (the services it "
+    "passed, counts, errors, timing, and its official metadata).\n"
+    "Rules:\n"
+    "- Use ONLY the facts provided. Do not invent services, causes, or numbers.\n"
+    "- Explain in plain language what happened to the document and whether the "
+    "flow looks healthy.\n"
+    "- If there are errors, name the service(s) where they occurred.\n"
+    "- Be concise: 2-4 sentences.\n"
+    "- End with a final line exactly of the form 'Verdict: HEALTHY' or "
+    "'Verdict: NEEDS ATTENTION'."
+)
+
+
+def build_trace_facts(trace: dict) -> str:
+    """Serialize a document trace into the JSON facts the LLM narrates."""
+    meta = trace.get("portal_meta") or {}
+    facts = {
+        "document_id": trace.get("id"),
+        "official_title": trace.get("title"),
+        "organization": meta.get("organization"),
+        "document_type": meta.get("type"),
+        "woo_category": meta.get("category"),
+        "publication_status": meta.get("status"),
+        "published_date": meta.get("published"),
+        "total_log_events": len(trace.get("events", [])),
+        "errors": trace.get("errors"),
+        "first_seen": trace.get("first_seen"),
+        "last_seen": trace.get("last_seen"),
+        "journey": [
+            {
+                "service": s.get("service"),
+                "events": s.get("events"),
+                "errors": s.get("errors"),
+                "first_seen": s.get("first_seen"),
+                "last_seen": s.get("last_seen"),
+                "sample_message": s.get("message"),
+            }
+            for s in trace.get("stages", [])
+        ],
+    }
+    return json.dumps(facts, indent=2, default=str)
+
+
+async def explain_trace(trace: dict, session: dict | None = None) -> str:
+    """Plain-language, grounded explanation of one document's journey."""
+    return await generate_answer(
+        question="Explain what happened to this document as it moved through the pipeline, and whether anything looks wrong.",
+        context=build_trace_facts(trace),
+        system=TRACE_SYSTEM,
+        session=session,
+    )
+
+
 async def generate_briefing(snap: DashboardSnapshot, session: dict | None = None) -> str:
     # Pass the grounding rules as the system message (not buried in the user
     # turn) so a small model treats them as authoritative. `session` carries the

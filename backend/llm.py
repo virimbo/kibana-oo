@@ -57,6 +57,14 @@ def _get_provider(session: dict | None = None) -> str:
     return settings.llm_provider
 
 
+def provider_model(session: dict | None = None) -> tuple[str, str]:
+    """The (provider, model) pair that will actually answer for this session —
+    used by the UI to show which AI produced a result."""
+    provider = _get_provider(session)
+    model = settings.mistral_model if provider == "mistral" else settings.ollama_model
+    return provider, model
+
+
 async def generate_answer(question: str, context: str, system: str | None = None, session: dict | None = None) -> str:
     """Generate a complete answer (non-streaming)."""
     messages = _build_prompt(question, context, system=system)

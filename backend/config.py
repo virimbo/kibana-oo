@@ -44,6 +44,13 @@ class Settings(BaseSettings):
     doc_link_template: str = "https://open.overheid.nl/documenten/{id}"
     # Document management (aanleverloket) link for the tracer — the id is the UUID.
     doculoket_link_template: str = "https://doculoket.overheid.nl/#/aanleveren/{id}"
+    # Public open-data portal (open.overheid.nl). The metadata API resolves a
+    # document's official title + publication metadata that the logs don't carry;
+    # the details template is the human-browsable page. Best-effort, cached.
+    portal_meta_api: str = "https://open.overheid.nl/overheid/openbaarmakingen/api/v0/zoek/{id}"
+    portal_details_template: str = "https://open.overheid.nl/details/{id}"
+    portal_meta_timeout: float = 6.0       # seconds; keep short — it must never stall a trace
+    portal_meta_ttl: int = 3600            # seconds; published metadata changes slowly
 
     # Documents activity tab: which logs count as document events, and how many to feed.
     document_event_query: str = "ronl OR document OR bestand OR upload OR publicatie OR versie"

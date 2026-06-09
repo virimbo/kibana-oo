@@ -52,6 +52,63 @@ function collapse(events) {
   return out;
 }
 
+const fmtDuration = (a, b) => {
+  if (!a || !b) return "";
+  const ms = new Date(b) - new Date(a);
+  if (isNaN(ms) || ms < 0) return "";
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)}h ${m % 60}m`;
+};
+
+// A colour-coded pipeline flow of the services a document passed through, in
+// order. Errored stages glow red; each node reveals a rich tooltip (events,
+// timing, duration, sample log) on hover/focus. Replaces the plain chip row and
+// the bare stage table with one diagram.
+function JourneyFlow({ stages }) {
+  if (!stages || stages.length === 0) return null;
+  return (
+    <div className="jflow" role="list" aria-label="Document journey through services">
+      {stages.map((s, i) => {
+        const err = s.errors > 0;
+        const dur = fmtDuration(s.first_seen, s.last_seen);
+        return (
+          <div className="jflow-item" role="listitem" key={s.service}>
+            <div className={`jflow-node ${err ? "jflow-node--err" : "jflow-node--ok"}`} tabIndex={0}>
+              <span className="jflow-step">{i + 1}</span>
+              <span className="jflow-dot" aria-hidden="true" />
+              <span className="jflow-name">{s.service}</span>
+              <span className="jflow-count" title="log events at this stage">{s.events}</span>
+              {err && <span className="jflow-badge">⚠ {s.errors}</span>}
+              <div className="jflow-tip" role="tooltip">
+                <div className="jflow-tip-head">
+                  <span className="jflow-tip-step">Step {i + 1} of {stages.length}</span>
+                  <span className={`jflow-tip-status ${err ? "is-err" : "is-ok"}`}>
+                    {err ? `⚠ ${s.errors} error${s.errors === 1 ? "" : "s"}` : "✓ healthy"}
+                  </span>
+                </div>
+                <div className="jflow-tip-name">{s.service}</div>
+                <dl className="jflow-tip-grid">
+                  <dt>Events</dt>
+                  <dd>{s.events}</dd>
+                  <dt>Time</dt>
+                  <dd>{fmtTime(s.first_seen)} → {fmtTime(s.last_seen)}{dur ? ` · ${dur}` : ""}</dd>
+                </dl>
+                {s.message && <div className="jflow-tip-msg">{s.message}</div>}
+              </div>
+            </div>
+            {i < stages.length - 1 && (
+              <span className={`jflow-arrow ${err ? "jflow-arrow--err" : ""}`} aria-hidden="true" />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function DocumentsPage({ token, username, onLogout, onNavigate }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -67,6 +124,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
   const [traceLoading, setTraceLoading] = useState(false);
   const [traceError, setTraceError] = useState("");
   const [showAllEvents, setShowAllEvents] = useState(false);
+  const [ai, setAi] = useState(null); // { summary, provider, model, error }
+  const [aiLoading, setAiLoading] = useState(false);
 
   const runTrace = useCallback(async () => {
     const id = traceId.trim();
@@ -74,12 +133,25 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
     setTraceLoading(true);
     setTraceError("");
     setTrace(null);
+    setAi(null);
     try {
       const d = await getJSON(
         `/dashboard/document-trace?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
         token
       );
       setTrace(d);
+      // Kick off the grounded AI analysis in the background — the trace renders
+      // immediately; a failing/slow LLM never blocks it.
+      if (d.found) {
+        setAiLoading(true);
+        getJSON(
+          `/dashboard/document-trace/explain?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
+          token
+        )
+          .then((r) => setAi(r))
+          .catch((e) => setAi({ summary: e.message, error: true }))
+          .finally(() => setAiLoading(false));
+      }
     } catch (e) {
       if (e.message === "unauthorized") return onLogout();
       setTraceError(e.message);
@@ -282,20 +354,57 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                   (trace.found ? (
                     <>
                       <div className="trace-card">
-                        <div className="trace-title">{trace.title || "(no title found in logs)"}</div>
+                        <div className="trace-title">{trace.title || "(title unavailable)"}</div>
                         <div className="trace-id">
                           <code>{trace.id}</code>
                         </div>
+                        {trace.portal_meta && (
+                          <div className="trace-meta">
+                            {trace.portal_meta.type && <span className="meta-chip">{trace.portal_meta.type}</span>}
+                            {trace.portal_meta.status && (
+                              <span className="meta-chip meta-chip--status">{trace.portal_meta.status}</span>
+                            )}
+                            {trace.portal_meta.published && (
+                              <span className="meta-chip">📅 {trace.portal_meta.published}</span>
+                            )}
+                            {trace.portal_meta.pages != null && (
+                              <span className="meta-chip">
+                                {trace.portal_meta.pages} {trace.portal_meta.pages === 1 ? "page" : "pages"}
+                              </span>
+                            )}
+                            {trace.portal_meta.category && <span className="meta-chip">{trace.portal_meta.category}</span>}
+                            {trace.portal_meta.organization && (
+                              <span className="meta-chip meta-chip--org">{trace.portal_meta.organization}</span>
+                            )}
+                          </div>
+                        )}
                         <div className="trace-links">
                           <a className="btn btn--primary" href={trace.doculoket_link} target="_blank" rel="noreferrer">
                             Open in doculoket ↗
                           </a>
                           {trace.portal_link && (
                             <a className="btn btn--ghost" href={trace.portal_link} target="_blank" rel="noreferrer">
-                              Open on overheid.nl ↗
+                              View on open.overheid.nl ↗
                             </a>
                           )}
                         </div>
+                        {(aiLoading || ai) && (
+                          <div className={`trace-ai${ai?.error ? " trace-ai--err" : ""}`}>
+                            <div className="trace-ai-head">
+                              <span className="trace-ai-label">🤖 AI analysis</span>
+                              {ai && !ai.error && ai.provider && (
+                                <span className="trace-ai-badge">
+                                  {ai.provider} · {ai.model}
+                                </span>
+                              )}
+                            </div>
+                            {aiLoading ? (
+                              <p className="trace-ai-body muted">Analyzing the document journey…</p>
+                            ) : (
+                              <p className="trace-ai-body">{ai.summary}</p>
+                            )}
+                          </div>
+                        )}
                         <div className="trace-stats">
                           <span className={`trace-stat ${trace.errors > 0 ? "trace-stat--bad" : "trace-stat--ok"}`}>
                             {trace.errors > 0
@@ -310,59 +419,19 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                           )}
                         </div>
                         {trace.stages && trace.stages.length > 0 && (
-                          <div className="trace-services">
-                            <span className="trace-services-label">Journey:</span>
-                            <div className="journey">
-                              {trace.stages.map((s) => (
-                                <span
-                                  key={s.service}
-                                  className={`journey-step ${s.errors > 0 ? "journey-step--err" : ""}`}
-                                  title={`${s.events} event${s.events === 1 ? "" : "s"}${
-                                    s.errors ? ` · ${s.errors} error` : ""
-                                  }`}
-                                >
-                                  {s.service}
-                                </span>
-                              ))}
+                          <div className="trace-journey">
+                            <div className="trace-journey-head">
+                              <span className="trace-services-label">Journey</span>
+                              <span className="jflow-legend">
+                                <span className="jflow-legend-item"><i className="jflow-legend-dot is-ok" /> healthy</span>
+                                <span className="jflow-legend-item"><i className="jflow-legend-dot is-err" /> error</span>
+                                <span className="jflow-legend-hint">hover a step for details</span>
+                              </span>
                             </div>
+                            <JourneyFlow stages={trace.stages} />
                           </div>
                         )}
                       </div>
-                      <table className="dash-table">
-                        <thead>
-                          <tr>
-                            <th>Stage (service)</th>
-                            <th>Events</th>
-                            <th>First → Last</th>
-                            <th>Status</th>
-                            <th>Note</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {trace.stages.map((s) => (
-                            <tr key={s.service} className={s.errors > 0 ? "row-err" : ""}>
-                              <td>{s.service}</td>
-                              <td>{s.events}</td>
-                              <td className="feed-time">
-                                {fmtTime(s.first_seen)} → {fmtTime(s.last_seen)}
-                              </td>
-                              <td>
-                                {s.errors > 0 ? (
-                                  <span className="num-bad">⚠ {s.errors} error{s.errors === 1 ? "" : "s"}</span>
-                                ) : (
-                                  <>
-                                    <span className="feed-status feed-status--ok" />
-                                    ok
-                                  </>
-                                )}
-                              </td>
-                              <td className="feed-msg" title={s.message || ""}>
-                                {s.message || <span className="muted">—</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
                       <button
                         className="btn btn--ghost trace-toggle"
                         onClick={() => setShowAllEvents((v) => !v)}

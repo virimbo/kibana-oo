@@ -94,6 +94,51 @@ async def _es_search(sid: str, index: str, body: dict) -> dict:
         return response.json()
 
 
+# Document ids embedded in a free-text question: a UUID (Plooi publication id)
+# or a KOOP "ronl-…" identifier. Used to pivot chat into a document trace.
+_DOC_ID_RE = re.compile(
+    r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|ronl-[A-Za-z0-9-]+",
+    re.IGNORECASE,
+)
+
+
+def extract_doc_ids(text: str) -> list[str]:
+    """Return the distinct document ids mentioned in a question, in order."""
+    seen: list[str] = []
+    for match in _DOC_ID_RE.findall(text or ""):
+        if match not in seen:
+            seen.append(match)
+    return seen
+
+
+async def search_by_document_id(
+    sid: str,
+    doc_id: str,
+    index: str | None = None,
+    size: int = 200,
+    days: int = 30,
+) -> list[dict]:
+    """All log events mentioning a document id across a WIDE window (oldest
+    first), so a question about a specific document is answered regardless of
+    the narrow time range selected for general chat."""
+    now = datetime.now(timezone.utc)
+    time_from = now - timedelta(days=days)
+    body = {
+        "size": size,
+        "sort": [{"@timestamp": {"order": "asc"}}],
+        "query": {
+            "bool": {
+                "filter": [
+                    {"range": {"@timestamp": {"gte": time_from.isoformat(), "lte": now.isoformat()}}},
+                    {"query_string": {"query": f'"{doc_id}"', "default_field": "*", "lenient": True}},
+                ]
+            }
+        },
+    }
+    result = await _es_search(sid, index or settings.es_log_index, body)
+    return _format_hits(result.get("hits", {}).get("hits", []))
+
+
 async def get_recent_logs(
     sid: str,
     size: int = 15,

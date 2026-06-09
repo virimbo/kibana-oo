@@ -190,20 +190,16 @@ async def chat(
     try:
         if doc_ids:
             # Intelligent path: the question names specific document id(s). Trace
-            # each across a WIDE window (ignoring the narrow selected range — the
-            # events may be hours/days old, as in a "published twice?" audit) and
-            # enrich with the official title from the public portal.
+            # each across a WIDE window AND across EVERY data view (not just the
+            # selected one — a document's pipeline logs may live in a different
+            # index than the user has selected), and enrich with the official
+            # title from the public portal.
             id_hits, metas = await asyncio.gather(
-                asyncio.gather(*[
-                    search_by_document_id(
-                        sid, did, index=data_view,
-                        size=settings.chat_doc_scan_size, days=settings.chat_doc_scan_days,
-                    ) for did in doc_ids
-                ]),
+                asyncio.gather(*[_collect_doc_events(sid, did) for did in doc_ids]),
                 asyncio.gather(*[fetch_document_meta(did) for did in doc_ids], return_exceptions=True),
             )
             all_results = [hit for hits in id_hits for hit in hits]
-            context = _build_doc_context(doc_ids, id_hits, metas, data_view, settings.chat_doc_scan_days)
+            context = _build_doc_context(doc_ids, id_hits, metas, settings.chat_doc_scan_days)
         else:
             # Generic path: run the three context queries CONCURRENTLY (was
             # sequential — three back-to-back round-trips through Kibana).
@@ -228,12 +224,12 @@ async def chat(
 
     if not context.strip():
         if doc_ids:
+            views = ", ".join(settings.data_view_list)
             context = (
-                f"No log events were found for {', '.join(doc_ids)} in data view "
-                f"'{data_view}' over the last {settings.chat_doc_scan_days} days. "
-                "The document may live in a different data view (e.g. the KOOP "
-                "Plooi data stream) — suggest switching the data view or using the "
-                "Documents → Trace a document tool."
+                f"No log events were found for {', '.join(doc_ids)} in any data view "
+                f"({views}) over the last {settings.chat_doc_scan_days} days. State "
+                "this plainly: the id may be wrong, outside the retention window, or "
+                "the events are not yet indexed."
             )
         else:
             context = "No matching data found in Elasticsearch for the given time range."
@@ -266,11 +262,41 @@ async def _stream_response(question: str, context: str, sources: list[dict], ses
         yield {"event": "error", "data": str(e)}
 
 
+async def _collect_doc_events(sid: str, doc_id: str) -> list[dict]:
+    """All log events mentioning a document id, searched across a WIDE window
+    and EVERY allowed data view, de-duplicated and time-ordered (oldest first).
+    Per-view failures are tolerated so one unavailable index never blocks the
+    audit — the document is found wherever its logs actually live."""
+    views = settings.data_view_list
+    results = await asyncio.gather(
+        *[
+            search_by_document_id(
+                sid, doc_id, index=v,
+                size=settings.chat_doc_scan_size, days=settings.chat_doc_scan_days,
+            )
+            for v in views
+        ],
+        return_exceptions=True,
+    )
+    merged: list[dict] = []
+    for res in results:
+        if not isinstance(res, Exception):
+            merged.extend(res)
+    seen: set = set()
+    unique: list[dict] = []
+    for e in sorted(merged, key=lambda x: x.get("timestamp", "")):
+        key = (e.get("timestamp", ""), (e.get("message", "") or "")[:80], e.get("index", ""))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(e)
+    return unique
+
+
 def _build_doc_context(
     doc_ids: list[str],
     id_hits: list[list[dict]],
     metas: list,
-    data_view: str,
     days: int,
 ) -> str:
     """Grounded context for a document-scoped question: the official metadata
@@ -291,15 +317,17 @@ def _build_doc_context(
             if meta.get("organization"):
                 parts.append(f"- Organization: {meta['organization']}")
         parts.append(
-            f"- Log events in '{data_view}' over the last {days} days: {len(events)} "
-            "(oldest first)"
+            f"- Log events across all data views over the last {days} days: "
+            f"{len(events)} (oldest first)"
         )
         for e in events[:80]:  # cap to keep the prompt focused
             ts = e.get("timestamp", "?")
             level = e.get("level", "")
+            idx = e.get("index", "")
             msg = (e.get("message", "") or "")[:300]
             lvl = f"[{level}] " if level else ""
-            parts.append(f"  - [{ts}] {lvl}{msg}")
+            src = f"({idx}) " if idx else ""
+            parts.append(f"  - [{ts}] {lvl}{src}{msg}")
         parts.append("")
     return "\n".join(parts)
 

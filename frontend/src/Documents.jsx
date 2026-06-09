@@ -47,6 +47,30 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
   const [loadedAt, setLoadedAt] = useState(null);
   const [q, setQ] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
+  const [traceId, setTraceId] = useState("");
+  const [trace, setTrace] = useState(null);
+  const [traceLoading, setTraceLoading] = useState(false);
+  const [traceError, setTraceError] = useState("");
+
+  const runTrace = useCallback(async () => {
+    const id = traceId.trim();
+    if (!id) return;
+    setTraceLoading(true);
+    setTraceError("");
+    setTrace(null);
+    try {
+      const d = await getJSON(
+        `/dashboard/document-trace?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
+        token
+      );
+      setTrace(d);
+    } catch (e) {
+      if (e.message === "unauthorized") return onLogout();
+      setTraceError(e.message);
+    } finally {
+      setTraceLoading(false);
+    }
+  }, [traceId, dataView, token, onLogout]);
 
   useEffect(() => {
     let active = true;
@@ -210,6 +234,119 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                       </li>
                     ))}
                   </ul>
+                )}
+              </section>
+
+              <section className="panel">
+                <div className="panel-head">
+                  <h3>
+                    Trace a document
+                    <InfoTip text="Enter a Plooi/document id (ronl-…) to see its full lifecycle across services — every step, status, and any errors — so you can find where its flow failed." />
+                  </h3>
+                </div>
+                <form
+                  className="trace-form"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    runTrace();
+                  }}
+                >
+                  <input
+                    className="feed-search trace-input"
+                    placeholder="e.g. ronl-d9d80f3d0fb042bf7fd2eea4708b937f"
+                    value={traceId}
+                    onChange={(e) => setTraceId(e.target.value)}
+                  />
+                  <button className="btn btn--primary" type="submit" disabled={traceLoading || !traceId.trim()}>
+                    {traceLoading ? "Tracing…" : "Trace"}
+                  </button>
+                </form>
+                {traceError && <p className="muted">{traceError}</p>}
+                {trace &&
+                  (trace.found ? (
+                    <>
+                      <p className="muted trace-meta">
+                        {trace.events.length} events for <code>{trace.id}</code>
+                        {trace.errors > 0 && (
+                          <span className="delta delta--up"> · {trace.errors} error{trace.errors === 1 ? "" : "s"}</span>
+                        )}
+                        {trace.link && (
+                          <>
+                            {" · "}
+                            <a href={trace.link} target="_blank" rel="noreferrer" className="doc-link">
+                              open on portal
+                            </a>
+                          </>
+                        )}
+                      </p>
+                      <table className="dash-table feed-table">
+                        <thead>
+                          <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>Status</th>
+                            <th>Service</th>
+                            <th>Message</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {trace.events.map((e, i) => (
+                            <tr key={i}>
+                              <td className="feed-time">{fmtTime(e.timestamp)}</td>
+                              <td><ActionBadge action={e.action} /></td>
+                              <td>
+                                <span className={`feed-status feed-status--${e.status}`} />
+                                {e.status}
+                              </td>
+                              <td>{e.service || "—"}</td>
+                              <td className="feed-msg" title={e.message}>{e.message}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </>
+                  ) : (
+                    <p className="muted">No events found for that id in this data view / period-independent search.</p>
+                  ))}
+              </section>
+
+              <section className="panel">
+                <h3>
+                  Errors by source
+                  <InfoTip text="Processing and mapping issues grouped by document source (bron) in this window — spot which feed is failing. Best-effort source detection (tunable)." />
+                </h3>
+                {!data.by_source || data.by_source.length === 0 ? (
+                  <p className="muted">No processing or mapping issues in this window.</p>
+                ) : (
+                  <table className="dash-table">
+                    <thead>
+                      <tr>
+                        <th>Source</th>
+                        <th>Processing errors</th>
+                        <th>Mapping warnings</th>
+                        <th>Mapping errors</th>
+                        <th>Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.by_source.map((r) => (
+                        <tr key={r.source}>
+                          <td>{r.source}</td>
+                          <td className={r.processing_error ? "num-bad" : "num-zero"}>{r.processing_error}</td>
+                          <td className={r.mapping_warning ? "num-warn" : "num-zero"}>{r.mapping_warning}</td>
+                          <td className={r.mapping_error ? "num-bad" : "num-zero"}>{r.mapping_error}</td>
+                          <td><strong>{r.total}</strong></td>
+                        </tr>
+                      ))}
+                      <tr className="row-total">
+                        <td><strong>Total</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.processing_error, 0)}</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.mapping_warning, 0)}</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.mapping_error, 0)}</strong></td>
+                        <td><strong>{data.by_source.reduce((s, r) => s + r.total, 0)}</strong></td>
+                      </tr>
+                    </tbody>
+                  </table>
                 )}
               </section>
 

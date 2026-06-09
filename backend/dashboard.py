@@ -9,7 +9,7 @@ from briefing import generate_briefing
 from cache import TTLCache
 from certificates import fetch_certificates
 from config import settings
-from documents import build_document_activity
+from documents import build_document_activity, trace_document
 from monitoring import build_snapshot, resolve_data_view
 
 logger = logging.getLogger(__name__)
@@ -112,3 +112,18 @@ async def documents(
     payload = activity.model_dump()
     _documents_cache.set(key, payload)
     return payload
+
+
+@router.get("/document-trace")
+async def document_trace(
+    id: str = Query(..., min_length=2, max_length=200),
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Trace one document's full lifecycle across services by its Plooi/ronl id."""
+    dv = resolve_data_view(data_view)
+    try:
+        return await trace_document(session["sid"], id, dv)
+    except Exception as e:
+        logger.error(f"Document trace failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to trace document: {e}")

@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     document_event_size: int = 200
     # Best-effort source fields for a document's organization (tune to your logs).
     doc_org_fields: str = "organisatie,bronorganisatie,publisher,organization,source.organization,verantwoordelijke,bron,afzender"
+    # Known document sources (bron) for the errors-by-source table.
+    processing_sources: str = "aanleverloket,dpc,oep-ob,oep,plooi-api,ronl-archief,ronl,roo,woo-idx"
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
@@ -68,6 +70,12 @@ class Settings(BaseSettings):
             if view and view not in seen:
                 seen.append(view)
         return seen or [self.es_log_index]
+
+    @property
+    def processing_source_list(self) -> list[str]:
+        """Known sources, longest-first so 'ronl-archief' wins over 'ronl'."""
+        items = [s.strip() for s in self.processing_sources.split(",") if s.strip()]
+        return sorted(items, key=len, reverse=True)
 
     @property
     def admin_list(self) -> list[str]:

@@ -1209,6 +1209,17 @@ body {
 .feed-status--error { background: var(--error); }
 .feed-foot { margin-top: 10px; }
 
+/* Errors by source */
+.num-bad { color: var(--error); font-weight: 700; }
+.num-warn { color: var(--warn); font-weight: 700; }
+.num-zero { color: var(--text-faint); }
+.row-total td { border-top: 2px solid var(--border-strong); }
+
+/* Document tracer */
+.trace-form { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+.trace-input { min-width: 360px; flex: 1; }
+.trace-meta { margin-bottom: 10px; }
+
 /* Certificate cards */
 .cert-cards {
   display: grid;

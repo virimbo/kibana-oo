@@ -36,6 +36,49 @@ def test_summarize_event(monkeypatch):
     assert e["service"] == "storage.FilesystemStorage"
 
 
+def test_detect_source(monkeypatch):
+    monkeypatch.setattr(documents.settings, "processing_sources",
+                        "aanleverloket,dpc,oep-ob,oep,plooi-api,ronl-archief,ronl,roo,woo-idx")
+    assert documents.detect_source("ronl-archief-abc", "x") == "ronl-archief"  # longest prefix wins
+    assert documents.detect_source("ronl-abc", "x") == "ronl"
+    assert documents.detect_source(None, "ingest from woo-idx feed") == "woo-idx"
+    assert documents.detect_source(None, "unrelated") == "other"
+
+
+def test_classify_error_category():
+    assert documents.classify_error_category("mapping failed for field x", "ERROR") == "mapping_error"
+    assert documents.classify_error_category("mapping warning: unknown field", "WARN") == "mapping_warning"
+    assert documents.classify_error_category("storage timeout", "ERROR") == "processing_error"
+
+
+def test_build_source_errors(monkeypatch):
+    monkeypatch.setattr(documents.settings, "processing_sources", "ronl-archief,ronl,woo-idx")
+    hits = [
+        {"_source": {"level": "ERROR", "message": "mapping failed for ronl-archief-1"}},
+        {"_source": {"level": "WARN", "message": "mapping warning ronl-archief-2"}},
+        {"_source": {"level": "ERROR", "message": "storage timeout for ronl-9"}},
+    ]
+    rows = {r["source"]: r for r in documents.build_source_errors(hits)}
+    assert rows["ronl-archief"]["mapping_error"] == 1
+    assert rows["ronl-archief"]["mapping_warning"] == 1
+    assert rows["ronl-archief"]["total"] == 2
+    assert rows["ronl"]["processing_error"] == 1
+
+
+async def test_trace_document(monkeypatch):
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": [
+            {"_source": {"@timestamp": "t1", "level": "INFO", "message": "ingest ronl-x besluit.pdf"}},
+            {"_source": {"@timestamp": "t2", "level": "ERROR", "message": "indexing failed for ronl-x"}}]}}
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents.settings, "data_views", "logs-*")
+    monkeypatch.setattr(documents.settings, "default_data_view", "logs-*")
+    trace = await documents.trace_document("sid", "ronl-x", "logs-*")
+    assert trace["found"] is True
+    assert trace["errors"] == 1
+    assert len(trace["events"]) == 2
+
+
 @pytest.fixture
 def patched(monkeypatch):
     async def fake_es(sid, index, body):

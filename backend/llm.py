@@ -51,11 +51,19 @@ def _llm_error_message(exc: Exception) -> str:
     return f"AI generation failed: {exc}"
 
 
-async def generate_answer(question: str, context: str, system: str | None = None) -> str:
+def _get_provider(session: dict | None = None) -> str:
+    """Get the LLM provider to use. Session preference takes precedence over global config."""
+    if session and session.get("llm_provider"):
+        return session["llm_provider"]
+    return settings.llm_provider
+
+
+async def generate_answer(question: str, context: str, system: str | None = None, session: dict | None = None) -> str:
     """Generate a complete answer (non-streaming)."""
     messages = _build_prompt(question, context, system=system)
+    provider = _get_provider(session)
     try:
-        if settings.llm_provider == "mistral":
+        if provider == "mistral":
             return await _generate_mistral_answer(messages)
         return await _generate_ollama_answer(messages, stream=False)
     except (httpx.HTTPStatusError, httpx.RequestError) as e:
@@ -94,12 +102,13 @@ async def _generate_mistral_answer(messages: list[dict]) -> str:
 
 
 async def generate_answer_stream(
-    question: str, context: str
+    question: str, context: str, session: dict | None = None
 ) -> AsyncIterator[str]:
     """Generate a streaming answer, yielding chunks as they arrive."""
     messages = _build_prompt(question, context)
+    provider = _get_provider(session)
     try:
-        if settings.llm_provider == "mistral":
+        if provider == "mistral":
             async for chunk in _generate_mistral_answer_stream(messages):
                 yield chunk
         else:

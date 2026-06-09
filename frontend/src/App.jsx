@@ -40,8 +40,12 @@ const DEFAULT_DATA_VIEWS = [
 ];
 
 const DATA_VIEW_KEY = "kibana_oo_dataview";
+const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+// Available LLM providers
+const LLM_PROVIDERS = ["ollama", "mistral"];
 
 const fmtTime = (date) =>
   new Intl.DateTimeFormat(undefined, {
@@ -291,6 +295,9 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
   const [dataView, setDataView] = useState(
     () => sessionStorage.getItem(DATA_VIEW_KEY) || DEFAULT_DATA_VIEWS[0].id
   );
+  const [llmProvider, setLlmProvider] = useState(
+    () => sessionStorage.getItem(LLM_PROVIDER_KEY) || "ollama"
+  );
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null); // null = unknown
   const scrollRef = useRef(null);
@@ -340,6 +347,25 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
   useEffect(() => {
     sessionStorage.setItem(DATA_VIEW_KEY, dataView);
   }, [dataView]);
+
+  // Persist the selected LLM provider across reloads
+  useEffect(() => {
+    sessionStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
+  }, [llmProvider]);
+
+  // When LLM provider changes, update the backend
+  useEffect(() => {
+    if (token) {
+      fetch(`${BACKEND_URL}/llm-provider`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ provider: llmProvider }),
+      }).catch(() => {});
+    }
+  }, [llmProvider, token]);
 
   // Health poll for the connection indicator
   useEffect(() => {
@@ -562,6 +588,23 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
       <div className="composer">
         <div className="composer-inner">
           <div className="composer-controls">
+            <label className="control">
+              <span className="control-label">LLM Provider</span>
+              <select
+                className="control-select"
+                value={llmProvider}
+                onChange={(e) => setLlmProvider(e.target.value)}
+                disabled={loading}
+                title="Select LLM provider (Ollama for local Llama, Mistral for cloud)"
+              >
+                {LLM_PROVIDERS.map((p) => (
+                  <option key={p} value={p}>
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="control">
               <span className="control-label">Data view</span>
               <select

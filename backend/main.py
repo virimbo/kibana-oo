@@ -20,7 +20,8 @@ from elastic import (
     search_logs,
     search_metrics,
 )
-from llm import generate_answer, generate_answer_stream
+from llm import generate_answer, generate_answer_stream, polish_text
+from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router
@@ -49,10 +50,12 @@ class LoginRequest(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    question: str
+    question: str = ""
     time_range_minutes: int = 60
     data_view: str | None = None
     stream: bool = True
+    image: str | None = None       # base64 data URL of an uploaded screenshot
+    autocorrect: bool = True       # auto spelling/grammar correction of the question
 
 
 # Friendly labels for the known data views (falls back to the raw id).
@@ -178,71 +181,91 @@ async def chat(
     username = session["username"]
 
     question = request.question.strip()
-    if not question:
-        raise HTTPException(status_code=400, detail="Question cannot be empty")
 
+    # Step 0: if a screenshot was attached, OCR it (offline, non-fatal) and fold
+    # the text into the question so the rest of the pipeline — including document
+    # id detection — works on it. OCR is blocking, so run it off the event loop.
+    image_text = ""
+    if request.image:
+        image_text = await asyncio.to_thread(image_to_text, request.image)
+
+    if not question and not image_text:
+        raise HTTPException(status_code=400, detail="Provide a question or a readable image")
+
+    # The full text we search/detect ids against (typed + extracted-from-image).
+    search_text = "\n".join(t for t in (question, image_text) if t).strip()
     data_view = _resolve_data_view(request.data_view)
-    doc_ids = extract_doc_ids(question)
-    logger.info(f"[{username}] [{data_view}] Question: {question[:100]}"
+    doc_ids = extract_doc_ids(search_text)
+    logger.info(f"[{username}] [{data_view}] Question: {question[:80]}"
+                + (f" · image_text={len(image_text)}c" if image_text else "")
                 + (f" · doc_ids={doc_ids}" if doc_ids else ""))
 
-    # Step 1+2: Search Elasticsearch via Kibana and build the LLM context.
-    try:
+    async def _do_search() -> tuple[list[dict], str]:
         if doc_ids:
-            # Intelligent path: the question names specific document id(s). Trace
-            # each across a WIDE window AND across EVERY data view (not just the
-            # selected one — a document's pipeline logs may live in a different
-            # index than the user has selected), and enrich with the official
-            # title from the public portal.
+            # Intelligent path: the text names specific document id(s). Trace each
+            # across a WIDE window AND across EVERY data view (a document's logs
+            # may live in a different index than the one selected), enriched with
+            # the official title from the public portal.
             id_hits, metas = await asyncio.gather(
                 asyncio.gather(*[_collect_doc_events(sid, did) for did in doc_ids]),
                 asyncio.gather(*[fetch_document_meta(did) for did in doc_ids], return_exceptions=True),
             )
-            all_results = [hit for hits in id_hits for hit in hits]
-            context = _build_doc_context(doc_ids, id_hits, metas, settings.chat_doc_scan_days)
-        else:
-            # Generic path: run the three context queries CONCURRENTLY (was
-            # sequential — three back-to-back round-trips through Kibana).
-            recent_logs, log_results, error_results = await asyncio.gather(
-                get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
-                search_logs(sid, question, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
-                get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
-            )
-            seen = set()
-            merged_logs = []
-            for entry in log_results + recent_logs:
-                key = entry.get("timestamp", "") + entry.get("message", "")[:50]
-                if key not in seen:
-                    seen.add(key)
-                    merged_logs.append(entry)
-            log_results = merged_logs
-            all_results = log_results + error_results
-            context = _build_context(log_results, [], error_results)
+            results = [hit for hits in id_hits for hit in hits]
+            ctx = _build_doc_context(doc_ids, id_hits, metas, settings.chat_doc_scan_days)
+            if not ctx.strip():
+                views = ", ".join(settings.data_view_list)
+                ctx = (
+                    f"No log events were found for {', '.join(doc_ids)} in any data view "
+                    f"({views}) over the last {settings.chat_doc_scan_days} days. State "
+                    "this plainly: the id may be wrong, outside the retention window, or "
+                    "the events are not yet indexed."
+                )
+            return results, ctx
+        # Generic path: run the three context queries CONCURRENTLY.
+        recent_logs, log_results, error_results = await asyncio.gather(
+            get_recent_logs(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
+            search_logs(sid, search_text, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
+            get_recent_errors(sid, size=5, time_range_minutes=request.time_range_minutes, index=data_view),
+        )
+        seen = set()
+        merged_logs = []
+        for entry in log_results + recent_logs:
+            key = entry.get("timestamp", "") + entry.get("message", "")[:50]
+            if key not in seen:
+                seen.add(key)
+                merged_logs.append(entry)
+        results = merged_logs + error_results
+        ctx = _build_context(merged_logs, [], error_results)
+        return results, (ctx or "No matching data found in Elasticsearch for the given time range.")
+
+    # Step 1+2+polish: search Kibana AND spell/grammar-correct the typed question
+    # CONCURRENTLY, so the correction adds (almost) no wall-clock time.
+    try:
+        polish_coro = (
+            polish_text(question, session) if (request.autocorrect and question) else _passthrough(question)
+        )
+        polished, (all_results, context) = await asyncio.gather(polish_coro, _do_search())
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Kibana query failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to query Kibana: {e}")
 
-    if not context.strip():
-        if doc_ids:
-            views = ", ".join(settings.data_view_list)
-            context = (
-                f"No log events were found for {', '.join(doc_ids)} in any data view "
-                f"({views}) over the last {settings.chat_doc_scan_days} days. State "
-                "this plainly: the id may be wrong, outside the retention window, or "
-                "the events are not yet indexed."
-            )
-        else:
-            context = "No matching data found in Elasticsearch for the given time range."
+    # What the user sees in their bubble, and what the model is asked.
+    display_question = polished or "(screenshot)"
+    llm_question = polished or "Analyze the attached screenshot and answer any question it contains."
+    if image_text:
+        llm_question = f"{llm_question}\n\n[Text extracted from the attached image]:\n{image_text}"
 
     # Step 3: Generate answer with selected LLM
     if request.stream:
         return EventSourceResponse(
-            _stream_response(question, context, all_results, session),
+            _stream_response(llm_question, context, all_results, session, display_question=display_question),
             media_type="text/event-stream",
         )
 
     try:
-        answer = await generate_answer(question, context, session=session)
+        answer = await generate_answer(llm_question, context, session=session)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to generate answer: {e}")
@@ -250,9 +273,25 @@ async def chat(
     return ChatResponse(answer=answer, sources=all_results[:5])
 
 
-async def _stream_response(question: str, context: str, sources: list[dict], session: dict):
-    """Stream the LLM response as SSE events."""
+async def _passthrough(value: str) -> str:
+    """Return `value` unchanged — lets us gather it alongside the search when
+    auto-correction is off, keeping one code path."""
+    return value
+
+
+async def _stream_response(
+    question: str,
+    context: str,
+    sources: list[dict],
+    session: dict,
+    display_question: str | None = None,
+):
+    """Stream the LLM response as SSE events. If the question was corrected (or
+    derived from an image), the cleaned text is sent first so the UI can update
+    the user's bubble to what was actually asked."""
     try:
+        if display_question:
+            yield {"event": "question", "data": display_question}
         async for chunk in generate_answer_stream(question, context, session=session):
             yield {"event": "chunk", "data": chunk}
         yield {"event": "sources", "data": json.dumps(sources[:5])}

@@ -37,6 +37,21 @@ function ActionBadge({ action }) {
   return <span className={`act act--${action}`}>{action}</span>;
 }
 
+// Collapse runs of identical consecutive events (same service/action/status/message)
+// so a 200-line trace reads as a handful of meaningful steps with a ×count.
+function collapse(events) {
+  const out = [];
+  for (const e of events) {
+    const p = out[out.length - 1];
+    if (p && p.service === e.service && p.action === e.action && p.status === e.status && (p.message || "") === (e.message || "")) {
+      p.count += 1;
+    } else {
+      out.push({ ...e, count: 1 });
+    }
+  }
+  return out;
+}
+
 export default function DocumentsPage({ token, username, onLogout, onNavigate }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -265,20 +280,43 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                 {trace &&
                   (trace.found ? (
                     <>
-                      <p className="muted trace-meta">
-                        {trace.events.length} events for <code>{trace.id}</code>
-                        {trace.errors > 0 && (
-                          <span className="delta delta--up"> · {trace.errors} error{trace.errors === 1 ? "" : "s"}</span>
-                        )}
-                        {trace.link && (
-                          <>
-                            {" · "}
-                            <a href={trace.link} target="_blank" rel="noreferrer" className="doc-link">
-                              open on portal
+                      <div className="trace-card">
+                        <div className="trace-title">{trace.title || "(no title found in logs)"}</div>
+                        <div className="trace-id">
+                          <code>{trace.id}</code>
+                        </div>
+                        <div className="trace-links">
+                          <a className="btn btn--primary" href={trace.doculoket_link} target="_blank" rel="noreferrer">
+                            Open in doculoket ↗
+                          </a>
+                          {trace.portal_link && (
+                            <a className="btn btn--ghost" href={trace.portal_link} target="_blank" rel="noreferrer">
+                              Open on overheid.nl ↗
                             </a>
-                          </>
+                          )}
+                        </div>
+                        <div className="trace-stats">
+                          <span className={`trace-stat ${trace.errors > 0 ? "trace-stat--bad" : "trace-stat--ok"}`}>
+                            {trace.errors > 0
+                              ? `⚠ ${trace.errors} error${trace.errors === 1 ? "" : "s"}`
+                              : "✓ no errors"}
+                          </span>
+                          <span className="trace-stat">{trace.events.length} events</span>
+                          {trace.first_seen && (
+                            <span className="trace-stat">
+                              {fmtDate(trace.first_seen)} {fmtTime(trace.first_seen)} → {fmtTime(trace.last_seen)}
+                            </span>
+                          )}
+                        </div>
+                        {trace.services && trace.services.length > 0 && (
+                          <div className="trace-services">
+                            <span className="trace-services-label">Services:</span>
+                            {trace.services.map((s) => (
+                              <span key={s} className="source-chip">{s}</span>
+                            ))}
+                          </div>
                         )}
-                      </p>
+                      </div>
                       <table className="dash-table feed-table">
                         <thead>
                           <tr>
@@ -287,11 +325,12 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                             <th>Status</th>
                             <th>Service</th>
                             <th>Message</th>
+                            <th></th>
                           </tr>
                         </thead>
                         <tbody>
-                          {trace.events.map((e, i) => (
-                            <tr key={i}>
+                          {collapse(trace.events).map((e, i) => (
+                            <tr key={i} className={e.status === "error" ? "row-err" : ""}>
                               <td className="feed-time">{fmtTime(e.timestamp)}</td>
                               <td><ActionBadge action={e.action} /></td>
                               <td>
@@ -299,14 +338,17 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                                 {e.status}
                               </td>
                               <td>{e.service || "—"}</td>
-                              <td className="feed-msg" title={e.message}>{e.message}</td>
+                              <td className="feed-msg" title={e.message}>
+                                {e.message || <span className="muted">—</span>}
+                              </td>
+                              <td className="feed-time">{e.count > 1 ? `×${e.count}` : ""}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     </>
                   ) : (
-                    <p className="muted">No events found for that id in this data view / period-independent search.</p>
+                    <p className="muted">No events found for that id in this data view.</p>
                   ))}
               </section>
 

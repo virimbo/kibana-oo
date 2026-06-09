@@ -203,13 +203,19 @@ def build_source_errors(issues_hits: list[dict]) -> list[dict]:
     return sorted(rows.values(), key=lambda r: r["total"], reverse=True)
 
 
+def _is_system_file(filename: str) -> bool:
+    low = filename.lower()
+    return low.endswith(".json") or low.startswith(("manifest", "metadata"))
+
+
 async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict:
     """Fetch the full lifecycle of one document (all log events mentioning its id),
-    oldest first, so an admin can trace where its flow succeeded or failed."""
+    oldest first, so an admin can trace where its flow succeeded or failed — with the
+    document title, the services it passed through, and management/portal links."""
     dv = resolve_data_view(data_view)
     needle = plooi_id.strip()
     body = {
-        "size": 200,
+        "size": 300,
         "sort": [{"@timestamp": {"order": "asc"}}],
         "query": {"query_string": {"query": f"\"{needle}\"", "default_field": "*", "lenient": True}},
     }
@@ -217,13 +223,29 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
     hits = resp.get("hits", {}).get("hits", [])
     events = [summarize_event(h) for h in hits]
     errors = sum(1 for e in events if e["status"] == "error")
+
+    # Best-effort document title: first real document filename (skip system files).
+    title = None
+    for e in events:
+        fn = e.get("filename")
+        if fn and not _is_system_file(fn):
+            title = fn.rsplit(".", 1)[0]
+            break
+
+    ronl = next((e["doc_id"] for e in events if e.get("doc_id") and e["doc_id"].lower().startswith("ronl")), None)
+    services = sorted({e["service"] for e in events if e.get("service")})
+
     return {
         "id": needle,
         "data_view": dv,
-        "portal_base": settings.portal_base_url,
+        "title": title,
         "found": len(events) > 0,
         "errors": errors,
-        "link": events[-1]["link"] if events and events[-1].get("link") else None,
+        "services": services,
+        "first_seen": events[0]["timestamp"] if events else None,
+        "last_seen": events[-1]["timestamp"] if events else None,
+        "doculoket_link": settings.doculoket_link_template.format(id=needle),
+        "portal_link": settings.doc_link_template.format(id=ronl) if ronl else None,
         "events": events,
     }
 

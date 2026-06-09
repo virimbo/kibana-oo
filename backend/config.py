@@ -42,6 +42,8 @@ class Settings(BaseSettings):
     # Default matches KOOP "ronl-..." identifiers seen in repository log messages.
     doc_id_regex: str = r"ronl-[A-Za-z0-9-]+"
     doc_link_template: str = "https://open.overheid.nl/documenten/{id}"
+    # Document management (aanleverloket) link for the tracer — the id is the UUID.
+    doculoket_link_template: str = "https://doculoket.overheid.nl/#/aanleveren/{id}"
 
     # Documents activity tab: which logs count as document events, and how many to feed.
     document_event_query: str = "ronl OR document OR bestand OR upload OR publicatie OR versie"

@@ -12,7 +12,7 @@ from sse_starlette.sse import EventSourceResponse
 from config import settings
 from elastic import get_recent_errors, get_recent_logs, keycloak_login, search_logs, search_metrics
 from llm import generate_answer, generate_answer_stream
-from session import create_session, drop_session, require_session
+from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router
 
 logging.basicConfig(level=logging.INFO)
@@ -71,7 +71,27 @@ class ChatResponse(BaseModel):
 @app.get("/health")
 async def health():
     """Health check endpoint (no auth required)."""
-    return {"status": "ok", "model": settings.ollama_model}
+    model = settings.mistral_model if settings.llm_provider == "mistral" else settings.ollama_model
+    return {"status": "ok", "model": model, "provider": settings.llm_provider}
+
+
+@app.get("/llm-providers")
+async def get_llm_providers():
+    """List available LLM providers (no auth required)."""
+    return {"providers": VALID_PROVIDERS}
+
+
+@app.post("/llm-provider")
+async def set_llm_provider_endpoint(
+    provider: str,
+    session: dict = Depends(require_session),
+    authorization: str | None = Header(default=None),
+):
+    """Set the LLM provider preference for the current session."""
+    token = authorization[7:] if authorization and authorization.startswith("Bearer ") else None
+    if token:
+        set_llm_provider(token, provider)
+    return {"status": "ok", "provider": provider}
 
 
 @app.get("/data-views")
@@ -181,15 +201,15 @@ async def chat(
     if not context.strip():
         context = "No matching data found in Elasticsearch for the given time range."
 
-    # Step 3: Generate answer with LLAMA
+    # Step 3: Generate answer with selected LLM
     if request.stream:
         return EventSourceResponse(
-            _stream_response(question, context, all_results),
+            _stream_response(question, context, all_results, session),
             media_type="text/event-stream",
         )
 
     try:
-        answer = await generate_answer(question, context)
+        answer = await generate_answer(question, context, session=session)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to generate answer: {e}")
@@ -197,10 +217,10 @@ async def chat(
     return ChatResponse(answer=answer, sources=all_results[:5])
 
 
-async def _stream_response(question: str, context: str, sources: list[dict]):
+async def _stream_response(question: str, context: str, sources: list[dict], session: dict):
     """Stream the LLM response as SSE events."""
     try:
-        async for chunk in generate_answer_stream(question, context):
+        async for chunk in generate_answer_stream(question, context, session=session):
             yield {"event": "chunk", "data": chunk}
         yield {"event": "sources", "data": json.dumps(sources[:5])}
         yield {"event": "done", "data": ""}

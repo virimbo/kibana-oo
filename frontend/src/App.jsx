@@ -40,8 +40,12 @@ const DEFAULT_DATA_VIEWS = [
 ];
 
 const DATA_VIEW_KEY = "kibana_oo_dataview";
+const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
+
+// Available LLM providers
+const LLM_PROVIDERS = ["ollama", "mistral"];
 
 const fmtTime = (date) =>
   new Intl.DateTimeFormat(undefined, {
@@ -132,7 +136,7 @@ function LoginPage({ onLogin }) {
           logs and metrics in plain language.
         </p>
         <p className="ai-disclosure">
-          This application uses an AI system (Llama) to generate answers based
+          This application uses an AI system (Llama or Mistral) to generate answers based
           on your log data. Responses are AI-generated and should be verified.
         </p>
 
@@ -291,6 +295,9 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
   const [dataView, setDataView] = useState(
     () => sessionStorage.getItem(DATA_VIEW_KEY) || DEFAULT_DATA_VIEWS[0].id
   );
+  const [llmProvider, setLlmProvider] = useState(
+    () => sessionStorage.getItem(LLM_PROVIDER_KEY) || "ollama"
+  );
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null); // null = unknown
   const scrollRef = useRef(null);
@@ -340,6 +347,22 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
   useEffect(() => {
     sessionStorage.setItem(DATA_VIEW_KEY, dataView);
   }, [dataView]);
+
+  // Persist the selected LLM provider across reloads
+  useEffect(() => {
+    sessionStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
+  }, [llmProvider]);
+
+  // When the LLM provider changes (and on load), update the backend session.
+  // The endpoint takes `provider` as a query parameter.
+  useEffect(() => {
+    if (token) {
+      fetch(`${BACKEND_URL}/llm-provider?provider=${encodeURIComponent(llmProvider)}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    }
+  }, [llmProvider, token]);
 
   // Health poll for the connection indicator
   useEffect(() => {
@@ -499,6 +522,15 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
+          <select
+            className="control-select provider-select"
+            value={llmProvider}
+            onChange={(e) => setLlmProvider(e.target.value)}
+            title="AI model provider (chat & dashboard triage)"
+          >
+            <option value="ollama">AI: Ollama (local)</option>
+            <option value="mistral">AI: Mistral (cloud)</option>
+          </select>
           {isAdmin && (
             <>
               <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
@@ -525,13 +557,12 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
               </span>
               <h2>Ask anything about your logs &amp; metrics</h2>
               <p>
-                KIBANA-OO searches your Elasticsearch cluster and uses a local
-                AI model to answer in natural language — with the source log entries
-                cited.
+                KIBANA-OO searches your Elasticsearch cluster and uses an AI model
+                to answer in natural language — with the source log entries cited.
               </p>
               <p className="ai-disclosure ai-disclosure--chat">
                 You are interacting with an AI system. Responses are generated
-                by a Llama language model and may contain inaccuracies. Always
+                by a Llama or Mistral language model and may contain inaccuracies. Always
                 verify critical findings in Kibana.
               </p>
               <div className="suggestions">
@@ -562,6 +593,23 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate }) {
       <div className="composer">
         <div className="composer-inner">
           <div className="composer-controls">
+            <label className="control">
+              <span className="control-label">LLM Provider</span>
+              <select
+                className="control-select"
+                value={llmProvider}
+                onChange={(e) => setLlmProvider(e.target.value)}
+                disabled={loading}
+                title="Select LLM provider (Ollama for local Llama, Mistral for cloud)"
+              >
+                {LLM_PROVIDERS.map((p) => (
+                  <option key={p} value={p}>
+                    {p.charAt(0).toUpperCase() + p.slice(1)}
+                  </option>
+                ))}
+              </select>
+            </label>
+
             <label className="control">
               <span className="control-label">Data view</span>
               <select

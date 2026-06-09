@@ -233,7 +233,25 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
             break
 
     ronl = next((e["doc_id"] for e in events if e.get("doc_id") and e["doc_id"].lower().startswith("ronl")), None)
-    services = sorted({e["service"] for e in events if e.get("service")})
+
+    # Per-service "stages": the document's journey, in the order it reached each
+    # service, with counts, time span, errors, and the first meaningful message.
+    stage_map: dict[str, dict] = {}
+    for e in events:
+        svc = e.get("service") or "(unknown)"
+        st = stage_map.get(svc)
+        if st is None:
+            st = stage_map[svc] = {
+                "service": svc, "events": 0, "errors": 0,
+                "first_seen": e["timestamp"], "last_seen": e["timestamp"], "message": None,
+            }
+        st["events"] += 1
+        if e["status"] == "error":
+            st["errors"] += 1
+        st["last_seen"] = e["timestamp"]
+        if not st["message"] and e.get("message"):
+            st["message"] = e["message"]
+    stages = sorted(stage_map.values(), key=lambda x: x["first_seen"] or "")
 
     return {
         "id": needle,
@@ -241,7 +259,7 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
         "title": title,
         "found": len(events) > 0,
         "errors": errors,
-        "services": services,
+        "stages": stages,
         "first_seen": events[0]["timestamp"] if events else None,
         "last_seen": events[-1]["timestamp"] if events else None,
         "doculoket_link": settings.doculoket_link_template.format(id=needle),

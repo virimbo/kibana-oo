@@ -66,7 +66,7 @@ async def briefing(
             return cached
     try:
         snap = await build_snapshot(session["sid"], period, dv)
-        text = await generate_briefing(snap)
+        text = await generate_briefing(snap, session=session)
     except Exception as e:
         logger.error(f"Dashboard briefing failed: {e}")
         raise HTTPException(status_code=502, detail=f"AI briefing unavailable: {e}")

@@ -66,6 +66,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
   const [trace, setTrace] = useState(null);
   const [traceLoading, setTraceLoading] = useState(false);
   const [traceError, setTraceError] = useState("");
+  const [showAllEvents, setShowAllEvents] = useState(false);
 
   const runTrace = useCallback(async () => {
     const id = traceId.trim();
@@ -308,44 +309,97 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate })
                             </span>
                           )}
                         </div>
-                        {trace.services && trace.services.length > 0 && (
+                        {trace.stages && trace.stages.length > 0 && (
                           <div className="trace-services">
-                            <span className="trace-services-label">Services:</span>
-                            {trace.services.map((s) => (
-                              <span key={s} className="source-chip">{s}</span>
-                            ))}
+                            <span className="trace-services-label">Journey:</span>
+                            <div className="journey">
+                              {trace.stages.map((s) => (
+                                <span
+                                  key={s.service}
+                                  className={`journey-step ${s.errors > 0 ? "journey-step--err" : ""}`}
+                                  title={`${s.events} event${s.events === 1 ? "" : "s"}${
+                                    s.errors ? ` · ${s.errors} error` : ""
+                                  }`}
+                                >
+                                  {s.service}
+                                </span>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>
-                      <table className="dash-table feed-table">
+                      <table className="dash-table">
                         <thead>
                           <tr>
-                            <th>Time</th>
-                            <th>Action</th>
+                            <th>Stage (service)</th>
+                            <th>Events</th>
+                            <th>First → Last</th>
                             <th>Status</th>
-                            <th>Service</th>
-                            <th>Message</th>
-                            <th></th>
+                            <th>Note</th>
                           </tr>
                         </thead>
                         <tbody>
-                          {collapse(trace.events).map((e, i) => (
-                            <tr key={i} className={e.status === "error" ? "row-err" : ""}>
-                              <td className="feed-time">{fmtTime(e.timestamp)}</td>
-                              <td><ActionBadge action={e.action} /></td>
+                          {trace.stages.map((s) => (
+                            <tr key={s.service} className={s.errors > 0 ? "row-err" : ""}>
+                              <td>{s.service}</td>
+                              <td>{s.events}</td>
+                              <td className="feed-time">
+                                {fmtTime(s.first_seen)} → {fmtTime(s.last_seen)}
+                              </td>
                               <td>
-                                <span className={`feed-status feed-status--${e.status}`} />
-                                {e.status}
+                                {s.errors > 0 ? (
+                                  <span className="num-bad">⚠ {s.errors} error{s.errors === 1 ? "" : "s"}</span>
+                                ) : (
+                                  <>
+                                    <span className="feed-status feed-status--ok" />
+                                    ok
+                                  </>
+                                )}
                               </td>
-                              <td>{e.service || "—"}</td>
-                              <td className="feed-msg" title={e.message}>
-                                {e.message || <span className="muted">—</span>}
+                              <td className="feed-msg" title={s.message || ""}>
+                                {s.message || <span className="muted">—</span>}
                               </td>
-                              <td className="feed-time">{e.count > 1 ? `×${e.count}` : ""}</td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
+                      <button
+                        className="btn btn--ghost trace-toggle"
+                        onClick={() => setShowAllEvents((v) => !v)}
+                      >
+                        {showAllEvents ? "Hide raw log" : `Show full log (${trace.events.length} events)`}
+                      </button>
+                      {showAllEvents && (
+                        <table className="dash-table feed-table">
+                          <thead>
+                            <tr>
+                              <th>Time</th>
+                              <th>Action</th>
+                              <th>Status</th>
+                              <th>Service</th>
+                              <th>Message</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {collapse(trace.events).map((e, i) => (
+                              <tr key={i} className={e.status === "error" ? "row-err" : ""}>
+                                <td className="feed-time">{fmtTime(e.timestamp)}</td>
+                                <td><ActionBadge action={e.action} /></td>
+                                <td>
+                                  <span className={`feed-status feed-status--${e.status}`} />
+                                  {e.status}
+                                </td>
+                                <td>{e.service || "—"}</td>
+                                <td className="feed-msg" title={e.message}>
+                                  {e.message || <span className="muted">—</span>}
+                                </td>
+                                <td className="feed-time">{e.count > 1 ? `×${e.count}` : ""}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                     </>
                   ) : (
                     <p className="muted">No events found for that id in this data view.</p>

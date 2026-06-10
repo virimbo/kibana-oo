@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 import DashboardPage from "./Dashboard";
 import DocumentsPage from "./Documents";
+import SettingsPage from "./Settings";
 import ProviderSwitcher from "./ProviderSwitcher";
 
 const SUGGESTIONS = [
@@ -43,6 +44,8 @@ const DEFAULT_DATA_VIEWS = [
 const DATA_VIEW_KEY = "kibana_oo_dataview";
 const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
 const AUTOCORRECT_KEY = "kibana_oo_autocorrect";
+const SHOW_WELCOME_KEY = "kibana_oo_show_welcome";
+const SHOW_HINT_KEY = "kibana_oo_show_hint";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -84,6 +87,12 @@ const Icon = {
   Paperclip: (p) => (
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+    </svg>
+  ),
+  Gear: (p) => (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
   ),
 };
@@ -299,7 +308,11 @@ function UserMessage({ msg }) {
 
 // ─── Chat Page ──────────────────────────────────────────────
 
-function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider, onProviderChange }) {
+function ChatPage({
+  token, username, onLogout, isAdmin, onNavigate,
+  llmProvider, onProviderChange,
+  autocorrect, showWelcome, showHint,
+}) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [timeRange, setTimeRange] = useState(60);
@@ -310,18 +323,11 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null); // null = unknown
   const [image, setImage] = useState(null); // { dataUrl, name } of an attached screenshot
-  const [autocorrect, setAutocorrect] = useState(
-    () => sessionStorage.getItem(AUTOCORRECT_KEY) !== "off"
-  );
   const scrollRef = useRef(null);
   const textareaRef = useRef(null);
   const abortRef = useRef(null);
   const stickRef = useRef(true);
   const fileInputRef = useRef(null);
-
-  useEffect(() => {
-    sessionStorage.setItem(AUTOCORRECT_KEY, autocorrect ? "on" : "off");
-  }, [autocorrect]);
 
   // Read an image File into a data URL (capped so we don't ship huge payloads).
   function attachImageFile(file) {
@@ -574,6 +580,9 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
               <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
                 Documents
               </button>
+              <button className="btn btn--ghost" onClick={() => onNavigate("settings")} title="Settings">
+                <Icon.Gear />
+              </button>
             </>
           )}
           <span className="header-user">{username}</span>
@@ -585,43 +594,43 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
 
       <div className="chat-scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="chat-column">
-          {messages.length === 0 ? (
-            <div className="welcome">
-              <span className="welcome-mark">
-                <Icon.Spark />
-              </span>
-              <h2>Ask anything about your logs &amp; metrics</h2>
-              <p>
-                KIBANA-OO searches your Elasticsearch cluster and uses an AI model
-                to answer in natural language — with the source log entries cited.
-              </p>
-              <p className="ai-disclosure ai-disclosure--chat">
-                You are interacting with an AI system. Responses are generated
-                by a Llama or Mistral language model and may contain inaccuracies. Always
-                verify critical findings in Kibana.
-              </p>
-              <div className="suggestions">
-                {SUGGESTIONS.map((s) => (
-                  <button
-                    key={s.title}
-                    className="suggestion"
-                    onClick={() => sendMessage(s.prompt)}
-                  >
-                    <span className="suggestion-title">{s.title}</span>
-                    <span className="suggestion-prompt">{s.prompt}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            messages.map((msg, i) =>
-              msg.role === "assistant" ? (
-                <AssistantMessage key={i} msg={msg} />
-              ) : (
-                <UserMessage key={i} msg={msg} />
+          {messages.length === 0
+            ? showWelcome && (
+                <div className="welcome">
+                  <span className="welcome-mark">
+                    <Icon.Spark />
+                  </span>
+                  <h2>Ask anything about your logs &amp; metrics</h2>
+                  <p>
+                    KIBANA-OO searches your Elasticsearch cluster and uses an AI model
+                    to answer in natural language — with the source log entries cited.
+                  </p>
+                  <p className="ai-disclosure ai-disclosure--chat">
+                    You are interacting with an AI system. Responses are generated
+                    by a Llama or Mistral language model and may contain inaccuracies. Always
+                    verify critical findings in Kibana.
+                  </p>
+                  <div className="suggestions">
+                    {SUGGESTIONS.map((s) => (
+                      <button
+                        key={s.title}
+                        className="suggestion"
+                        onClick={() => sendMessage(s.prompt)}
+                      >
+                        <span className="suggestion-title">{s.title}</span>
+                        <span className="suggestion-prompt">{s.prompt}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )
-            )
-          )}
+            : messages.map((msg, i) =>
+                msg.role === "assistant" ? (
+                  <AssistantMessage key={i} msg={msg} />
+                ) : (
+                  <UserMessage key={i} msg={msg} />
+                )
+              )}
         </div>
       </div>
 
@@ -661,17 +670,6 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
                 ))}
               </select>
             </label>
-
-            <button
-              type="button"
-              className={`autocorrect-toggle${autocorrect ? " is-on" : ""}`}
-              onClick={() => setAutocorrect((v) => !v)}
-              title="Automatically fix spelling and grammar in your question (IDs and codes are preserved)"
-              aria-pressed={autocorrect}
-            >
-              <span className="autocorrect-led" />
-              Auto-correct {autocorrect ? "on" : "off"}
-            </button>
           </div>
 
           {image && (
@@ -744,10 +742,12 @@ function ChatPage({ token, username, onLogout, isAdmin, onNavigate, llmProvider,
             )}
           </div>
         </div>
-        <p className="composer-hint">
-          Querying <code>{dataView}</code> · answers are generated from live log
-          data. Always verify critical findings in Kibana.
-        </p>
+        {showHint && (
+          <p className="composer-hint">
+            Querying <code>{dataView}</code> · answers are generated from live log
+            data. Always verify critical findings in Kibana.
+          </p>
+        )}
       </div>
     </>
   );
@@ -842,6 +842,24 @@ export default function App() {
     }).catch(() => {});
   }, [llmProvider, token]);
 
+  // Feature toggles (managed from the admin Settings tab; persisted per session).
+  // Defaults: a clean, minimal chat — the welcome screen and composer hint are
+  // hidden, auto-correct is on.
+  const [autocorrect, setAutocorrect] = useState(
+    () => sessionStorage.getItem(AUTOCORRECT_KEY) !== "off"
+  );
+  const [showWelcome, setShowWelcome] = useState(
+    () => sessionStorage.getItem(SHOW_WELCOME_KEY) === "on"
+  );
+  const [showHint, setShowHint] = useState(
+    () => sessionStorage.getItem(SHOW_HINT_KEY) === "on"
+  );
+  useEffect(() => sessionStorage.setItem(AUTOCORRECT_KEY, autocorrect ? "on" : "off"), [autocorrect]);
+  useEffect(() => sessionStorage.setItem(SHOW_WELCOME_KEY, showWelcome ? "on" : "off"), [showWelcome]);
+  useEffect(() => sessionStorage.setItem(SHOW_HINT_KEY, showHint ? "on" : "off"), [showHint]);
+
+  const settings = { autocorrect, setAutocorrect, showWelcome, setShowWelcome, showHint, setShowHint };
+
   // Probe admin access: 403 means non-admin; 200/502 means admin (endpoint reached).
   useEffect(() => {
     if (!token) {
@@ -908,6 +926,19 @@ export default function App() {
     );
   }
 
+  if (view === "settings" && isAdmin) {
+    return (
+      <SettingsPage
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={setView}
+        llmProvider={llmProvider}
+        onProviderChange={setLlmProvider}
+        settings={settings}
+      />
+    );
+  }
+
   return (
     <ChatPage
       token={token}
@@ -917,6 +948,9 @@ export default function App() {
       onNavigate={setView}
       llmProvider={llmProvider}
       onProviderChange={setLlmProvider}
+      autocorrect={autocorrect}
+      showWelcome={showWelcome}
+      showHint={showHint}
     />
   );
 }

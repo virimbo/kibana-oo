@@ -46,6 +46,7 @@ const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
 const AUTOCORRECT_KEY = "kibana_oo_autocorrect";
 const SHOW_WELCOME_KEY = "kibana_oo_show_welcome";
 const SHOW_HINT_KEY = "kibana_oo_show_hint";
+const SHOW_SUGGESTIONS_KEY = "kibana_oo_show_suggestions";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -311,7 +312,7 @@ function UserMessage({ msg }) {
 function ChatPage({
   token, username, onLogout, isAdmin, onNavigate,
   llmProvider, onProviderChange,
-  autocorrect, showWelcome, showHint,
+  autocorrect, showWelcome, showHint, showSuggestions,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -594,8 +595,9 @@ function ChatPage({
 
       <div className="chat-scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="chat-column">
-          {messages.length === 0
-            ? showWelcome && (
+          {messages.length === 0 ? (
+            <div className="empty-state">
+              {showWelcome && (
                 <div className="welcome">
                   <span className="welcome-mark">
                     <Icon.Spark />
@@ -610,6 +612,11 @@ function ChatPage({
                     by a Llama or Mistral language model and may contain inaccuracies. Always
                     verify critical findings in Kibana.
                   </p>
+                </div>
+              )}
+              {showSuggestions && (
+                <div className="quick-start">
+                  <span className="quick-start-label">Quick questions</span>
                   <div className="suggestions">
                     {SUGGESTIONS.map((s) => (
                       <button
@@ -623,14 +630,17 @@ function ChatPage({
                     ))}
                   </div>
                 </div>
-              )
-            : messages.map((msg, i) =>
-                msg.role === "assistant" ? (
-                  <AssistantMessage key={i} msg={msg} />
-                ) : (
-                  <UserMessage key={i} msg={msg} />
-                )
               )}
+            </div>
+          ) : (
+            messages.map((msg, i) =>
+              msg.role === "assistant" ? (
+                <AssistantMessage key={i} msg={msg} />
+              ) : (
+                <UserMessage key={i} msg={msg} />
+              )
+            )
+          )}
         </div>
       </div>
 
@@ -854,11 +864,21 @@ export default function App() {
   const [showHint, setShowHint] = useState(
     () => sessionStorage.getItem(SHOW_HINT_KEY) === "on"
   );
+  // Quick-question chips are ON by default — the fast path for common questions.
+  const [showSuggestions, setShowSuggestions] = useState(
+    () => sessionStorage.getItem(SHOW_SUGGESTIONS_KEY) !== "off"
+  );
   useEffect(() => sessionStorage.setItem(AUTOCORRECT_KEY, autocorrect ? "on" : "off"), [autocorrect]);
   useEffect(() => sessionStorage.setItem(SHOW_WELCOME_KEY, showWelcome ? "on" : "off"), [showWelcome]);
   useEffect(() => sessionStorage.setItem(SHOW_HINT_KEY, showHint ? "on" : "off"), [showHint]);
+  useEffect(() => sessionStorage.setItem(SHOW_SUGGESTIONS_KEY, showSuggestions ? "on" : "off"), [showSuggestions]);
 
-  const settings = { autocorrect, setAutocorrect, showWelcome, setShowWelcome, showHint, setShowHint };
+  const settings = {
+    autocorrect, setAutocorrect,
+    showWelcome, setShowWelcome,
+    showHint, setShowHint,
+    showSuggestions, setShowSuggestions,
+  };
 
   // Probe admin access: 403 means non-admin; 200/502 means admin (endpoint reached).
   useEffect(() => {
@@ -951,6 +971,7 @@ export default function App() {
       autocorrect={autocorrect}
       showWelcome={showWelcome}
       showHint={showHint}
+      showSuggestions={showSuggestions}
     />
   );
 }

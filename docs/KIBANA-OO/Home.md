@@ -32,6 +32,7 @@ flowchart TD
 
 ## Map of content
 
+- [[Woo platform]] — **plain-language** map of the whole KOOP/Woo platform we monitor (start here for the big picture)
 - [[Architecture]] — the three services and how a request flows
 - [[Chat pipeline]] — how a question becomes an answer (doc-id trace, OCR, auto-correct, escalation)
 - [[Document tracer]] — trace one document's journey + AI explain

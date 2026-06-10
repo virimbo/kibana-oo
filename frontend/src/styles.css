@@ -1565,6 +1565,100 @@ body {
 
 .trace-toggle { margin-top: 12px; }
 
+/* ── Document Lifecycle — canonical pipeline view ─────────── */
+.lifecycle { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 2px; }
+
+/* Verdict banner (the one-line plain answer) */
+.life-verdict {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 14px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-input);
+  font-size: 13.5px; font-weight: 600; color: var(--text-primary);
+}
+.life-verdict-progress { font-size: 12px; font-weight: 600; color: var(--text-faint); white-space: nowrap; }
+.life-verdict--healthy { border-color: var(--success); background: color-mix(in srgb, var(--success) 12%, var(--bg-input)); }
+.life-verdict--warnings { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 12%, var(--bg-input)); }
+.life-verdict--stuck { border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, var(--bg-input)); }
+.life-verdict--problem { border-color: var(--error); background: var(--error-soft); }
+.life-verdict--in_progress { border-color: var(--accent); background: var(--accent-soft); }
+
+/* The stage flow */
+.life-flow { display: flex; flex-wrap: wrap; align-items: stretch; gap: 4px 2px; }
+.life-item { display: flex; align-items: center; }
+.life-node {
+  position: relative; display: flex; align-items: center; gap: 7px;
+  padding: 7px 11px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--bg-elevated);
+  outline: none; transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.life-node:hover, .life-node:focus-visible { transform: translateY(-2px); z-index: 5; }
+.life-icon { font-size: 14px; }
+.life-name { font-size: 12px; font-weight: 600; color: var(--text-primary); white-space: nowrap; }
+.life-count {
+  min-width: 16px; padding: 0 5px; text-align: center;
+  font-size: 10.5px; font-weight: 700; color: var(--text-secondary);
+  background: var(--bg-input); border: 1px solid var(--border); border-radius: 999px;
+}
+.life-badge {
+  font-size: 10.5px; font-weight: 700; color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid var(--warn); padding: 0 6px; border-radius: 999px; white-space: nowrap;
+}
+/* status colours */
+.life-node--ok { border-color: color-mix(in srgb, var(--success) 50%, var(--border)); box-shadow: inset 3px 0 0 var(--success); }
+.life-node--warning { border-color: var(--warn); box-shadow: inset 3px 0 0 var(--warn); }
+.life-node--error { border-color: var(--error); box-shadow: inset 3px 0 0 var(--error); animation: jflowPulse 1.8s ease-in-out infinite; }
+.life-node--missing { opacity: 0.5; border-style: dashed; }
+.life-node--missing .life-name { color: var(--text-faint); }
+.life-node--current { box-shadow: 0 0 0 2px var(--accent), inset 3px 0 0 var(--accent); }
+
+/* connector */
+.life-arrow { flex: none; width: 16px; height: 2px; margin: 0 1px; background: var(--border-strong); border-radius: 2px; position: relative; }
+.life-arrow--on { background: linear-gradient(90deg, var(--success), color-mix(in srgb, var(--accent) 60%, transparent)); }
+.life-arrow::after {
+  content: ""; position: absolute; right: -1px; top: 50%; transform: translateY(-50%) rotate(45deg);
+  width: 5px; height: 5px; border-top: 2px solid var(--border-strong); border-right: 2px solid var(--border-strong);
+}
+.life-arrow--on::after { border-color: color-mix(in srgb, var(--accent) 70%, transparent); }
+
+/* tooltip */
+.life-tip {
+  position: absolute; bottom: calc(100% + 10px); left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  width: max-content; max-width: 280px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 12px; box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+  opacity: 0; visibility: hidden; pointer-events: none;
+  transition: opacity 0.14s ease, transform 0.14s ease; z-index: 30; text-align: left;
+}
+.life-node:hover .life-tip, .life-node:focus-visible .life-tip {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}
+.life-tip::after {
+  content: ""; position: absolute; top: 100%; left: 50%; transform: translateX(-50%) rotate(45deg);
+  width: 10px; height: 10px; margin-top: -5px; background: var(--bg-elevated);
+  border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);
+}
+.life-tip-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.life-tip-name { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
+.life-tip-status { font-size: 11px; font-weight: 700; white-space: nowrap; }
+.life-tip-status--ok { color: var(--success); }
+.life-tip-status--warning { color: var(--warn); }
+.life-tip-status--error { color: var(--error); }
+.life-tip-status--missing { color: var(--text-faint); }
+.life-tip-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 7px; }
+.life-tip-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 0 0 6px; }
+.life-tip-grid dt { font-size: 11px; color: var(--text-faint); }
+.life-tip-grid dd { font-size: 11.5px; color: var(--text-secondary); margin: 0; }
+.life-tip-miss { font-size: 11.5px; color: var(--text-faint); font-style: italic; }
+.life-tip-probs { list-style: none; margin: 6px 0 0; padding: 6px 0 0; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; }
+.life-tip-probs li { font-size: 11.5px; color: var(--text-secondary); line-height: 1.4; }
+
+/* honest severity colouring in the raw log + stats */
+.row-warn td { background: color-mix(in srgb, var(--warn) 9%, transparent); }
+.feed-status--warning { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent); }
+.trace-stat--warn { color: var(--warn); font-weight: 700; }
+
 /* Document metadata chips (from the public portal API) */
 .trace-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .meta-chip {

@@ -9,6 +9,7 @@ from datetime import datetime
 
 from pydantic import BaseModel
 
+import pipeline
 from elastic import _es_search
 from config import settings
 from monitoring import _flatten, _first_field, period_bounds, timeseries_interval, summarize_doc, resolve_data_view
@@ -59,10 +60,16 @@ def summarize_event(hit: dict) -> dict:
     level = str(flat.get("level") or flat.get("log.level") or "")
     filename, ftype = extract_file(message)
     org = _first_field(src, settings.doc_org_fields)
+    # Honest severity: looks at the MESSAGE too (404 / connection reset / broken
+    # pipe …), not just the log level — see backend/pipeline.py.
+    severity = pipeline.event_severity(level, message)
+    problem = pipeline.classify_message(message)
     return {
         "timestamp": src.get("@timestamp"),
         "action": classify_action(message),
-        "status": "error" if level.upper() in ("ERROR", "FATAL", "CRITICAL") else "ok",
+        "severity": severity,                       # ok | warning | error
+        "status": "error" if severity == "error" else "ok",  # back-compat
+        "problem": problem,                         # {key, severity, explanation} or None
         "doc_id": base.get("code"),
         "link": base.get("link"),
         "filename": filename,
@@ -220,10 +227,30 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
         "sort": [{"@timestamp": {"order": "asc"}}],
         "query": {"query_string": {"query": f"\"{needle}\"", "default_field": "*", "lenient": True}},
     }
-    resp = await _es_search(sid, dv, body)
-    hits = resp.get("hits", {}).get("hits", [])
+    # Search EVERY data view (tolerating per-view failures), not just the selected
+    # one — a document's pipeline logs may live in a different index, so this is
+    # what makes the journey line up with the architecture instead of being partial.
+    views = settings.data_view_list
+    results = await asyncio.gather(
+        *[_es_search(sid, v, body) for v in views], return_exceptions=True
+    )
+    hits = []
+    for res in results:
+        if not isinstance(res, Exception):
+            hits.extend(res.get("hits", {}).get("hits", []))
     events = [summarize_event(h) for h in hits]
-    errors = sum(1 for e in events if e["status"] == "error")
+    # De-duplicate (same event can appear across overlapping views) and order.
+    seen: set = set()
+    unique: list[dict] = []
+    for e in sorted(events, key=lambda x: x.get("timestamp") or ""):
+        key = (e.get("timestamp"), (e.get("message") or "")[:80], e.get("service"))
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(e)
+    events = unique
+    errors = sum(1 for e in events if e.get("severity") == "error")
+    warnings = sum(1 for e in events if e.get("severity") == "warning")
 
     # Title: prefer the authoritative official title from the public portal API;
     # fall back to the first real document filename seen in the logs.
@@ -262,14 +289,21 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
             st["message"] = e["message"]
     stages = sorted(stage_map.values(), key=lambda x: x["first_seen"] or "")
 
+    # The canonical lifecycle: where the document got to, honest health, and a
+    # plain-language verdict — the single source of truth (backend/pipeline.py).
+    lifecycle = pipeline.build_pipeline_view(events)
+
     return {
         "id": needle,
         "data_view": dv,
+        "data_views_searched": views,
         "title": title,
         "portal_meta": meta,  # official metadata dict, or None if unresolved
         "found": len(events) > 0,
         "errors": errors,
-        "stages": stages,
+        "warnings": warnings,
+        "lifecycle": lifecycle,   # { stages[], verdict, headline, … }
+        "stages": stages,         # raw per-service detail (kept for the detail view)
         "first_seen": events[0]["timestamp"] if events else None,
         "last_seen": events[-1]["timestamp"] if events else None,
         "doculoket_link": settings.doculoket_link_template.format(id=needle),

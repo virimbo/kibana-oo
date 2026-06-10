@@ -110,6 +110,88 @@ function JourneyFlow({ stages }) {
   );
 }
 
+const lifeStatusLabel = (s) =>
+  s.status === "missing" ? "not reached yet"
+  : s.status === "ok" ? "✓ healthy"
+  : s.status === "warning" ? "⚠ warnings"
+  : "⛔ problem";
+
+// The canonical Document Lifecycle: every expected pipeline stage in order,
+// coloured by what actually happened — so a non-tech admin sees how far the
+// document got, whether it's healthy, and where it's stuck. Maps 1-1 to the
+// architecture (see docs: Document lifecycle). Rich tooltip per stage.
+function LifecycleBar({ lifecycle }) {
+  if (!lifecycle || !lifecycle.stages || lifecycle.stages.length === 0) return null;
+  const stages = lifecycle.stages;
+  return (
+    <div className="lifecycle">
+      <div className={`life-verdict life-verdict--${lifecycle.verdict}`}>
+        <span className="life-verdict-text">{lifecycle.headline}</span>
+        <span className="life-verdict-progress">
+          {lifecycle.reached_count} / {lifecycle.total_stages} stages
+        </span>
+      </div>
+      <div className="life-flow" role="list" aria-label="Document lifecycle">
+        {stages.map((s, i) => {
+          const probCount = (s.problems || []).reduce((a, p) => a + p.count, 0);
+          return (
+            <div className="life-item" role="listitem" key={s.key}>
+              <div
+                className={`life-node life-node--${s.status}${s.current ? " life-node--current" : ""}`}
+                tabIndex={0}
+              >
+                <span className="life-icon" aria-hidden="true">{s.icon}</span>
+                <span className="life-name">{s.name}</span>
+                {s.reached && s.events > 0 && <span className="life-count">{s.events}</span>}
+                {probCount > 0 && <span className="life-badge">⚠ {probCount}</span>}
+                <div className="life-tip" role="tooltip">
+                  <div className="life-tip-head">
+                    <span className="life-tip-name">{s.icon} {s.name}</span>
+                    <span className={`life-tip-status life-tip-status--${s.status}`}>{lifeStatusLabel(s)}</span>
+                  </div>
+                  <div className="life-tip-desc">{s.desc}</div>
+                  {s.reached ? (
+                    <dl className="life-tip-grid">
+                      <dt>Events</dt><dd>{s.events}</dd>
+                      {s.duration && (
+                        <>
+                          <dt>Time here</dt>
+                          <dd>{s.duration}{s.slow ? " · ⚠ slow" : ""}</dd>
+                        </>
+                      )}
+                      {s.first_seen && (
+                        <>
+                          <dt>Seen</dt>
+                          <dd>{fmtTime(s.first_seen)} → {fmtTime(s.last_seen)}</dd>
+                        </>
+                      )}
+                    </dl>
+                  ) : (
+                    <div className="life-tip-miss">No log events for this stage yet.</div>
+                  )}
+                  {(s.problems || []).length > 0 && (
+                    <ul className="life-tip-probs">
+                      {s.problems.map((p, j) => (
+                        <li key={j}><b>{p.count}×</b> — {p.explanation}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+              {i < stages.length - 1 && (
+                <span
+                  className={`life-arrow${stages[i + 1].reached ? " life-arrow--on" : ""}`}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -395,6 +477,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                             </a>
                           )}
                         </div>
+                        <LifecycleBar lifecycle={trace.lifecycle} />
                         {(aiLoading || ai) && (
                           <div className={`trace-ai${ai?.error ? " trace-ai--err" : ""}`}>
                             <div className="trace-ai-head">
@@ -413,11 +496,15 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                           </div>
                         )}
                         <div className="trace-stats">
-                          <span className={`trace-stat ${trace.errors > 0 ? "trace-stat--bad" : "trace-stat--ok"}`}>
-                            {trace.errors > 0
-                              ? `⚠ ${trace.errors} error${trace.errors === 1 ? "" : "s"}`
-                              : "✓ no errors"}
-                          </span>
+                          {trace.errors > 0 && (
+                            <span className="trace-stat trace-stat--bad">⛔ {trace.errors} error{trace.errors === 1 ? "" : "s"}</span>
+                          )}
+                          {trace.warnings > 0 && (
+                            <span className="trace-stat trace-stat--warn">⚠ {trace.warnings} warning{trace.warnings === 1 ? "" : "s"}</span>
+                          )}
+                          {!trace.errors && !trace.warnings && (
+                            <span className="trace-stat trace-stat--ok">✓ no problems</span>
+                          )}
                           <span className="trace-stat">{trace.events.length} events</span>
                           {trace.first_seen && (
                             <span className="trace-stat">
@@ -458,20 +545,24 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                             </tr>
                           </thead>
                           <tbody>
-                            {collapse(trace.events).map((e, i) => (
-                              <tr key={i} className={e.status === "error" ? "row-err" : ""}>
+                            {collapse(trace.events).map((e, i) => {
+                              const sev = e.severity || e.status || "ok";
+                              return (
+                              <tr key={i} className={sev === "error" ? "row-err" : sev === "warning" ? "row-warn" : ""}>
                                 <td className="feed-time">{fmtTime(e.timestamp)}</td>
                                 <td><ActionBadge action={e.action} /></td>
-                                <td>
-                                  <span className={`feed-status feed-status--${e.status}`} />
-                                  {e.status}
+                                <td title={e.problem ? e.problem.explanation : ""}>
+                                  <span className={`feed-status feed-status--${sev}`} />
+                                  {sev}
                                 </td>
                                 <td>{e.service || "—"}</td>
-                                <td className="feed-msg" title={e.message}>
+                                <td className="feed-msg" title={e.problem ? e.problem.explanation : e.message}>
                                   {e.message || <span className="muted">—</span>}
                                 </td>
                                 <td className="feed-time">{e.count > 1 ? `×${e.count}` : ""}</td>
                               </tr>
+                              );
+                            })}
                             ))}
                           </tbody>
                         </table>

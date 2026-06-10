@@ -788,11 +788,35 @@ body {
   line-height: 1.6;
 }
 
+/* Empty-chat layout: optional welcome text + the quick-question chips */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 44px 10px;
+  gap: 18px;
+}
+.empty-state .welcome { padding: 0 10px; }
+.quick-start {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.quick-start-label {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-faint);
+  text-align: center;
+}
+
 .suggestions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
-  margin-top: 18px;
+  margin-top: 6px;
   width: 100%;
 }
 

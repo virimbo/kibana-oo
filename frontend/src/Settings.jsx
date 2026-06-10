@@ -28,6 +28,7 @@ export default function SettingsPage({ username, onLogout, onNavigate, llmProvid
     autocorrect, setAutocorrect,
     showWelcome, setShowWelcome,
     showHint, setShowHint,
+    showSuggestions, setShowSuggestions,
   } = settings;
 
   return (
@@ -65,10 +66,16 @@ export default function SettingsPage({ username, onLogout, onNavigate, llmProvid
               hint="Fix spelling & grammar before sending. IDs, codes and numbers are preserved."
             />
             <Toggle
+              checked={showSuggestions}
+              onChange={setShowSuggestions}
+              label="Show quick questions"
+              hint="One-click starter questions (recent errors, latency, summary…) on an empty chat."
+            />
+            <Toggle
               checked={showWelcome}
               onChange={setShowWelcome}
               label="Show welcome screen"
-              hint="The intro text, AI disclosure and suggested prompts on an empty chat."
+              hint="The intro title, description and AI disclosure on an empty chat."
             />
             <Toggle
               checked={showHint}

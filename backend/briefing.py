@@ -55,30 +55,36 @@ TRACE_SYSTEM = (
 
 
 def build_trace_facts(trace: dict) -> str:
-    """Serialize a document trace into the JSON facts the LLM narrates."""
+    """Serialize a document trace into the JSON facts the LLM narrates. Includes
+    the canonical lifecycle so the AI's story matches the deterministic verdict."""
     meta = trace.get("portal_meta") or {}
+    life = trace.get("lifecycle") or {}
     facts = {
         "document_id": trace.get("id"),
         "official_title": trace.get("title"),
         "organization": meta.get("organization"),
         "document_type": meta.get("type"),
-        "woo_category": meta.get("category"),
         "publication_status": meta.get("status"),
-        "published_date": meta.get("published"),
         "total_log_events": len(trace.get("events", [])),
         "errors": trace.get("errors"),
+        "warnings": trace.get("warnings"),
         "first_seen": trace.get("first_seen"),
         "last_seen": trace.get("last_seen"),
-        "journey": [
+        "lifecycle_verdict": life.get("headline"),
+        "furthest_stage_reached": life.get("furthest_stage"),
+        "next_pending_stage": life.get("next_stage"),
+        "appears_stuck": life.get("stuck"),
+        "problems": life.get("problems_total"),
+        "pipeline_stages": [
             {
-                "service": s.get("service"),
+                "stage": s.get("name"),
+                "reached": s.get("reached"),
+                "status": s.get("status"),
                 "events": s.get("events"),
-                "errors": s.get("errors"),
-                "first_seen": s.get("first_seen"),
-                "last_seen": s.get("last_seen"),
-                "sample_message": s.get("message"),
+                "time_in_stage": s.get("duration"),
+                "problems": [f"{p['count']}× {p['explanation']}" for p in s.get("problems", [])],
             }
-            for s in trace.get("stages", [])
+            for s in life.get("stages", [])
         ],
     }
     return json.dumps(facts, indent=2, default=str)

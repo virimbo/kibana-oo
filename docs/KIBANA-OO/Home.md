@@ -38,6 +38,7 @@ flowchart TD
 - [[Architecture]] — the three services and how a request flows
 - [[Chat pipeline]] — how a question becomes an answer (doc-id trace, OCR, auto-correct, escalation)
 - [[Document tracer]] — trace one document's journey + AI explain
+- [[Document lifecycle (pipeline)]] — the canonical pipeline: how far a doc got, is it healthy, is it stuck (1-1 with the dashboard)
 - [[Monitoring dashboard]] — daily critical-issue dashboard
 - [[LLM providers]] — Ollama vs Mistral, the switcher, installing a key
 - [[KOOP Plooi log schema]] — the real (non-ECS) field names

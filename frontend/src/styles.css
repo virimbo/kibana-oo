@@ -1694,6 +1694,23 @@ body {
 .stagehp-warn { color: var(--warn); font-weight: 700; }
 .stagehp-err { color: var(--error); font-weight: 700; }
 
+/* Global "N stuck" alert pill in every header */
+.stuck-hdr {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  color: var(--warn); cursor: pointer;
+  background: color-mix(in srgb, var(--warn) 14%, transparent);
+  border: 1px solid var(--warn);
+  animation: stuckPulse 2s ease-in-out infinite;
+}
+.stuck-hdr:hover { background: color-mix(in srgb, var(--warn) 22%, transparent); }
+.stuck-hdr-dot { font-size: 13px; }
+@keyframes stuckPulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 40%, transparent); }
+  50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--warn) 10%, transparent); }
+}
+
 /* Document metadata chips (from the public portal API) */
 .trace-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .meta-chip {

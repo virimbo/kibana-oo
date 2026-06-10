@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { getJSON } from "./api";
 import { InfoTip } from "./Dashboard";
 import ProviderSwitcher from "./ProviderSwitcher";
+import StuckBadge from "./StuckBadge";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -263,7 +264,7 @@ function PipelineHealth({ health, onTrace }) {
   );
 }
 
-export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange }) {
+export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -402,6 +403,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
           </div>
         </div>
         <div className="header-right">
+          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           {onProviderChange && (
             <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
           )}

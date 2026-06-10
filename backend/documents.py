@@ -5,12 +5,12 @@ matching and is meant to be tuned against the real logs."""
 import asyncio
 import re
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
 import pipeline
-from elastic import _es_search
+from elastic import _es_search, extract_doc_ids
 from config import settings
 from monitoring import _flatten, _first_field, period_bounds, timeseries_interval, summarize_doc, resolve_data_view
 from portal import fetch_document_meta
@@ -402,3 +402,90 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
         timeseries=timeseries,
         events=events,
     )
+
+
+def _event_doc_id(e: dict) -> str | None:
+    """The document id an event belongs to: the ronl id if present, else a UUID
+    found in the message."""
+    did = e.get("doc_id")
+    if did:
+        return did
+    ids = extract_doc_ids(e.get("message") or "")
+    return ids[0] if ids else None
+
+
+async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
+    """Proactive, dashboard-level view of the whole pipeline: which documents are
+    STUCK (entered but never finished, and went quiet), and where problems cluster
+    by stage — so an admin spots issues without tracing each document by hand.
+    Scans recent document events across ALL data views and runs each document
+    through the canonical lifecycle (see backend/pipeline.py)."""
+    lookback = settings.pipeline_health_lookback_minutes
+    start, end = period_bounds(lookback)
+    body = {
+        "size": settings.pipeline_health_scan_size,
+        "sort": [{"@timestamp": {"order": "asc"}}],
+        "query": _event_query(start, end),
+    }
+    views = settings.data_view_list
+    results = await asyncio.gather(
+        *[_es_search(sid, v, body) for v in views], return_exceptions=True
+    )
+    hits = []
+    for res in results:
+        if not isinstance(res, Exception):
+            hits.extend(res.get("hits", {}).get("hits", []))
+    events = [summarize_event(h) for h in hits]
+    now = datetime.now(timezone.utc)
+
+    # ── where problems cluster: per-stage event / warning / error counts ──
+    stage_health = []
+    counters: dict[str, dict] = {}
+    for s in pipeline.PIPELINE:
+        counters[s["key"]] = {"key": s["key"], "name": s["name"], "icon": s["icon"],
+                              "events": 0, "warnings": 0, "errors": 0}
+    for e in events:
+        key = pipeline.stage_for_service(e.get("service"))
+        if not key:
+            continue
+        c = counters[key]
+        c["events"] += 1
+        if e.get("severity") == "warning":
+            c["warnings"] += 1
+        elif e.get("severity") == "error":
+            c["errors"] += 1
+    stage_health = [counters[s["key"]] for s in pipeline.PIPELINE]
+
+    # ── group events per document and find the stuck ones ──
+    groups: dict[str, list[dict]] = {}
+    for e in events:
+        did = _event_doc_id(e)
+        if did:
+            groups.setdefault(did, []).append(e)
+
+    stuck = []
+    for did, evs in groups.items():
+        view = pipeline.build_pipeline_view(evs, now=now)
+        if view["verdict"] in ("stuck", "problem"):
+            last_seen = max((e.get("timestamp") or "" for e in evs), default="")
+            stuck.append({
+                "id": did,
+                "verdict": view["verdict"],
+                "headline": view["headline"],
+                "stuck_stage": view["furthest_stage"],
+                "next_stage": view["next_stage"],
+                "events": len(evs),
+                "last_seen": last_seen,
+            })
+    # worst (problems first, then longest-idle) first
+    stuck.sort(key=lambda d: (d["verdict"] != "problem", d["last_seen"]))
+
+    return {
+        "lookback_minutes": lookback,
+        "documents_scanned": len(groups),
+        "stuck_count": len(stuck),
+        "stuck": stuck[:50],
+        "stage_health": stage_health,
+        "total_warnings": sum(c["warnings"] for c in stage_health),
+        "total_errors": sum(c["errors"] for c in stage_health),
+    }

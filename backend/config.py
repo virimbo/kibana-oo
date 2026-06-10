@@ -55,6 +55,10 @@ class Settings(BaseSettings):
     # Documents activity tab: which logs count as document events, and how many to feed.
     document_event_query: str = "ronl OR document OR bestand OR upload OR publicatie OR versie"
     document_event_size: int = 200
+    # Pipeline-health scan: look back this far for documents that entered the
+    # pipeline but never finished ("stuck"), scanning up to N recent events.
+    pipeline_health_lookback_minutes: int = 1440  # 24h
+    pipeline_health_scan_size: int = 1000
     # Best-effort source fields for a document's organization (tune to your logs).
     doc_org_fields: str = "organisatie,bronorganisatie,publisher,organization,source.organization,verantwoordelijke,bron,afzender"
     # Known document sources (bron) for the errors-by-source table.

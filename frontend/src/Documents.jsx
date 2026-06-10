@@ -192,6 +192,77 @@ function LifecycleBar({ lifecycle }) {
   );
 }
 
+// Proactive, dashboard-level pipeline health: which documents are stuck, and
+// where problems cluster by stage — so an admin acts without tracing each doc.
+function PipelineHealth({ health, onTrace }) {
+  if (!health) return null;
+  const stuck = health.stuck || [];
+  const hours = Math.round((health.lookback_minutes || 1440) / 60);
+  const warn = health.total_warnings || 0;
+  const err = health.total_errors || 0;
+  const clean = stuck.length === 0 && warn === 0 && err === 0;
+  return (
+    <section className={`panel ${stuck.length ? "panel--alert" : ""}`}>
+      <h3>
+        🚦 Pipeline health
+        <InfoTip text={`Proactively scans documents active in the last ${hours}h: which are stuck in the pipeline, and where problems cluster by stage. Click a stuck document to trace it.`} />
+      </h3>
+      {clean ? (
+        <p className="pipe-ok">✓ All {health.documents_scanned} documents flowing normally in the last {hours}h.</p>
+      ) : (
+        <p className={stuck.length ? "pipe-alert" : "muted"}>
+          {stuck.length > 0
+            ? `⚠ ${stuck.length} document${stuck.length === 1 ? "" : "s"} stuck or failing`
+            : "✓ No stuck documents"}
+          {" · "}
+          {warn} warning{warn === 1 ? "" : "s"} · {err} error{err === 1 ? "" : "s"} across {health.documents_scanned} documents
+        </p>
+      )}
+
+      {stuck.length > 0 && (
+        <ul className="stuck-list">
+          {stuck.map((d) => (
+            <li
+              key={d.id}
+              className="stuck-row"
+              role="button"
+              tabIndex={0}
+              onClick={() => onTrace(d.id)}
+              onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onTrace(d.id)}
+              title="Click to trace this document"
+            >
+              <span className={`stuck-badge stuck-badge--${d.verdict}`}>
+                {d.verdict === "problem" ? "⛔" : "🕒"} {d.stuck_stage}
+              </span>
+              <code className="stuck-id">{d.id}</code>
+              <span className="stuck-head">{d.headline}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="stage-health" aria-label="Problems by stage">
+        {(health.stage_health || []).map((s) => (
+          <div
+            key={s.key}
+            className={`stagehp ${s.errors ? "stagehp--err" : s.warnings ? "stagehp--warn" : ""}`}
+            title={`${s.name}: ${s.events} events · ${s.warnings} warnings · ${s.errors} errors`}
+          >
+            <span className="stagehp-icon">{s.icon}</span>
+            <span className="stagehp-name">{s.name}</span>
+            {(s.warnings > 0 || s.errors > 0) && (
+              <span className="stagehp-counts">
+                {s.errors > 0 && <span className="stagehp-err">⛔{s.errors}</span>}
+                {s.warnings > 0 && <span className="stagehp-warn">⚠{s.warnings}</span>}
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -209,9 +280,10 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [ai, setAi] = useState(null); // { summary, provider, model, error }
   const [aiLoading, setAiLoading] = useState(false);
+  const [health, setHealth] = useState(null); // pipeline health (stuck docs + stage health)
 
-  const runTrace = useCallback(async () => {
-    const id = traceId.trim();
+  const runTrace = useCallback(async (explicitId) => {
+    const id = (typeof explicitId === "string" ? explicitId : traceId).trim();
     if (!id) return;
     setTraceLoading(true);
     setTraceError("");
@@ -279,6 +351,28 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
   useEffect(() => {
     load();
   }, [load]);
+
+  // Proactive pipeline health (stuck docs + where problems cluster) — loaded
+  // independently so the tab stays fast.
+  useEffect(() => {
+    let active = true;
+    getJSON(`/dashboard/pipeline-health?data_view=${encodeURIComponent(dataView)}`, token)
+      .then((d) => active && setHealth(d))
+      .catch(() => active && setHealth(null));
+    return () => {
+      active = false;
+    };
+  }, [dataView, token]);
+
+  // Trace a specific document id (from a "stuck" row) and scroll to the tracer.
+  const traceDoc = useCallback(
+    (id) => {
+      setTraceId(id);
+      runTrace(id);
+      document.querySelector(".trace-form")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    },
+    [runTrace]
+  );
 
   const events = data?.events || [];
   const max = Math.max(1, ...((data?.timeseries || []).map((b) => b.count)));
@@ -369,6 +463,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
           </div>
 
           {error && <div className="alert alert--error">{error}</div>}
+
+          <PipelineHealth health={health} onTrace={traceDoc} />
 
           {data && (
             <>

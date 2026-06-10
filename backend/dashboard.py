@@ -9,7 +9,7 @@ from briefing import explain_trace, generate_briefing
 from cache import TTLCache
 from certificates import fetch_certificates
 from config import settings
-from documents import build_document_activity, trace_document
+from documents import build_document_activity, build_pipeline_health, trace_document
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view
 
@@ -21,6 +21,7 @@ _briefing_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _cert_cache = TTLCache(ttl=3600)  # certificates change slowly
 _documents_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _trace_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
+_health_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
 # Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
 ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
@@ -124,6 +125,26 @@ async def _get_trace(sid: str, doc_id: str, dv: str) -> dict:
         return cached
     result = await trace_document(sid, doc_id, dv)
     _trace_cache.set(key, result)
+    return result
+
+
+@router.get("/pipeline-health")
+async def pipeline_health(
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Proactive: documents stuck in the pipeline + where problems cluster by
+    stage, so admins catch issues without tracing each document."""
+    dv = resolve_data_view(data_view)
+    cached = _health_cache.get("health")
+    if cached is not None:
+        return cached
+    try:
+        result = await build_pipeline_health(session["sid"], dv)
+    except Exception as e:
+        logger.error(f"Pipeline health failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to load pipeline health: {e}")
+    _health_cache.set("health", result)
     return result
 
 

@@ -166,7 +166,9 @@ builds a **search index** so the public can search and find documents.
 documents. The end of the journey.
 
 **📚 Applicatieketen ROO.** A supporting system that keeps the *organisation data*
-and a **reference index** (*Verwijsindex*) of where Woo information can be found.
+and a **reference index** (*Verwijsindex*) of where Woo information can be found —
+the "we don't host it, but we know where it lives" register. It runs *alongside*
+the pipeline: see the full breakdown in [[ROO - Applicatieketen]].
 
 ---
 

@@ -1,4 +1,5 @@
 import ProviderSwitcher from "./ProviderSwitcher";
+import StuckBadge from "./StuckBadge";
 
 // A reusable on/off switch.
 function Toggle({ checked, onChange, label, hint }) {
@@ -23,7 +24,7 @@ function Toggle({ checked, onChange, label, hint }) {
 }
 
 // Admin Settings tab — feature toggles for the chat experience.
-export default function SettingsPage({ username, onLogout, onNavigate, llmProvider, onProviderChange, settings }) {
+export default function SettingsPage({ username, onLogout, onNavigate, llmProvider, onProviderChange, settings, stuckCount }) {
   const {
     autocorrect, setAutocorrect,
     showWelcome, setShowWelcome,
@@ -42,6 +43,7 @@ export default function SettingsPage({ username, onLogout, onNavigate, llmProvid
           </div>
         </div>
         <div className="header-right">
+          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
           <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>Chat</button>
           <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>Dashboard</button>

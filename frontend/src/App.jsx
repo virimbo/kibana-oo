@@ -6,6 +6,7 @@ import DashboardPage from "./Dashboard";
 import DocumentsPage from "./Documents";
 import SettingsPage from "./Settings";
 import ProviderSwitcher from "./ProviderSwitcher";
+import StuckBadge from "./StuckBadge";
 
 const SUGGESTIONS = [
   {
@@ -312,7 +313,7 @@ function UserMessage({ msg }) {
 function ChatPage({
   token, username, onLogout, isAdmin, onNavigate,
   llmProvider, onProviderChange,
-  autocorrect, showWelcome, showHint, showSuggestions,
+  autocorrect, showWelcome, showHint, showSuggestions, stuckCount,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -572,6 +573,7 @@ function ChatPage({
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
+          {isAdmin && <StuckBadge count={stuckCount} onNavigate={onNavigate} />}
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} disabled={loading} />
           {isAdmin && (
             <>
@@ -880,6 +882,28 @@ export default function App() {
     showSuggestions, setShowSuggestions,
   };
 
+  // Global proactive alert: how many documents are stuck in the pipeline. Polled
+  // for admins so it shows in every header, on every tab (the cached endpoint
+  // keeps this cheap).
+  const [stuckCount, setStuckCount] = useState(0);
+  useEffect(() => {
+    if (!token || !isAdmin) {
+      setStuckCount(0);
+      return;
+    }
+    let active = true;
+    const poll = () =>
+      getJSON("/dashboard/pipeline-health", token)
+        .then((d) => active && setStuckCount(d.stuck_count || 0))
+        .catch(() => {});
+    poll();
+    const id = setInterval(poll, 60000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [token, isAdmin]);
+
   // Probe admin access: 403 means non-admin; 200/502 means admin (endpoint reached).
   useEffect(() => {
     if (!token) {
@@ -929,6 +953,7 @@ export default function App() {
         onNavigate={setView}
         llmProvider={llmProvider}
         onProviderChange={setLlmProvider}
+        stuckCount={stuckCount}
       />
     );
   }
@@ -942,6 +967,7 @@ export default function App() {
         onNavigate={setView}
         llmProvider={llmProvider}
         onProviderChange={setLlmProvider}
+        stuckCount={stuckCount}
       />
     );
   }
@@ -955,6 +981,7 @@ export default function App() {
         llmProvider={llmProvider}
         onProviderChange={setLlmProvider}
         settings={settings}
+        stuckCount={stuckCount}
       />
     );
   }
@@ -972,6 +999,7 @@ export default function App() {
       showWelcome={showWelcome}
       showHint={showHint}
       showSuggestions={showSuggestions}
+      stuckCount={stuckCount}
     />
   );
 }

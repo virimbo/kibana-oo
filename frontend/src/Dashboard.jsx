@@ -3,6 +3,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 import ProviderSwitcher from "./ProviderSwitcher";
+import StuckBadge from "./StuckBadge";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -103,7 +104,7 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -204,6 +205,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           </div>
         </div>
         <div className="header-right">
+          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           {onProviderChange && (
             <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
           )}

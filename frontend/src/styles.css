@@ -1659,6 +1659,41 @@ body {
 .feed-status--warning { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent); }
 .trace-stat--warn { color: var(--warn); font-weight: 700; }
 
+/* ── Pipeline health (proactive dashboard panel) ─────────── */
+.stuck-list { list-style: none; margin: 10px 0 14px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.stuck-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 9px 11px; border-radius: 9px; cursor: pointer;
+  background: var(--bg-input); border: 1px solid var(--border);
+  transition: border-color 0.14s ease, transform 0.08s ease;
+}
+.stuck-row:hover { border-color: var(--warn); transform: translateX(2px); }
+.stuck-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stuck-badge {
+  flex: none; font-size: 11.5px; font-weight: 700; white-space: nowrap;
+  padding: 2px 9px; border-radius: 999px;
+  color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); border: 1px solid var(--warn);
+}
+.stuck-badge--problem { color: var(--error); background: var(--error-soft); border-color: var(--error); }
+.stuck-id { font-family: var(--mono); font-size: 11.5px; color: var(--text-secondary); }
+.stuck-head { font-size: 12.5px; color: var(--text-primary); }
+
+/* stage-health strip — where problems cluster */
+.stage-health { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.stagehp {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 10px; border-radius: 8px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text-secondary);
+}
+.stagehp--warn { border-color: var(--warn); }
+.stagehp--err { border-color: var(--error); animation: jflowPulse 1.8s ease-in-out infinite; }
+.stagehp-icon { font-size: 13px; }
+.stagehp-name { font-weight: 600; color: var(--text-primary); }
+.stagehp-counts { display: inline-flex; gap: 5px; }
+.stagehp-warn { color: var(--warn); font-weight: 700; }
+.stagehp-err { color: var(--error); font-weight: 700; }
+
 /* Document metadata chips (from the public portal API) */
 .trace-meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .meta-chip {

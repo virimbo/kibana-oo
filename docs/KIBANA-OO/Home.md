@@ -34,6 +34,7 @@ flowchart TD
 
 - [[Woo platform]] — **plain-language** map of the whole KOOP/Woo platform we monitor (start here for the big picture)
 - [[ROO - Applicatieketen]] — the register & reference index: "where to find" Woo info not hosted on the platform
+- [[Woo Gateway]] — the secure front door: delivery APIs (OAS), API Gateway, IAM/CAM auth
 - [[Architecture]] — the three services and how a request flows
 - [[Chat pipeline]] — how a question becomes an answer (doc-id trace, OCR, auto-correct, escalation)
 - [[Document tracer]] — trace one document's journey + AI explain

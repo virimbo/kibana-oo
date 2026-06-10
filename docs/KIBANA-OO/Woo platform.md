@@ -141,7 +141,8 @@ flowchart TB
 
 **🚪 Woo Gateway — the front door.** Where deliveries arrive. It checks *who* is
 allowed in (**IAM** = login & access) and offers standard delivery doors
-(**OAS** APIs). Think of it as the reception desk + security guard.
+(**OAS** APIs). Think of it as the reception desk + security guard. Full
+breakdown: [[Woo Gateway]].
 
 **📥 Woo-aanlevering (intake).** Collects documents from every channel:
 automatically *pulled in* (**Harvester**, **RONL Ophaalservice**), *imported* in

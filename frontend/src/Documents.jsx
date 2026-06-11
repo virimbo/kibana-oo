@@ -274,7 +274,7 @@ function PipelineHealth({ health, onTrace }) {
   );
 }
 
-export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount }) {
+export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, initialTraceId }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -384,6 +384,13 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
     },
     [runTrace]
   );
+
+  // Deep-link: when arriving from the dashboard "documents at risk" list, trace
+  // that document automatically.
+  useEffect(() => {
+    if (initialTraceId) traceDoc(initialTraceId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTraceId]);
 
   const events = data?.events || [];
   const max = Math.max(1, ...((data?.timeseries || []).map((b) => b.count)));

@@ -261,7 +261,7 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
             log_title = fn.rsplit(".", 1)[0]
             break
 
-    meta = await fetch_document_meta(needle)  # None if not a portal id / unreachable
+    meta = await fetch_document_meta(_portal_id(needle))  # resolves UUID + ronl-<uuid>
     title = (meta.get("title") if meta else None) or log_title
 
     ronl = next((e["doc_id"] for e in events if e.get("doc_id") and e["doc_id"].lower().startswith("ronl")), None)
@@ -438,6 +438,28 @@ def _has_alerting(events: list[dict]) -> bool:
     return False
 
 
+_UUID_RE = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", re.IGNORECASE)
+
+
+def _portal_id(doc_id: str) -> str:
+    """The id to look up on the public portal. ronl- ids embed a UUID
+    (ronl-archief-<uuid>) — extract it so the portal (UUID-only) can resolve the
+    title and publication status."""
+    m = _UUID_RE.search(doc_id or "")
+    return m.group(0) if m else doc_id
+
+
+def _log_title(events: list[dict]) -> str | None:
+    """Best-effort title from the logs: the first real document filename (skip
+    system files like manifest.json). Lets ronl- documents — which the portal API
+    can't resolve — still show a human name."""
+    for e in events:
+        fn = e.get("filename")
+        if fn and not _is_system_file(fn):
+            return fn.rsplit(".", 1)[0]
+    return None
+
+
 async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
     """Proactive, dashboard-level view of the whole pipeline: which documents are
     STUCK (entered but never finished, and went quiet), and where problems cluster
@@ -507,6 +529,7 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
                 "next_stage": view["next_stage"],
                 "events": len(evs),
                 "last_seen": max((e.get("timestamp") or "" for e in evs), default=""),
+                "log_title": _log_title(evs),   # filename from logs (works for ronl- ids)
             })
 
     # ── Reconcile with GROUND TRUTH: a candidate that is actually published on
@@ -514,7 +537,7 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
     # Only verify the flagged candidates (few) — cached + best-effort. ──
     verify = candidates[:settings.pipeline_health_verify_max]
     metas = await asyncio.gather(
-        *[fetch_document_meta(d["id"]) for d in verify], return_exceptions=True
+        *[fetch_document_meta(_portal_id(d["id"])) for d in verify], return_exceptions=True
     )
     meta_by_id = {
         d["id"]: (m if isinstance(m, dict) else None) for d, m in zip(verify, metas)
@@ -527,9 +550,11 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         if meta and pipeline.is_published(meta.get("status")):
             confirmed_published += 1   # false alarm — it's live & readable
             continue
-        if meta:
-            d["title"] = meta.get("title")
-            d["link"] = meta.get("link")
+        # Title: official (portal, UUID only) → else the filename from the logs
+        # (so ronl- documents show a real name, not just their id).
+        log_title = d.pop("log_title", None)
+        d["title"] = (meta.get("title") if meta else None) or log_title
+        d["link"] = (meta.get("link") if meta else None) or settings.doc_link_template.format(id=d["id"])
         stuck.append(d)
     # genuine problems first, then longest-idle
     stuck.sort(key=lambda d: (d["verdict"] != "problem", d["last_seen"]))

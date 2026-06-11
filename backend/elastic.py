@@ -209,48 +209,6 @@ async def search_logs(
     return _format_hits(result.get("hits", {}).get("hits", []))
 
 
-async def search_metrics(
-    sid: str,
-    query: str,
-    size: int = 20,
-    time_range_minutes: int = 60,
-) -> list[dict]:
-    """Search metrics matching a query string within a time range."""
-    now = datetime.now(timezone.utc)
-    time_from = now - timedelta(minutes=time_range_minutes)
-
-    body = {
-        "size": size,
-        "sort": [{"@timestamp": {"order": "desc"}}],
-        "query": {
-            "bool": {
-                "must": [
-                    {
-                        "multi_match": {
-                            "query": query,
-                            "fields": ["*"],
-                            "type": "best_fields",
-                        }
-                    }
-                ],
-                "filter": [
-                    {
-                        "range": {
-                            "@timestamp": {
-                                "gte": time_from.isoformat(),
-                                "lte": now.isoformat(),
-                            }
-                        }
-                    }
-                ],
-            }
-        },
-    }
-
-    result = await _es_search(sid, settings.es_metric_index, body)
-    return _format_hits(result.get("hits", {}).get("hits", []))
-
-
 async def get_recent_errors(
     sid: str,
     size: int = 10,

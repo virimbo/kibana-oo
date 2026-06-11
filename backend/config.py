@@ -88,6 +88,21 @@ class Settings(BaseSettings):
     # LLM Provider selection: "ollama" or "mistral"
     llm_provider: str = "ollama"
 
+    # ── Notifications / daily digest ──────────────────────────
+    # Email (SMTP). For Gmail use an app password (plain login is blocked).
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = ""
+    smtp_use_tls: bool = True
+    digest_recipients: str = ""        # comma-separated email addresses
+    # Slack / Teams / Discord / generic incoming webhook (recommended — easiest).
+    digest_webhook_url: str = ""
+    # Service-account credentials for the unattended daily digest (send_digest.py).
+    digest_kibana_user: str = ""
+    digest_kibana_password: str = ""
+
     # Backend
     backend_port: int = 8000
     frontend_origin: str = "http://localhost:3000"
@@ -109,6 +124,10 @@ class Settings(BaseSettings):
         """Known sources, longest-first so 'ronl-archief' wins over 'ronl'."""
         items = [s.strip() for s in self.processing_sources.split(",") if s.strip()]
         return sorted(items, key=len, reverse=True)
+
+    @property
+    def digest_recipient_list(self) -> list[str]:
+        return [e.strip() for e in self.digest_recipients.split(",") if e.strip()]
 
     @property
     def admin_list(self) -> list[str]:

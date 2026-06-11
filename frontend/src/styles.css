@@ -1681,6 +1681,8 @@ body {
 .stuck-title { font-size: 12.5px; font-weight: 600; color: var(--text-primary); }
 .stuck-head { font-size: 11.5px; color: var(--text-secondary); }
 .pipe-confirmed { margin-top: -6px; font-size: 12px; }
+.digest-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 4px 0 12px; }
+.digest-msg { font-size: 12.5px; color: var(--text-secondary); }
 .life-tip-confirmed { font-size: 11px; font-weight: 600; color: var(--success); margin-bottom: 6px; }
 
 /* stage-health strip — where problems cluster */

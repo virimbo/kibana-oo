@@ -4,9 +4,13 @@ import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+import asyncio
+
+import notify
 from auth import require_admin
 from briefing import explain_trace, generate_briefing
 from cache import TTLCache
+from digest import build_digest
 from certificates import fetch_certificates
 from config import settings
 from documents import build_document_activity, build_pipeline_health, trace_document
@@ -146,6 +150,36 @@ async def pipeline_health(
         raise HTTPException(status_code=502, detail=f"Failed to load pipeline health: {e}")
     _health_cache.set("health", result)
     return result
+
+
+@router.post("/digest/send")
+async def digest_send(
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Build the 'documents needing attention' digest and send it now via the
+    configured channels (email and/or webhook). Uses the caller's session."""
+    dv = resolve_data_view(data_view)
+    try:
+        health = await build_pipeline_health(session["sid"], dv)
+    except Exception as e:
+        logger.error(f"Digest health failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to build digest: {e}")
+
+    digest = build_digest(health)
+    email_ok = (
+        await asyncio.to_thread(notify.send_email, digest["subject"], digest["html"], digest["text"])
+        if notify.email_configured() else False
+    )
+    webhook_ok = await notify.send_webhook(digest["text"]) if notify.webhook_configured() else False
+    return {
+        "configured": notify.email_configured() or notify.webhook_configured(),
+        "sent": email_ok or webhook_ok,
+        "email": email_ok,
+        "webhook": webhook_ok,
+        "count": digest["count"],
+        "critical": digest["critical"],
+    }
 
 
 @router.get("/document-trace")

@@ -116,6 +116,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
   const [briefingState, setBriefingState] = useState("idle"); // idle|loading|error
   const [certs, setCerts] = useState(null); // null = loading
   const [health, setHealth] = useState(null); // documents at risk (stuck / critical)
+  const [digestMsg, setDigestMsg] = useState("");
 
   // Certificate expiry — read from Kibana monitoring data, independent of the metrics.
   useEffect(() => {
@@ -202,6 +203,28 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
     if (snap) loadBriefing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snap?.period_minutes, snap?.data_view]);
+
+  // Email / webhook the at-risk digest now (uses the live session).
+  const sendDigest = useCallback(async () => {
+    setDigestMsg("Sending…");
+    try {
+      const r = await fetch(
+        `${BACKEND_URL}/dashboard/digest/send?data_view=${encodeURIComponent(dataView)}`,
+        { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+      );
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.detail || "send failed");
+      if (!d.configured) {
+        setDigestMsg("⚙ No email/webhook configured yet — set SMTP_* or DIGEST_WEBHOOK_URL in .env.");
+      } else if (d.sent) {
+        setDigestMsg(`✓ Sent${d.email ? " · email" : ""}${d.webhook ? " · webhook" : ""}.`);
+      } else {
+        setDigestMsg("⚠ Delivery failed — check the SMTP / webhook settings.");
+      }
+    } catch (e) {
+      setDigestMsg(`⚠ ${e.message}`);
+    }
+  }, [dataView, token]);
 
   const max = Math.max(1, ...((snap?.timeseries || []).map((b) => b.count)));
 
@@ -304,6 +327,12 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                   {atRisk.length} document{atRisk.length === 1 ? "" : "s"} at risk
                   {critical > 0 ? ` · ${critical} critical` : ""} — act before users notice.
                 </p>
+                <div className="digest-bar">
+                  <button className="btn btn--ghost" onClick={sendDigest} title="Email / Slack this list now">
+                    📧 Send me this digest
+                  </button>
+                  {digestMsg && <span className="digest-msg">{digestMsg}</span>}
+                </div>
                 <ul className="stuck-list">
                   {atRisk.map((d) => (
                     <li

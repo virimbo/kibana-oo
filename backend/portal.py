@@ -74,6 +74,26 @@ def extract_meta(payload: dict) -> dict:
     }
 
 
+def _is_tls_error(exc: Exception) -> bool:
+    """True if a connection failure is a certificate/TLS verification problem
+    (the signature of a VPN/corporate proxy intercepting the connection)."""
+    text = str(exc).lower()
+    return "certificate" in text or "ssl" in text or "verify failed" in text
+
+
+async def _get_json(url: str, *, verify: bool) -> dict:
+    """GET the URL and parse JSON. ``verify`` toggles TLS certificate
+    verification (off only for the public-data insecure fallback)."""
+    async with httpx.AsyncClient(timeout=settings.portal_meta_timeout, verify=verify) as client:
+        resp = await client.get(
+            url,
+            headers={"Accept": "application/json", "User-Agent": "KIBANA-OO/1.0"},
+            follow_redirects=True,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+
 async def fetch_document_meta(plooi_id: str) -> dict | None:
     """Resolve official metadata for a UUID publication id. Cached and non-fatal:
     returns None for non-UUID ids, unreachable API, 4xx/5xx, or unparseable JSON.
@@ -88,14 +108,20 @@ async def fetch_document_meta(plooi_id: str) -> dict | None:
 
     url = settings.portal_meta_api.format(id=pid)
     try:
-        async with httpx.AsyncClient(timeout=settings.portal_meta_timeout) as client:
-            resp = await client.get(
-                url,
-                headers={"Accept": "application/json", "User-Agent": "KIBANA-OO/1.0"},
-                follow_redirects=True,
-            )
-            resp.raise_for_status()
-            payload = resp.json()
+        payload = await _get_json(url, verify=True)
+    except httpx.ConnectError as exc:
+        # A corporate/VPN TLS-intercepting proxy makes the cert unverifiable.
+        # The data is public and we send no credentials, so retry insecurely
+        # rather than report every published document as "not live".
+        if settings.portal_meta_insecure_fallback and _is_tls_error(exc):
+            try:
+                payload = await _get_json(url, verify=False)
+            except (httpx.HTTPError, ValueError):
+                _meta_cache.set(pid, {})
+                return None
+        else:
+            _meta_cache.set(pid, {})
+            return None
     except (httpx.HTTPError, ValueError):
         _meta_cache.set(pid, {})  # negative-cache so we don't retry every trace
         return None

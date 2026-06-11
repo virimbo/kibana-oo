@@ -85,6 +85,28 @@ async def test_trace_document(monkeypatch):
     assert trace["stages"][0]["errors"] == 1
 
 
+async def test_trace_document_uuid_gets_direct_details_link(monkeypatch):
+    """A UUID doc gets an API-free open.overheid.nl/details/<uuid> link that is
+    present even when portal enrichment is unavailable (e.g. blocked by a VPN)."""
+    uid = "331f113c-8aa2-4df4-9fd1-2373e85cf566"
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": [
+            {"_source": {"@timestamp": "t1", "level": "INFO", "message": f"ingest {uid}"}}]}}
+
+    async def no_meta(doc_id):
+        return None  # portal unreachable (VPN/TLS) — link must still work
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", no_meta)
+    monkeypatch.setattr(documents.settings, "data_views", "logs-*")
+    monkeypatch.setattr(documents.settings, "default_data_view", "logs-*")
+
+    trace = await documents.trace_document("sid", uid, "logs-*")
+    assert trace["details_link"] == f"https://open.overheid.nl/details/{uid}"
+    assert trace["portal_link"] == f"https://open.overheid.nl/details/{uid}"
+
+
 @pytest.fixture
 def patched(monkeypatch):
     async def fake_es(sid, index, body):

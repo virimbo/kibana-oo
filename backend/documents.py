@@ -291,7 +291,10 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
 
     # The canonical lifecycle: where the document got to, honest health, and a
     # plain-language verdict — the single source of truth (backend/pipeline.py).
-    lifecycle = pipeline.build_pipeline_view(events)
+    # Publication status from open.overheid.nl is authoritative: a live document
+    # is never "stuck", even if the scanned logs are incomplete.
+    published = pipeline.is_published(meta.get("status")) if meta else False
+    lifecycle = pipeline.build_pipeline_view(events, published=published)
 
     return {
         "id": needle,
@@ -463,21 +466,43 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         if did:
             groups.setdefault(did, []).append(e)
 
-    stuck = []
+    candidates = []
     for did, evs in groups.items():
         view = pipeline.build_pipeline_view(evs, now=now)
         if view["verdict"] in ("stuck", "problem"):
-            last_seen = max((e.get("timestamp") or "" for e in evs), default="")
-            stuck.append({
+            candidates.append({
                 "id": did,
                 "verdict": view["verdict"],
                 "headline": view["headline"],
                 "stuck_stage": view["furthest_stage"],
                 "next_stage": view["next_stage"],
                 "events": len(evs),
-                "last_seen": last_seen,
+                "last_seen": max((e.get("timestamp") or "" for e in evs), default=""),
             })
-    # worst (problems first, then longest-idle) first
+
+    # ── Reconcile with GROUND TRUTH: a candidate that is actually published on
+    # open.overheid.nl is NOT stuck (the logs we scanned were just incomplete).
+    # Only verify the flagged candidates (few) — cached + best-effort. ──
+    verify = candidates[:settings.pipeline_health_verify_max]
+    metas = await asyncio.gather(
+        *[fetch_document_meta(d["id"]) for d in verify], return_exceptions=True
+    )
+    meta_by_id = {
+        d["id"]: (m if isinstance(m, dict) else None) for d, m in zip(verify, metas)
+    }
+
+    stuck = []
+    confirmed_published = 0
+    for d in candidates:
+        meta = meta_by_id.get(d["id"])
+        if meta and pipeline.is_published(meta.get("status")):
+            confirmed_published += 1   # false alarm — it's live & readable
+            continue
+        if meta:
+            d["title"] = meta.get("title")
+            d["link"] = meta.get("link")
+        stuck.append(d)
+    # genuine problems first, then longest-idle
     stuck.sort(key=lambda d: (d["verdict"] != "problem", d["last_seen"]))
 
     return {
@@ -485,6 +510,7 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         "documents_scanned": len(groups),
         "stuck_count": len(stuck),
         "stuck": stuck[:50],
+        "confirmed_published": confirmed_published,  # candidates that were actually live
         "stage_health": stage_health,
         "total_warnings": sum(c["warnings"] for c in stage_health),
         "total_errors": sum(c["errors"] for c in stage_health),

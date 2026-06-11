@@ -118,8 +118,32 @@ async def test_stream_response_never_ends_empty(monkeypatch):
         return
         yield  # unreachable — makes this an (empty) async generator
 
+    async def empty_answer(question, context, system=None, session=None):
+        return ""  # the non-streaming retry also comes back empty
+
     monkeypatch.setattr(main, "generate_answer_stream", empty_stream)
+    monkeypatch.setattr(main, "generate_answer", empty_answer)
     events = [e async for e in main._stream_response("q", "ctx", [], {"llm_provider": "ollama"})]
     chunks = [e for e in events if e["event"] == "chunk"]
     assert len(chunks) == 1 and "empty response" in chunks[0]["data"].lower()
     assert events[-1]["event"] == "done"
+
+
+async def test_stream_response_recovers_via_nonstreaming_retry(monkeypatch):
+    """An empty stream is recovered by a non-streaming retry — the user gets a
+    real answer instead of the 'empty response' message."""
+    import main
+
+    async def empty_stream(question, context, session=None):
+        return
+        yield
+
+    async def good_answer(question, context, system=None, session=None):
+        return "Here are the errors grouped by service: svc-a ×3, svc-b ×1."
+
+    monkeypatch.setattr(main, "generate_answer_stream", empty_stream)
+    monkeypatch.setattr(main, "generate_answer", good_answer)
+    events = [e async for e in main._stream_response("q", "ctx", [], {"llm_provider": "mistral"})]
+    chunks = [e for e in events if e["event"] == "chunk"]
+    assert len(chunks) == 1 and "grouped by service" in chunks[0]["data"]
+    assert "empty response" not in chunks[0]["data"].lower()

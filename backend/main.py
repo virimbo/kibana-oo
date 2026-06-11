@@ -19,7 +19,7 @@ from elastic import (
     search_by_document_id,
     search_logs,
 )
-from llm import generate_answer, generate_answer_stream, polish_text
+from llm import generate_answer, generate_answer_stream, polish_text, provider_model
 from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
@@ -359,16 +359,17 @@ async def _stream_response(
                 produced = True
                 yield {"event": "chunk", "data": chunk}
         if not produced:
-            # The model returned nothing (transient provider issue / over-strict
-            # refusal). Never leave the user with a blank bubble — say so and
-            # offer a concrete next step.
+            # The stream came back empty — almost always a transient provider
+            # hiccup (e.g. Mistral rate-limiting). Don't give up: retry once
+            # non-streaming, then fall back to the local model so the user always
+            # gets a real answer.
+            fallback = await _recover_answer(question, context, session)
             yield {
                 "event": "chunk",
-                "data": (
-                    "The AI model returned an empty response. This is usually a "
-                    "transient issue with the selected provider.\n\n"
-                    "- Try sending the question again\n"
-                    "- Or switch the **AI model** (top of the page) and retry"
+                "data": fallback or (
+                    "The AI model returned an empty response (it may be rate-limited "
+                    "right now). Please try again in a moment, or switch the AI model "
+                    "in the header."
                 ),
             }
         yield {"event": "sources", "data": json.dumps(sources[:5])}
@@ -376,6 +377,27 @@ async def _stream_response(
     except Exception as e:
         logger.error(f"Streaming failed: {e}")
         yield {"event": "error", "data": str(e)}
+
+
+async def _recover_answer(question: str, context: str, session: dict) -> str:
+    """Recover from an empty streamed answer: retry once non-streaming with the
+    same provider; if still empty and we were on Mistral, fall back to the local
+    model (which is always available). Returns "" only if everything fails."""
+    provider, _ = provider_model(session)
+    try:
+        answer = await generate_answer(question, context, session=session)
+        if (answer or "").strip():
+            return answer
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Non-streaming retry failed: {e}")
+    if provider == "mistral":
+        try:
+            local = await generate_answer(question, context, session={"llm_provider": "ollama"})
+            if (local or "").strip():
+                return ("_(Mistral was unavailable — answered with the local model.)_\n\n" + local)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Local-model fallback failed: {e}")
+    return ""
 
 
 async def _collect_doc_events(sid: str, doc_id: str) -> list[dict]:

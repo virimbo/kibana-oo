@@ -417,6 +417,27 @@ def _event_doc_id(e: dict) -> str | None:
     return ids[0] if ids else None
 
 
+# Problem types that genuinely indicate a document is in trouble. The routine
+# 'not_found' (404 probe to the public API) is deliberately excluded — on its
+# own it does not mean a document is at risk.
+_ALERTING_PROBLEMS = {"connection_reset", "broken_pipe", "timeout", "refused", "server_error", "failure"}
+# A stall at one of these late stages is meaningful even without an error — the
+# document got most of the way through and then stopped.
+_LATE_STAGES = {"publication", "indexing", "export"}
+
+
+def _has_alerting(events: list[dict]) -> bool:
+    """Does this document show a real trouble signal (error, or a reset/timeout/
+    failure)? Routine 404 probes do not count."""
+    for e in events:
+        if e.get("severity") == "error":
+            return True
+        prob = e.get("problem")
+        if prob and prob.get("key") in _ALERTING_PROBLEMS:
+            return True
+    return False
+
+
 async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
     """Proactive, dashboard-level view of the whole pipeline: which documents are
     STUCK (entered but never finished, and went quiet), and where problems cluster
@@ -469,7 +490,15 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
     candidates = []
     for did, evs in groups.items():
         view = pipeline.build_pipeline_view(evs, now=now)
-        if view["verdict"] in ("stuck", "problem"):
+        if view["verdict"] not in ("stuck", "problem"):
+            continue
+        # Only flag a document as genuinely at-risk — NOT every document whose
+        # later-stage events just fell outside the scanned window. It must have a
+        # real trouble signal (an error, or a reset/timeout/failure — the routine
+        # 404 probe doesn't count) OR have stalled LATE in the pipeline.
+        reached = [s["key"] for s in view["stages"] if s["reached"]]
+        furthest_key = reached[-1] if reached else None
+        if view["verdict"] == "problem" or _has_alerting(evs) or furthest_key in _LATE_STAGES:
             candidates.append({
                 "id": did,
                 "verdict": view["verdict"],

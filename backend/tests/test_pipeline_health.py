@@ -40,6 +40,33 @@ async def test_pipeline_health_finds_stuck_docs(monkeypatch):
     assert res["total_warnings"] >= 2
 
 
+async def test_pipeline_health_ignores_docs_without_real_trouble(monkeypatch):
+    """The 453-stuck fix: a document whose later-stage logs are just outside the
+    window (only clean front-door events, or the routine 404 probe) is NOT
+    flagged — only genuine trouble signals count."""
+    uid = "11111111-1111-4111-8111-111111111111"
+    clean = [
+        _hit("2026-06-09T12:15:00Z", "gateway-service",
+             f"404 NOT_FOUND No static resource openbaarmakingen/api {uid}"),
+        _hit("2026-06-09T12:16:00Z", "msvc-documentopslag", f"stored ok {uid}"),
+    ]
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": clean if index == "ds-prod5-koop-plooi*" else []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    monkeypatch.setattr(documents.settings, "data_views",
+                        "logs-*,ds-prod5-koop-plooi*,ds-prod5-koop-sp")
+
+    res = await documents.build_pipeline_health("sid")
+    assert res["documents_scanned"] == 1
+    assert res["stuck_count"] == 0   # routine 404 + clean storage = not at risk
+
+
 async def test_pipeline_health_drops_published_documents(monkeypatch):
     """The key fix: a document that LOOKS stuck in the logs but is actually
     published on open.overheid.nl is NOT reported as stuck."""

@@ -10,20 +10,24 @@ import StuckBadge from "./StuckBadge";
 
 const SUGGESTIONS = [
   {
-    title: "Recent errors",
-    prompt: "Are there any errors in the last hour? Group them by service.",
+    title: "🚨 Critical errors now",
+    prompt:
+      "What are the most critical errors in the last hour? Group them by service, give the count per service, and explain the likely cause of the worst one.",
   },
   {
-    title: "Activity overview",
-    prompt: "Summarize recent log activity and highlight anything unusual.",
+    title: "🩺 Failing services",
+    prompt:
+      "Which services are failing, erroring or unhealthy right now? List the worst first with what's going wrong.",
   },
   {
-    title: "Latency check",
-    prompt: "What services are reporting high latency or slow responses?",
+    title: "📄 Publication problems",
+    prompt:
+      "Are there errors that would stop documents being published — connection resets, timeouts, indexing/mapping failures, or 5xx? Summarize what's at risk.",
   },
   {
-    title: "30-minute summary",
-    prompt: "Summarize the last 30 minutes of logs.",
+    title: "🔎 Anything unusual?",
+    prompt:
+      "Summarize the last 30 minutes of activity and flag anything unusual or risky that an admin should look at.",
   },
 ];
 

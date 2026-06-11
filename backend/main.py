@@ -18,7 +18,6 @@ from elastic import (
     keycloak_login,
     search_by_document_id,
     search_logs,
-    search_metrics,
 )
 from llm import generate_answer, generate_answer_stream, polish_text
 from ocr import image_to_text

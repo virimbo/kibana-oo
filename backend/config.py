@@ -85,6 +85,19 @@ class Settings(BaseSettings):
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
     ollama_model: str = "llama3.1:8b"
+    # Robustness: Ollama's default context window is only 2048 tokens. A prompt
+    # that exceeds it is SILENTLY truncated from the front (cutting off the real
+    # question), after which the model often returns an EMPTY answer. We set the
+    # window explicitly and bound the output so a large log context can never
+    # produce a blank response. num_ctx must comfortably exceed the trimmed
+    # prompt budget below.
+    ollama_num_ctx: int = 8192
+    ollama_num_predict: int = 1024
+    # Hard cap on the characters of log context sent to the model, so the prompt
+    # can never overflow the context window no matter how many log lines were
+    # gathered. At ~4 chars/token this stays well under num_ctx with headroom for
+    # the system prompt, the question, and the generated answer.
+    chat_context_char_budget: int = 16000
 
     # Mistral (OpenAI-compatible API)
     mistral_api_key: str = ""

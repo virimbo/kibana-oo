@@ -583,14 +583,14 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                           </div>
                         )}
                         <div className="trace-links">
-                          <a className="btn btn--primary" href={trace.doculoket_link} target="_blank" rel="noreferrer">
-                            Open in doculoket ↗
-                          </a>
-                          {trace.portal_link && (
-                            <a className="btn btn--ghost" href={trace.portal_link} target="_blank" rel="noreferrer">
+                          {(trace.details_link || trace.portal_link) && (
+                            <a className="btn btn--primary" href={trace.details_link || trace.portal_link} target="_blank" rel="noreferrer">
                               View on open.overheid.nl ↗
                             </a>
                           )}
+                          <a className="btn btn--ghost" href={trace.doculoket_link} target="_blank" rel="noreferrer">
+                            Open in doculoket ↗
+                          </a>
                         </div>
                         <LifecycleBar lifecycle={trace.lifecycle} />
                         {(aiLoading || ai) && (

@@ -60,6 +60,56 @@ async def test_fetch_document_meta_skips_non_uuid(monkeypatch):
     assert await portal.fetch_document_meta("ronl-archief-x") is None
 
 
+async def test_fetch_document_meta_retries_insecurely_on_tls_error(monkeypatch):
+    """On a VPN/proxy that intercepts TLS, the cert won't verify. Because this is
+    a public, credential-free GET, we retry once without verification rather than
+    lose every title and report live documents as 'not live'."""
+    uid = "756f05d4-667c-465b-a1c0-1e68d80b37f0"
+    portal._meta_cache.clear()
+    seen_verify = []
+
+    class _Resp:
+        def raise_for_status(self): pass
+        def json(self): return SAMPLE
+
+    class _Client:
+        def __init__(self, *a, verify=True, **k): self.verify = verify
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, *a, **k):
+            seen_verify.append(self.verify)
+            if self.verify:
+                raise portal.httpx.ConnectError(
+                    "[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed")
+            return _Resp()
+
+    monkeypatch.setattr(portal.httpx, "AsyncClient", _Client)
+    meta = await portal.fetch_document_meta(uid)
+    assert meta is not None
+    assert meta["status"] == "gepubliceerd"          # enrichment recovered
+    assert seen_verify == [True, False]               # tried secure, then insecure
+
+
+async def test_fetch_document_meta_no_insecure_retry_for_plain_connect_error(monkeypatch):
+    """A non-TLS connection error (host down) must NOT trigger the insecure
+    retry — only certificate failures do."""
+    uid = "22222222-3333-4444-5555-666666666666"
+    portal._meta_cache.clear()
+    seen_verify = []
+
+    class _Client:
+        def __init__(self, *a, verify=True, **k): self.verify = verify
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, *a, **k):
+            seen_verify.append(self.verify)
+            raise portal.httpx.ConnectError("Connection refused")
+
+    monkeypatch.setattr(portal.httpx, "AsyncClient", _Client)
+    assert await portal.fetch_document_meta(uid) is None
+    assert seen_verify == [True]                      # no insecure retry
+
+
 async def test_fetch_document_meta_negative_caches_failures(monkeypatch):
     uid = "11111111-2222-3333-4444-555555555555"
     portal._meta_cache.clear()

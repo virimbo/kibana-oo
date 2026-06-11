@@ -51,6 +51,12 @@ class Settings(BaseSettings):
     portal_details_template: str = "https://open.overheid.nl/details/{id}"
     portal_meta_timeout: float = 6.0       # seconds; keep short — it must never stall a trace
     portal_meta_ttl: int = 3600            # seconds; published metadata changes slowly
+    # On a corporate/VPN network that intercepts TLS, the portal's certificate
+    # won't validate against the container's CA bundle and every lookup fails
+    # (no titles, every published doc looks "not live"). This endpoint is public,
+    # read-only and carries no credentials, so on a TLS-verification failure we
+    # retry once without verification rather than lose all enrichment.
+    portal_meta_insecure_fallback: bool = True
 
     # Documents activity tab: which logs count as document events, and how many to feed.
     document_event_query: str = "ronl OR document OR bestand OR upload OR publicatie OR versie"

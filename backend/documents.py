@@ -261,12 +261,23 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
             log_title = fn.rsplit(".", 1)[0]
             break
 
-    meta = await fetch_document_meta(_portal_id(needle))  # resolves UUID + ronl-<uuid>
+    portal_uuid = _portal_id(needle)  # UUID directly, or extracted from ronl-<uuid>
+    meta = await fetch_document_meta(portal_uuid)
     title = (meta.get("title") if meta else None) or log_title
 
+    # A direct, always-clickable open.overheid.nl/details/<uuid> page. It needs no
+    # API call — it works even when portal enrichment is blocked (e.g. a VPN that
+    # intercepts TLS) — so the admin can always jump straight to the live document.
+    details_link = (
+        settings.portal_details_template.format(id=portal_uuid)
+        if _UUID_RE.fullmatch(portal_uuid)
+        else None
+    )
+
     ronl = next((e["doc_id"] for e in events if e.get("doc_id") and e["doc_id"].lower().startswith("ronl")), None)
-    # Public link: the portal's canonical link wins; else a ronl document link.
-    portal_link = (meta.get("link") if meta else None) or (
+    # Public link: the portal's canonical link wins; else the details page; else a
+    # ronl document link.
+    portal_link = (meta.get("link") if meta else None) or details_link or (
         settings.doc_link_template.format(id=ronl) if ronl else None
     )
 
@@ -311,6 +322,7 @@ async def trace_document(sid: str, plooi_id: str, data_view: str | None) -> dict
         "last_seen": events[-1]["timestamp"] if events else None,
         "doculoket_link": settings.doculoket_link_template.format(id=needle),
         "portal_link": portal_link,
+        "details_link": details_link,  # direct open.overheid.nl/details/<uuid>, API-free
         "events": events,
     }
 
@@ -554,7 +566,17 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         # (so ronl- documents show a real name, not just their id).
         log_title = d.pop("log_title", None)
         d["title"] = (meta.get("title") if meta else None) or log_title
-        d["link"] = (meta.get("link") if meta else None) or settings.doc_link_template.format(id=d["id"])
+        # Prefer the API-free open.overheid.nl/details/<uuid> page so the link
+        # is clickable even when portal enrichment is blocked (VPN/TLS); fall
+        # back to the canonical portal link, then a ronl document link.
+        portal_uuid = _portal_id(d["id"])
+        details_link = (
+            settings.portal_details_template.format(id=portal_uuid)
+            if _UUID_RE.fullmatch(portal_uuid)
+            else None
+        )
+        d["link"] = (meta.get("link") if meta else None) or details_link \
+            or settings.doc_link_template.format(id=d["id"])
         stuck.append(d)
     # genuine problems first, then longest-idle
     stuck.sort(key=lambda d: (d["verdict"] != "problem", d["last_seen"]))

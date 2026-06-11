@@ -20,6 +20,13 @@ if not exist .env (
     copy .env.example .env >nul
 )
 
+:: Read the AI model name from .env (keeps this in lockstep with install.sh);
+:: fall back to a sensible default if it isn't set.
+set "OLLAMA_MODEL=llama3.1:8b"
+for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
+    if /i "%%A"=="OLLAMA_MODEL" set "OLLAMA_MODEL=%%B"
+)
+
 echo [1/3] Starting services...
 docker compose up --build -d
 
@@ -28,8 +35,8 @@ echo [2/3] Waiting for Ollama to be ready...
 timeout /t 10 /nobreak >nul
 
 echo.
-echo [3/3] Downloading LLAMA model (first time takes a few minutes)...
-docker exec kibana-oo-ollama ollama pull llama3.1:8b
+echo [3/3] Downloading AI model %OLLAMA_MODEL% (first time takes a few minutes)...
+docker exec kibana-oo-ollama ollama pull %OLLAMA_MODEL%
 
 echo.
 echo ============================================

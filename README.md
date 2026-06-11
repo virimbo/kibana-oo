@@ -6,10 +6,14 @@ Ask questions about your Kibana logs in plain language. KIBANA-OO uses LLAMA (AI
 
 ## What you need
 
-- **Windows 10/11**
+- **Windows 10/11**, **macOS**, or **Linux**
 - **Docker Desktop** — download from https://www.docker.com/products/docker-desktop/
 - **16 GB RAM** (minimum)
 - **Your Kibana username and password**
+
+> **macOS / Linux users:** instead of the `.bat` files below, run `./install.sh`
+> from a terminal. It does the same three steps (checks Docker, prepares your
+> `.env`, starts everything, downloads the AI model) and prints the URL when ready.
 
 ## How to start (3 steps)
 

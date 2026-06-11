@@ -151,6 +151,9 @@ function LifecycleBar({ lifecycle }) {
                     <span className={`life-tip-status life-tip-status--${s.status}`}>{lifeStatusLabel(s)}</span>
                   </div>
                   <div className="life-tip-desc">{s.desc}</div>
+                  {s.confirmed && (
+                    <div className="life-tip-confirmed">✓ Confirmed live on open.overheid.nl</div>
+                  )}
                   {s.reached ? (
                     <dl className="life-tip-grid">
                       <dt>Events</dt><dd>{s.events}</dd>
@@ -211,12 +214,17 @@ function PipelineHealth({ health, onTrace }) {
       {clean ? (
         <p className="pipe-ok">✓ All {health.documents_scanned} documents flowing normally in the last {hours}h.</p>
       ) : (
-        <p className={stuck.length ? "pipe-alert" : "muted"}>
+        <p className={stuck.length ? "pipe-alert" : "pipe-ok"}>
           {stuck.length > 0
-            ? `⚠ ${stuck.length} document${stuck.length === 1 ? "" : "s"} stuck or failing`
-            : "✓ No stuck documents"}
+            ? `⚠ ${stuck.length} document${stuck.length === 1 ? "" : "s"} not live (need attention)`
+            : "✓ No documents stuck — everything reached open.overheid.nl"}
           {" · "}
           {warn} warning{warn === 1 ? "" : "s"} · {err} error{err === 1 ? "" : "s"} across {health.documents_scanned} documents
+        </p>
+      )}
+      {health.confirmed_published > 0 && (
+        <p className="muted pipe-confirmed">
+          ✓ {health.confirmed_published} document{health.confirmed_published === 1 ? "" : "s"} had log hiccups but {health.confirmed_published === 1 ? "is" : "are"} confirmed <b>published &amp; readable</b> on open.overheid.nl — not counted as stuck.
         </p>
       )}
 
@@ -235,8 +243,10 @@ function PipelineHealth({ health, onTrace }) {
               <span className={`stuck-badge stuck-badge--${d.verdict}`}>
                 {d.verdict === "problem" ? "⛔" : "🕒"} {d.stuck_stage}
               </span>
-              <code className="stuck-id">{d.id}</code>
-              <span className="stuck-head">{d.headline}</span>
+              <span className="stuck-main">
+                <span className="stuck-title">{d.title || d.id}</span>
+                <span className="stuck-head">{d.headline}</span>
+              </span>
             </li>
           ))}
         </ul>

@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     # pipeline but never finished ("stuck"), scanning up to N recent events.
     pipeline_health_lookback_minutes: int = 1440  # 24h
     pipeline_health_scan_size: int = 1000
+    # Verify at most this many flagged candidates against the public portal
+    # (cached, best-effort) to drop false 'stuck' alarms for live documents.
+    pipeline_health_verify_max: int = 40
     # Best-effort source fields for a document's organization (tune to your logs).
     doc_org_fields: str = "organisatie,bronorganisatie,publisher,organization,source.organization,verantwoordelijke,bron,afzender"
     # Known document sources (bron) for the errors-by-source table.

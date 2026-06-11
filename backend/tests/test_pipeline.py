@@ -78,6 +78,28 @@ def test_pipeline_view_is_honest_and_maps_to_architecture():
     assert "connection_reset" in keys and "not_found" in keys
 
 
+def test_published_document_is_never_stuck():
+    """Ground truth: if open.overheid.nl says it's published, the same log
+    scenario must NOT be 'stuck' — it's live & readable."""
+    from datetime import datetime, timezone
+    now = datetime(2026, 6, 9, 23, 0, tzinfo=timezone.utc)
+    view = pipeline.build_pipeline_view(SCENARIO, now=now, published=True)
+    assert view["stuck"] is False
+    assert view["published"] is True
+    assert view["verdict"] in ("published", "warnings")
+    assert "Published & live" in view["headline"]
+    # the terminal stage is marked reached (confirmed via the portal)
+    live = view["stages"][-1]
+    assert live["reached"] is True and live["confirmed"] is True
+
+
+def test_is_published():
+    assert pipeline.is_published("gepubliceerd") is True
+    assert pipeline.is_published("Published") is True
+    assert pipeline.is_published("concept") is False
+    assert pipeline.is_published(None) is False
+
+
 def test_pipeline_view_healthy_complete():
     base = "2026-06-09T12:00:0"
     evs = [_ev(f"{base}{i}+00:00", svc, "ok") for i, svc in enumerate(

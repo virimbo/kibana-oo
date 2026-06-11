@@ -831,8 +831,15 @@ export default function App() {
   const [username, setUsername] = useState(
     () => sessionStorage.getItem("kibana_oo_user") || ""
   );
-  const [view, setView] = useState("chat"); // "chat" | "dashboard" | "documents"
+  const [view, setView] = useState("chat"); // "chat" | "dashboard" | "documents" | "settings"
   const [isAdmin, setIsAdmin] = useState(false);
+  // Navigate between views, optionally deep-linking a document to trace (used by
+  // the dashboard "documents at risk" list and the header badge).
+  const [pendingTrace, setPendingTrace] = useState(null);
+  const navigate = useCallback((nextView, traceId = null) => {
+    setPendingTrace(traceId);
+    setView(nextView);
+  }, []);
   // LLM provider is global: visible + switchable from every page, persisted,
   // and synced to the backend session here so it applies no matter which page
   // you switch it on.
@@ -950,7 +957,7 @@ export default function App() {
         token={token}
         username={username}
         onLogout={handleLogout}
-        onNavigate={setView}
+        onNavigate={navigate}
         llmProvider={llmProvider}
         onProviderChange={setLlmProvider}
         stuckCount={stuckCount}
@@ -964,10 +971,11 @@ export default function App() {
         token={token}
         username={username}
         onLogout={handleLogout}
-        onNavigate={setView}
+        onNavigate={navigate}
         llmProvider={llmProvider}
         onProviderChange={setLlmProvider}
         stuckCount={stuckCount}
+        initialTraceId={pendingTrace}
       />
     );
   }
@@ -977,7 +985,7 @@ export default function App() {
       <SettingsPage
         username={username}
         onLogout={handleLogout}
-        onNavigate={setView}
+        onNavigate={navigate}
         llmProvider={llmProvider}
         onProviderChange={setLlmProvider}
         settings={settings}

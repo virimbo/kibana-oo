@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+import re
 
 import httpx
 from fastapi import FastAPI, HTTPException, Header, Depends
@@ -24,6 +25,8 @@ from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router
+from monitoring import build_snapshot
+from documents import build_pipeline_health
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -228,6 +231,26 @@ async def chat(
         # (recent activity may simply be older than the narrow selected range) so
         # the chat finds data wherever — and whenever — it lives.
         minutes = request.time_range_minutes
+
+        # Health/status questions ("which services are failing/unhealthy",
+        # "what's wrong right now") are answered from the SAME ground-truth data
+        # the dashboard uses — the cluster snapshot plus document-pipeline health
+        # — instead of a blind keyword log-search. This makes the chat agree with
+        # the header's "N stuck" badge and directly answers "worst first, with
+        # what's going wrong". Per-source failures are tolerated; if no health
+        # context can be built we fall through to the generic search below.
+        if _is_health_question(search_text):
+            snap_res, health_res = await asyncio.gather(
+                build_snapshot(sid, minutes, data_view),
+                build_pipeline_health(sid, data_view),
+                return_exceptions=True,
+            )
+            snap = snap_res.model_dump() if not isinstance(snap_res, Exception) else None
+            health = health_res if isinstance(health_res, dict) else None
+            health_ctx = _build_health_context(snap, health)
+            if health_ctx.strip():
+                return [], health_ctx, None
+
         all_views = settings.data_view_list
         logs, errors = await _fetch_generic(sid, search_text, minutes, data_view)
         scope, window = data_view, f"the last {minutes} min"
@@ -300,6 +323,11 @@ async def chat(
         logger.error(f"LLM generation failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to generate answer: {e}")
 
+    if not (answer or "").strip():
+        # Never return an empty bubble: recover, then synthesize from the data.
+        answer = await _recover_answer(llm_question, context, session) \
+            or _summarize_from_sources(all_results)
+
     return ChatResponse(answer=answer, sources=all_results[:5])
 
 
@@ -359,19 +387,15 @@ async def _stream_response(
                 produced = True
                 yield {"event": "chunk", "data": chunk}
         if not produced:
-            # The stream came back empty — almost always a transient provider
-            # hiccup (e.g. Mistral rate-limiting). Don't give up: retry once
-            # non-streaming, then fall back to the local model so the user always
-            # gets a real answer.
+            # The stream came back empty. With num_ctx now set explicitly this is
+            # rare, but we NEVER dead-end: retry once non-streaming, fall back to
+            # the local model, and finally synthesize a deterministic summary
+            # straight from the gathered log events — so the user always gets a
+            # real answer instead of an error.
             fallback = await _recover_answer(question, context, session)
-            yield {
-                "event": "chunk",
-                "data": fallback or (
-                    "The AI model returned an empty response (it may be rate-limited "
-                    "right now). Please try again in a moment, or switch the AI model "
-                    "in the header."
-                ),
-            }
+            if not fallback:
+                fallback = _summarize_from_sources(sources)
+            yield {"event": "chunk", "data": fallback}
         yield {"event": "sources", "data": json.dumps(sources[:5])}
         yield {"event": "done", "data": ""}
     except Exception as e:
@@ -468,6 +492,149 @@ def _build_doc_context(
             parts.append(f"  - [{ts}] {lvl}{src}{msg}")
         parts.append("")
     return "\n".join(parts)
+
+
+# Questions about the overall health of the cluster/pipeline — "which services
+# are failing", "what's unhealthy", "any errors", "what's wrong right now". These
+# are answered from the SAME ground-truth health data the dashboard uses, not a
+# blind keyword log-search, so the chat agrees with the header's "N stuck" badge.
+_HEALTH_RE = re.compile(
+    r"\b("
+    r"fail(?:ing|ed|ure|s)?|unhealthy|health|erroring|errors?|broken|down|"
+    r"outage|degraded|stuck|stalled|problems?|issues?|worst|critical|"
+    r"which services?|what(?:'s| is)\s+(?:going\s+)?wrong|going\s+wrong"
+    r")\b",
+    re.I,
+)
+
+
+def _is_health_question(text: str) -> bool:
+    """True when the question is about overall system/pipeline health."""
+    return bool(_HEALTH_RE.search(text or ""))
+
+
+def _build_health_context(snap: dict | None, health: dict | None) -> str:
+    """Ground-truth health context: the dashboard cluster snapshot (worst-affected
+    services, error signatures, status codes) plus the document-pipeline health
+    (stuck documents, per-stage errors). Directly answers 'which services are
+    failing, worst first, with what's going wrong'."""
+    parts: list[str] = []
+
+    if snap:
+        parts.append(
+            f"## Cluster health for '{snap.get('data_view')}' "
+            f"over the last {snap.get('period_minutes')} min"
+        )
+        parts.append(
+            f"- Overall status: {str(snap.get('status_level', 'ok')).upper()} "
+            f"({snap.get('total', 0)} error/critical events in the window)."
+        )
+        delta = snap.get("delta") or {}
+        if delta.get("pct_vs_previous") is not None:
+            parts.append(
+                f"- Trend vs previous period: {delta['pct_vs_previous']:+.0f}% "
+                f"(was {delta.get('previous', 0)})."
+            )
+        systems = snap.get("systems") or []
+        if systems:
+            parts.append("- Per-system error counts (this window):")
+            for s in systems:
+                avail = "" if s.get("available", True) else " (unavailable)"
+                parts.append(f"  - {s.get('label') or s.get('data_view')}: {s.get('count', 0)}{avail}")
+        services = snap.get("affected_services") or []
+        if services:
+            parts.append("- Worst-affected services (most errors first):")
+            for s in services[:10]:
+                parts.append(f"  - {s.get('name', '?')}: {s.get('count', 0)} error events")
+        signatures = snap.get("top_signatures") or []
+        if signatures:
+            parts.append("- Top error signatures (what is going wrong):")
+            for s in signatures[:8]:
+                parts.append(f"  - {s.get('count', 0)}× {(s.get('signature') or '')[:200]}")
+        codes = snap.get("status_codes") or []
+        if codes:
+            parts.append(
+                "- HTTP status codes: "
+                + ", ".join(f"{c.get('code')}×{c.get('count')}" for c in codes[:8])
+            )
+        urls = snap.get("failing_urls") or []
+        if urls:
+            parts.append("- Failing URLs:")
+            for u in urls[:5]:
+                parts.append(f"  - {u.get('count', 0)}× {(u.get('url') or '')[:160]}")
+
+    if health:
+        parts.append("")
+        parts.append(f"## Document pipeline health (last {health.get('lookback_minutes', 0) // 60} h)")
+        parts.append(
+            f"- Stuck / at-risk documents: {health.get('stuck_count', 0)} "
+            f"(of {health.get('documents_scanned', 0)} scanned)."
+        )
+        parts.append(
+            f"- Total pipeline errors: {health.get('total_errors', 0)}, "
+            f"warnings: {health.get('total_warnings', 0)}."
+        )
+        bad_stages = [s for s in (health.get("stage_health") or []) if s.get("errors") or s.get("warnings")]
+        if bad_stages:
+            parts.append("- Stages with trouble:")
+            for s in bad_stages:
+                parts.append(
+                    f"  - {s.get('name')}: {s.get('errors', 0)} errors, "
+                    f"{s.get('warnings', 0)} warnings ({s.get('events', 0)} events)"
+                )
+        stuck = health.get("stuck") or []
+        if stuck:
+            parts.append("- Most urgent stuck documents:")
+            for d in stuck[:8]:
+                title = d.get("title") or d.get("id")
+                parts.append(
+                    f"  - [{d.get('verdict')}] {title} — stuck at "
+                    f"{d.get('stuck_stage')}: {d.get('headline', '')}"
+                )
+
+    if not parts:
+        return ""
+    parts.append("")
+    parts.append(
+        "Answer the user's question using ONLY the health data above. List the "
+        "worst-affected services or pipeline stages first and say briefly what is "
+        "going wrong for each. If everything is at zero, say the system looks healthy."
+    )
+    return "\n".join(parts)
+
+
+def _summarize_from_sources(sources: list[dict]) -> str:
+    """A deterministic, non-LLM answer built straight from the gathered log events.
+    Used as the final safety net so the chat ALWAYS returns something useful even
+    if the AI model is completely unavailable or returns nothing."""
+    if not sources:
+        return (
+            "I couldn't get a written answer from the AI model just now, and there "
+            "were no log events to summarize. Please try again in a moment, or "
+            "switch the AI model in the header."
+        )
+    errors = [s for s in sources if (s.get("level") or "").lower() in ("error", "fatal", "critical")]
+    lines = [
+        "The AI model didn't return a written answer, so here is a direct summary "
+        "of what I found in the logs:",
+        "",
+        f"- **{len(sources)}** matching log event(s)"
+        + (f", including **{len(errors)}** at error level." if errors else "."),
+    ]
+    for s in (errors or sources)[:5]:
+        ts = s.get("timestamp", "?")
+        level = (s.get("level") or "").upper()
+        host = s.get("host", "")
+        msg = (s.get("message", "") or "")[:200]
+        lines.append(
+            f"  - [{ts}] "
+            + (f"[{level}] " if level else "")
+            + (f"({host}) " if host else "")
+            + msg
+        )
+    lines.append("")
+    lines.append("_Tip: switch the AI model in the header for a fuller analysis._")
+    return "\n".join(lines)
 
 
 def _build_context(

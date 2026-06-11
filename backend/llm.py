@@ -20,16 +20,41 @@ Rules:
 """
 
 
+def trim_context(context: str, budget: int | None = None) -> str:
+    """Bound the context to a character budget so the prompt can never overflow
+    the model's context window. (When it does, Ollama silently drops the front of
+    the prompt and frequently returns an empty answer.) Keeps the most relevant
+    head, trims back to a line boundary, and appends a clear truncation marker."""
+    budget = settings.chat_context_char_budget if budget is None else budget
+    if budget <= 0 or len(context) <= budget:
+        return context
+    kept = context[:budget]
+    newline = kept.rfind("\n")
+    if newline > budget // 2:  # avoid slicing a line in half
+        kept = kept[:newline]
+    return kept + "\n\n…(context truncated to fit the model — showing the most relevant entries)."
+
+
+def _ollama_options() -> dict:
+    """Generation options sent on every Ollama request. Setting num_ctx
+    explicitly is what prevents the silent-truncation → empty-answer failure."""
+    return {
+        "num_ctx": settings.ollama_num_ctx,
+        "num_predict": settings.ollama_num_predict,
+    }
+
+
 def _build_prompt(question: str, context: str, system: str | None = None) -> list[dict]:
     """Build the message list for the LLM. `system` overrides the default
     chat persona — used by the dashboard briefing to supply a grounded analyst
-    system prompt instead of the generic assistant one."""
+    system prompt instead of the generic assistant one. The context is always
+    trimmed to a safe budget so the prompt cannot overflow the context window."""
     return [
         {"role": "system", "content": system or SYSTEM_PROMPT},
         {
             "role": "user",
             "content": (
-                f"## Context from Elasticsearch\n\n{context}\n\n"
+                f"## Context from Elasticsearch\n\n{trim_context(context)}\n\n"
                 f"## Question\n\n{question}"
             ),
         },
@@ -119,10 +144,11 @@ async def _generate_ollama_answer(messages: list[dict], stream: bool = False) ->
                 "model": settings.ollama_model,
                 "messages": messages,
                 "stream": stream,
+                "options": _ollama_options(),
             },
         )
         response.raise_for_status()
-        return response.json()["message"]["content"]
+        return response.json().get("message", {}).get("content", "") or ""
 
 
 async def _generate_mistral_answer(messages: list[dict]) -> str:
@@ -168,6 +194,7 @@ async def _generate_ollama_answer_stream(messages: list[dict]) -> AsyncIterator[
                 "model": settings.ollama_model,
                 "messages": messages,
                 "stream": True,
+                "options": _ollama_options(),
             },
         ) as response:
             response.raise_for_status()

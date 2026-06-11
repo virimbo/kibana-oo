@@ -519,7 +519,10 @@ function ChatPage({
           status: "done",
           content:
             m.content ||
-            "_The AI model returned an empty response. Please try again, or switch the AI model in the header._",
+            // Last-resort safety net: the backend now always streams a real
+            // answer (or a summary built from the logs), so this only shows if
+            // the connection dropped before any content arrived.
+            "_The connection ended before an answer arrived. Please try again — if it persists, check that the backend and Ollama are running._",
         }));
       } catch (err) {
         if (err.name === "AbortError") {

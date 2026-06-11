@@ -125,7 +125,33 @@ async def test_stream_response_never_ends_empty(monkeypatch):
     monkeypatch.setattr(main, "generate_answer", empty_answer)
     events = [e async for e in main._stream_response("q", "ctx", [], {"llm_provider": "ollama"})]
     chunks = [e for e in events if e["event"] == "chunk"]
-    assert len(chunks) == 1 and "empty response" in chunks[0]["data"].lower()
+    # No sources to summarize → one clear, actionable message (never a blank bubble).
+    assert len(chunks) == 1
+    text = chunks[0]["data"].lower()
+    assert "try again" in text and "switch the ai model" in text
+    assert events[-1]["event"] == "done"
+
+
+async def test_stream_response_synthesizes_summary_from_sources_when_llm_dead(monkeypatch):
+    """If the model yields nothing AND recovery fails, but we DID gather log
+    events, the user gets a deterministic summary of those events — never an
+    error and never a blank bubble. This is the permanent 'never again' guard."""
+    import main
+
+    async def empty_stream(question, context, session=None):
+        return
+        yield  # unreachable — empty async generator
+
+    async def empty_answer(question, context, system=None, session=None):
+        return ""
+
+    monkeypatch.setattr(main, "generate_answer_stream", empty_stream)
+    monkeypatch.setattr(main, "generate_answer", empty_answer)
+    sources = [{"timestamp": "T1", "level": "error", "host": "h1", "message": "disk full on indexer"}]
+    events = [e async for e in main._stream_response("q", "ctx", sources, {"llm_provider": "ollama"})]
+    chunks = [e for e in events if e["event"] == "chunk"]
+    assert len(chunks) == 1
+    assert "disk full on indexer" in chunks[0]["data"]
     assert events[-1]["event"] == "done"
 
 

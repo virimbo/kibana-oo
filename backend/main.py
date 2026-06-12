@@ -24,9 +24,7 @@ from llm import generate_answer, generate_answer_stream, polish_text, provider_m
 from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
-from dashboard import router as dashboard_router
-from monitoring import build_snapshot
-from documents import build_pipeline_health
+from dashboard import router as dashboard_router, get_cached_snapshot, get_cached_health
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -240,12 +238,19 @@ async def chat(
         # what's going wrong". Per-source failures are tolerated; if no health
         # context can be built we fall through to the generic search below.
         if _is_health_question(search_text):
-            snap_res, health_res = await asyncio.gather(
-                build_snapshot(sid, minutes, data_view),
-                build_pipeline_health(sid, data_view),
-                return_exceptions=True,
-            )
-            snap = snap_res.model_dump() if not isinstance(snap_res, Exception) else None
+            try:
+                snap_res, health_res = await asyncio.wait_for(
+                    asyncio.gather(
+                        get_cached_snapshot(sid, minutes, data_view),
+                        get_cached_health(sid, data_view),
+                        return_exceptions=True,
+                    ),
+                    timeout=settings.chat_health_timeout,
+                )
+            except (asyncio.TimeoutError, Exception) as e:  # noqa: BLE001
+                logger.warning(f"Health facts unavailable ({e}); falling back to log search.")
+                snap_res = health_res = None
+            snap = snap_res if isinstance(snap_res, dict) else None
             health = health_res if isinstance(health_res, dict) else None
             health_ctx = _build_health_context(snap, health)
             if health_ctx.strip():
@@ -282,40 +287,56 @@ async def chat(
             )
         return results, ctx, None
 
-    # Step 1+2+polish: search Kibana AND spell/grammar-correct the typed question
-    # CONCURRENTLY, so the correction adds (almost) no wall-clock time.
-    try:
+    async def _search_and_compose():
+        """Spell-correct the question AND search Kibana concurrently, then assemble
+        what the user sees and what the model is asked."""
         polish_coro = (
             polish_text(question, session) if (request.autocorrect and question) else _passthrough(question)
         )
         polished, (all_results, context, instant) = await asyncio.gather(polish_coro, _do_search())
+        display_question = polished or "(screenshot)"
+        llm_question = polished or "Analyze the attached screenshot and answer any question it contains."
+        if image_text:
+            llm_question = f"{llm_question}\n\n[Text extracted from the attached image]:\n{image_text}"
+        return display_question, llm_question, all_results, context, instant
+
+    # Streaming: return the SSE response IMMEDIATELY and do the (possibly slow)
+    # search INSIDE the generator. This flushes the response headers right away and
+    # lets the keepalive ping hold the connection open while we gather data — so a
+    # slow cluster can never leave the client staring at a zero-byte response that
+    # an intermediate proxy turns into a 504.
+    if request.stream:
+        async def _chat_events():
+            try:
+                display_question, llm_question, all_results, context, instant = await _search_and_compose()
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"Chat search failed: {e}")
+                yield {"event": "error", "data": f"Couldn't search the logs: {e}"}
+                return
+            if instant:
+                async for ev in _instant_response(instant, display_question=display_question):
+                    yield ev
+                return
+            async for ev in _stream_response(
+                llm_question, context, all_results, session, display_question=display_question
+            ):
+                yield ev
+
+        return EventSourceResponse(
+            _chat_events(), media_type="text/event-stream", ping=settings.chat_sse_ping_seconds
+        )
+
+    # Non-streaming.
+    try:
+        display_question, llm_question, all_results, context, instant = await _search_and_compose()
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Kibana query failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to query Kibana: {e}")
 
-    # What the user sees in their bubble, and what the model is asked.
-    display_question = polished or "(screenshot)"
-    llm_question = polished or "Analyze the attached screenshot and answer any question it contains."
-    if image_text:
-        llm_question = f"{llm_question}\n\n[Text extracted from the attached image]:\n{image_text}"
-
-    # Fast path: genuinely no data → answer instantly, skip the slow LLM call.
     if instant:
-        if request.stream:
-            return EventSourceResponse(
-                _instant_response(instant, display_question=display_question),
-                media_type="text/event-stream",
-            )
         return ChatResponse(answer=instant, sources=[])
-
-    # Step 3: Generate answer with selected LLM
-    if request.stream:
-        return EventSourceResponse(
-            _stream_response(llm_question, context, all_results, session, display_question=display_question),
-            media_type="text/event-stream",
-        )
 
     try:
         answer = await generate_answer(llm_question, context, session=session)

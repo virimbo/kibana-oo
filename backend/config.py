@@ -94,6 +94,14 @@ class Settings(BaseSettings):
     # When a generic question finds nothing in the selected view+window, broaden
     # the search to all views over this many minutes (default 24h) before giving up.
     chat_widen_minutes: int = 1440
+    # A health/status question reuses the dashboard's cached snapshot + pipeline
+    # health. If that data is cold and the cluster is slow, don't let it stall the
+    # whole answer — time-box it and degrade to a plain log search after this many
+    # seconds. The SSE keepalive ping keeps the connection open meanwhile.
+    chat_health_timeout: float = 25.0
+    # Seconds between SSE keepalive pings on /chat. Keeps proxies from closing a
+    # slow streaming answer (e.g. a long local-LLM generation) as idle.
+    chat_sse_ping_seconds: int = 10
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"

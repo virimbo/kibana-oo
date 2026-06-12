@@ -35,26 +35,46 @@ def _period(value: int) -> int:
     return value if value in ALLOWED_PERIODS else 15
 
 
-@router.get("/summary")
-async def summary(
-    period: int = Query(default=15),
-    data_view: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
-):
+async def get_cached_snapshot(sid: str, period: int, data_view: str | None) -> dict:
+    """Cluster snapshot as a dict, served from the shared dashboard cache. Used by
+    BOTH the /summary endpoint and the chat health path, so a health question
+    reuses the dashboard's already-computed facts instead of re-running dozens of
+    Elasticsearch queries on every message (which made chat slow / time out)."""
     period = _period(period)
     dv = resolve_data_view(data_view)
     key = f"summary:{dv}:{period}"
     cached = _summary_cache.get(key)
     if cached is not None:
         return cached
+    payload = (await build_snapshot(sid, period, dv)).model_dump()
+    _summary_cache.set(key, payload)
+    return payload
+
+
+async def get_cached_health(sid: str, data_view: str | None) -> dict:
+    """Pipeline health, served from the shared dashboard cache (see above). The
+    expensive scan + portal verification runs at most once per cache TTL,
+    regardless of whether the dashboard or the chat asked for it."""
+    dv = resolve_data_view(data_view)
+    cached = _health_cache.get("health")
+    if cached is not None:
+        return cached
+    result = await build_pipeline_health(sid, dv)
+    _health_cache.set("health", result)
+    return result
+
+
+@router.get("/summary")
+async def summary(
+    period: int = Query(default=15),
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
     try:
-        snap = await build_snapshot(session["sid"], period, dv)
+        return await get_cached_snapshot(session["sid"], period, data_view)
     except Exception as e:
         logger.error(f"Dashboard summary failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load dashboard: {e}")
-    payload = snap.model_dump()
-    _summary_cache.set(key, payload)
-    return payload
 
 
 @router.get("/briefing")
@@ -139,17 +159,11 @@ async def pipeline_health(
 ):
     """Proactive: documents stuck in the pipeline + where problems cluster by
     stage, so admins catch issues without tracing each document."""
-    dv = resolve_data_view(data_view)
-    cached = _health_cache.get("health")
-    if cached is not None:
-        return cached
     try:
-        result = await build_pipeline_health(session["sid"], dv)
+        return await get_cached_health(session["sid"], data_view)
     except Exception as e:
         logger.error(f"Pipeline health failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load pipeline health: {e}")
-    _health_cache.set("health", result)
-    return result
 
 
 @router.post("/digest/send")

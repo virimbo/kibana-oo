@@ -79,3 +79,29 @@ def test_summarize_from_sources_surfaces_errors():
 def test_summarize_from_sources_handles_no_data():
     out = main._summarize_from_sources([])
     assert "try again" in out.lower()
+
+
+def test_render_health_facts_is_instant_and_worst_first():
+    snap = {
+        "data_view": "logs-*", "period_minutes": 15, "status_level": "critical",
+        "total": 120, "delta": {"previous": 80, "pct_vs_previous": 50.0},
+        "affected_services": [{"name": "indexer", "count": 70}, {"name": "export", "count": 12}],
+        "top_signatures": [{"signature": "connection reset by peer", "count": 40}],
+        "status_codes": [{"code": 500, "count": 33}, {"code": 404, "count": 9}],
+        "failing_urls": [],
+    }
+    health = {
+        "stuck_count": 55, "total_errors": 70, "total_warnings": 5,
+        "stage_health": [{"name": "Indexing", "errors": 40, "warnings": 2, "events": 100}],
+    }
+    out = main._render_health_facts(snap, health)
+    assert "CRITICAL" in out
+    assert out.index("indexer") < out.index("export")   # worst-affected first
+    assert "500×33" in out                                # 5xx surfaced
+    assert "404" not in out.split("5xx")[1].split("\n")[0]  # only 5xx on that line
+    assert "55 document" in out                            # stuck count
+    assert "Indexing: 40 errors" in out
+
+
+def test_render_health_facts_empty_without_data():
+    assert main._render_health_facts(None, None) == ""

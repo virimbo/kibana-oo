@@ -65,6 +65,9 @@ def summarize_event(hit: dict) -> dict:
     # pipe …), not just the log level — see backend/pipeline.py.
     severity = pipeline.event_severity(level, message)
     problem = pipeline.classify_message(message)
+    pipeline_raw = (
+        _first_field(src, settings.pipeline_field) if settings.pipeline_field else None
+    )
     return {
         "timestamp": src.get("@timestamp"),
         "action": classify_action(message),
@@ -77,6 +80,8 @@ def summarize_event(hit: dict) -> dict:
         "type": ftype,
         "org": org if isinstance(org, str) else None,
         "service": _service(flat),
+        "index": hit.get("_index"),                 # data-stream — a reliable pipeline signal
+        "pipeline_raw": pipeline_raw if isinstance(pipeline_raw, str) else None,
         "message": message[:200],
     }
 
@@ -492,14 +497,51 @@ _OVS_RE = re.compile(r"\bovs\b|oude.?verwerkingsstraat", re.IGNORECASE)
 _NVS_RE = re.compile(r"\bnvs\b|nieuwe.?verwerkingsstraat", re.IGNORECASE)
 
 
+def _match_pipeline_value(value: str | None, nvs_terms: list[str], ovs_terms: list[str]) -> str | None:
+    """Map a single field/index value to NVS/OVS by substring, or None."""
+    v = (value or "").lower()
+    if not v:
+        return None
+    if any(t in v for t in nvs_terms):
+        return "NVS"
+    if any(t in v for t in ovs_terms):
+        return "OVS"
+    return None
+
+
 def _detect_pipeline(events: list[dict]) -> str:
-    """Best-effort OVS (oude) vs NVS (nieuwe verwerkingsstraat) per document.
-    Explicit markers win; otherwise, if the services map onto the canonical NVS
-    lifecycle we call it NVS. When neither holds we return '—' rather than guess —
-    per-document pipeline attribution from free text is not reliable."""
-    text = " ".join(
-        f"{e.get('service') or ''} {e.get('message') or ''}" for e in events
-    )
+    """Classify a document as OVS (oude) vs NVS (nieuwe verwerkingsstraat) in
+    order of TRUST:
+      1. a dedicated log field (settings.pipeline_field) — most reliable;
+      2. the index / data-stream the events live in — structural, reliable;
+      3. explicit free-text markers in service/message;
+      4. mapping onto the canonical NVS lifecycle → NVS.
+    When a trusted signal (1 or 2) is configured, it is AUTHORITATIVE: a document
+    that matches neither pipeline is reported as '—' rather than guessed. When no
+    trusted signal is configured, layers 3-4 provide a best-effort label."""
+    nvs_vals, ovs_vals = settings.pipeline_nvs_value_list, settings.pipeline_ovs_value_list
+    nvs_idx, ovs_idx = settings.pipeline_nvs_index_list, settings.pipeline_ovs_index_list
+
+    # 1) Dedicated field (authoritative).
+    if settings.pipeline_field:
+        for e in events:
+            got = _match_pipeline_value(e.get("pipeline_raw"), nvs_vals, ovs_vals)
+            if got:
+                return got
+
+    # 2) Index / data-stream (authoritative).
+    if nvs_idx or ovs_idx:
+        for e in events:
+            got = _match_pipeline_value(e.get("index"), nvs_idx, ovs_idx)
+            if got:
+                return got
+
+    # A trusted signal was configured but nothing matched → honest unknown.
+    if settings.pipeline_reliable_configured:
+        return "—"
+
+    # 3) Best-effort fallback (only when no trusted signal is configured).
+    text = " ".join(f"{e.get('service') or ''} {e.get('message') or ''}" for e in events)
     if _OVS_RE.search(text):
         return "OVS"
     if _NVS_RE.search(text):

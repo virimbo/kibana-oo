@@ -272,6 +272,26 @@ def test_detect_pipeline_markers_then_fallback():
     assert documents._detect_pipeline([{"service": "weird", "message": "nothing"}]) == "—"
 
 
+def test_detect_pipeline_reliable_by_dedicated_field(monkeypatch):
+    """With a dedicated field configured, classification is authoritative — and
+    returns '—' (not a guess) when the field doesn't identify a pipeline."""
+    monkeypatch.setattr(documents.settings, "pipeline_field", "labels.pipeline")
+    assert documents._detect_pipeline([{"pipeline_raw": "NVS-prod"}]) == "NVS"
+    assert documents._detect_pipeline([{"pipeline_raw": "the OVS lane"}]) == "OVS"
+    # configured but unmatched → honest unknown, NOT guessed from the service
+    assert documents._detect_pipeline([{"pipeline_raw": "", "service": "msvc-documentopslag"}]) == "—"
+
+
+def test_detect_pipeline_reliable_by_index(monkeypatch):
+    """The index / data-stream is a structural, reliable signal."""
+    monkeypatch.setattr(documents.settings, "pipeline_nvs_index", "koop-plooi")
+    monkeypatch.setattr(documents.settings, "pipeline_ovs_index", "koop-sp")
+    assert documents._detect_pipeline([{"index": "ds-prod5-koop-plooi-2026.06"}]) == "NVS"
+    assert documents._detect_pipeline([{"index": "ds-prod5-koop-sp"}]) == "OVS"
+    # trusted signal set, but this index belongs to neither → unknown, not a guess
+    assert documents._detect_pipeline([{"index": "logs-x", "service": "msvc-documentopslag"}]) == "—"
+
+
 def test_incident_service_picks_latest_event():
     evs = [
         {"service": "gateway-service", "timestamp": "2026-06-12T10:00:00Z"},

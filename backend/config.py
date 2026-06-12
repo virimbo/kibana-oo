@@ -30,6 +30,21 @@ class Settings(BaseSettings):
     pipeline_ovs_query: str = 'OVS OR "oude verwerkingsstraat"'
     pipeline_nvs_query: str = 'NVS OR "nieuwe verwerkingsstraat"'
 
+    # ── Reliable per-document pipeline (NVS/OVS) attribution ───────────────────
+    # Per-document NVS/OVS is classified in order of TRUST. Configure either layer
+    # to make it authoritative — when a trusted signal is set but a document
+    # matches neither pipeline, it is reported as unknown ('—') rather than guessed.
+    #
+    # 1) A dedicated field your logs carry. Set its (dotted) name(s),
+    #    comma-separated, and the values that mean each pipeline. Empty = skip.
+    pipeline_field: str = ""                      # e.g. "labels.pipeline,data_stream.dataset"
+    pipeline_nvs_values: str = "nvs,nieuwe verwerkingsstraat,nieuwe"
+    pipeline_ovs_values: str = "ovs,oude verwerkingsstraat,oude"
+    # 2) The index / data-stream the events live in (structural, reliable). List
+    #    the substrings that identify each pipeline's index. Empty = skip.
+    pipeline_nvs_index: str = ""                  # e.g. "koop-plooi,nvs"
+    pipeline_ovs_index: str = ""                  # e.g. "koop-sp,ovs"
+
     # Public portal base, used to turn document paths into clickable links.
     portal_base_url: str = "https://open.overheid.nl"
     # Best-effort source fields used to identify a document in drill-down lists.
@@ -158,6 +173,36 @@ class Settings(BaseSettings):
             if view and view not in seen:
                 seen.append(view)
         return seen or [self.es_log_index]
+
+    @staticmethod
+    def _csv_lower(value: str) -> list[str]:
+        return [v.strip().lower() for v in value.split(",") if v.strip()]
+
+    @property
+    def pipeline_nvs_value_list(self) -> list[str]:
+        return self._csv_lower(self.pipeline_nvs_values)
+
+    @property
+    def pipeline_ovs_value_list(self) -> list[str]:
+        return self._csv_lower(self.pipeline_ovs_values)
+
+    @property
+    def pipeline_nvs_index_list(self) -> list[str]:
+        return self._csv_lower(self.pipeline_nvs_index)
+
+    @property
+    def pipeline_ovs_index_list(self) -> list[str]:
+        return self._csv_lower(self.pipeline_ovs_index)
+
+    @property
+    def pipeline_reliable_configured(self) -> bool:
+        """True when a trusted pipeline signal (field or index) is configured —
+        in which case classification is authoritative (no free-text guessing)."""
+        return bool(
+            self.pipeline_field
+            or self.pipeline_nvs_index_list
+            or self.pipeline_ovs_index_list
+        )
 
     @property
     def processing_source_list(self) -> list[str]:

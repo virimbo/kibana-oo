@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS incidents (
     title          TEXT,
     link           TEXT,
     events         INTEGER DEFAULT 0,
+    service        TEXT,
+    pipeline       TEXT,
     first_detected TEXT NOT NULL,
     last_detected  TEXT NOT NULL,
     last_activity  TEXT,
@@ -39,12 +41,21 @@ CREATE TABLE IF NOT EXISTS incidents (
 CREATE INDEX IF NOT EXISTS idx_incidents_status ON incidents(status);
 """
 
+# Columns added after the first release — applied to existing databases as safe,
+# additive migrations so an upgrade never loses or breaks stored incidents.
+_ADDED_COLUMNS = {"service": "TEXT", "pipeline": "TEXT"}
+
 
 def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(settings.incident_db_path, timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.executescript(_SCHEMA)
+    existing = {r["name"] for r in conn.execute("PRAGMA table_info(incidents)")}
+    for col, col_type in _ADDED_COLUMNS.items():
+        if col not in existing:
+            conn.execute(f"ALTER TABLE incidents ADD COLUMN {col} {col_type}")
+    conn.commit()
     return conn
 
 
@@ -61,8 +72,9 @@ def _upsert_open_sync(rec: dict, now_iso: str) -> None:
             """
             INSERT INTO incidents (
                 doc_id, data_view, stage, stage_index, verdict, headline, title,
-                link, events, first_detected, last_detected, last_activity, status
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?, 'open')
+                link, events, service, pipeline, first_detected, last_detected,
+                last_activity, status
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'open')
             ON CONFLICT(doc_id) DO UPDATE SET
                 data_view     = excluded.data_view,
                 stage         = excluded.stage,
@@ -72,6 +84,8 @@ def _upsert_open_sync(rec: dict, now_iso: str) -> None:
                 title         = excluded.title,
                 link          = excluded.link,
                 events        = excluded.events,
+                service       = excluded.service,
+                pipeline      = excluded.pipeline,
                 last_detected = excluded.last_detected,
                 last_activity = excluded.last_activity,
                 status        = 'open',
@@ -82,6 +96,7 @@ def _upsert_open_sync(rec: dict, now_iso: str) -> None:
                 rec["id"], rec.get("data_view"), rec.get("stuck_stage"),
                 rec.get("stage_index", -1), rec.get("verdict"), rec.get("headline"),
                 rec.get("title"), rec.get("link"), rec.get("events", 0),
+                rec.get("service"), rec.get("pipeline"),
                 first, now_iso, rec.get("last_seen"),
             ),
         )

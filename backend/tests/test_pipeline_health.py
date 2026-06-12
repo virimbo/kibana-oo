@@ -263,6 +263,47 @@ async def test_incident_survives_window_then_clears_when_published(monkeypatch):
     assert res3["stuck_count"] == 0
 
 
+def test_detect_pipeline_markers_then_fallback():
+    assert documents._detect_pipeline([{"service": "msvc", "message": "via NVS pipeline"}]) == "NVS"
+    assert documents._detect_pipeline([{"service": "x", "message": "oude verwerkingsstraat run"}]) == "OVS"
+    # No explicit marker, but the service maps onto the canonical NVS lifecycle.
+    assert documents._detect_pipeline([{"service": "msvc-documentopslag", "message": "stored"}]) == "NVS"
+    # Nothing recognizable → honest unknown, not a guess.
+    assert documents._detect_pipeline([{"service": "weird", "message": "nothing"}]) == "—"
+
+
+def test_incident_service_picks_latest_event():
+    evs = [
+        {"service": "gateway-service", "timestamp": "2026-06-12T10:00:00Z"},
+        {"service": "msvc-indexatie", "timestamp": "2026-06-12T11:00:00Z"},
+    ]
+    assert documents._incident_service(evs) == "msvc-indexatie"
+
+
+async def test_pipeline_health_row_has_rich_fields(monkeypatch):
+    """Each at-risk row carries the extra columns the UI shows: service, pipeline,
+    a plain-language status, and a formatted last-activity date/time."""
+    uid = "eeeeeeee-5555-4555-8555-eeeeeeeeeeee"
+    hits = [_hit_at(NOW - timedelta(hours=2), "msvc-documentopslag", f"failed to store {uid}")]
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": hits if index == "ds-prod5-koop-plooi*" else []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    row = res["stuck"][0]
+    assert row["service"] == "msvc-documentopslag"
+    assert row["pipeline"] == "NVS"
+    assert row["status_label"] == "Error — stopped"   # 'problem' verdict
+    assert row["last_seen_label"].startswith("2026-06-12")
+
+
 async def test_incident_clears_when_document_progresses(monkeypatch):
     """If a flagged document later shows up healthy/progressed within the scan
     window, its incident auto-resolves and drops off the list."""

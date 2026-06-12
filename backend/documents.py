@@ -481,6 +481,34 @@ def _stage_index(stage_name: str | None) -> int:
     return -1
 
 
+def _incident_service(events: list[dict]) -> str | None:
+    """The raw log service where the document currently sits — taken from the most
+    recent event, since that is where it stalled or failed."""
+    latest = max(events, key=lambda e: e.get("timestamp") or "", default=None)
+    return (latest or {}).get("service") if latest else None
+
+
+_OVS_RE = re.compile(r"\bovs\b|oude.?verwerkingsstraat", re.IGNORECASE)
+_NVS_RE = re.compile(r"\bnvs\b|nieuwe.?verwerkingsstraat", re.IGNORECASE)
+
+
+def _detect_pipeline(events: list[dict]) -> str:
+    """Best-effort OVS (oude) vs NVS (nieuwe verwerkingsstraat) per document.
+    Explicit markers win; otherwise, if the services map onto the canonical NVS
+    lifecycle we call it NVS. When neither holds we return '—' rather than guess —
+    per-document pipeline attribution from free text is not reliable."""
+    text = " ".join(
+        f"{e.get('service') or ''} {e.get('message') or ''}" for e in events
+    )
+    if _OVS_RE.search(text):
+        return "OVS"
+    if _NVS_RE.search(text):
+        return "NVS"
+    if any(pipeline.stage_for_service(e.get("service")) for e in events):
+        return "NVS"
+    return "—"
+
+
 def _age_label(first_detected: str | None, now: datetime) -> str:
     """Plain-language age of an open incident, e.g. '3d 4h' or '12 min'."""
     started = pipeline.parse_ts(first_detected)
@@ -498,18 +526,37 @@ def _age_label(first_detected: str | None, now: datetime) -> str:
     return f"{hours // 24}d {hours % 24}h"
 
 
+# Human-readable status, by verdict. Only 'stuck' and 'problem' ever reach here.
+_STATUS_LABELS = {
+    "problem": "Error — stopped",
+    "stuck": "Stuck — no progress",
+}
+
+
+def _fmt_when(ts: str | None) -> str:
+    """A compact, sortable 'YYYY-MM-DD HH:MM' for the row, or '' if unknown."""
+    dt = pipeline.parse_ts(ts)
+    return dt.strftime("%Y-%m-%d %H:%M") if dt else ""
+
+
 def _incident_to_row(rec: dict, now: datetime) -> dict:
-    """Shape a stored incident the way the Documents UI expects, plus how long it
-    has been open ('open_since' / 'first_detected')."""
+    """Shape a stored incident the way the Documents UI expects: identity, where
+    it stalled (stage + raw service), which pipeline, a plain-language status, the
+    last-activity date/time, and how long it has been open."""
+    verdict = rec.get("verdict")
     return {
         "id": rec["doc_id"],
-        "verdict": rec.get("verdict"),
+        "verdict": verdict,
+        "status_label": _STATUS_LABELS.get(verdict, "Needs attention"),
         "headline": rec.get("headline"),
         "stuck_stage": rec.get("stage"),
+        "service": rec.get("service"),
+        "pipeline": rec.get("pipeline") or "—",
         "title": rec.get("title"),
         "link": rec.get("link"),
         "events": rec.get("events", 0),
         "last_seen": rec.get("last_activity"),
+        "last_seen_label": _fmt_when(rec.get("last_activity")),
         "first_detected": rec.get("first_detected"),
         "open_since": _age_label(rec.get("first_detected"), now),
     }
@@ -600,6 +647,8 @@ async def build_pipeline_health(
                 "next_stage": view["next_stage"],
                 "events": len(evs),
                 "last_seen": last_seen,
+                "service": _incident_service(evs),     # raw service where it stalled
+                "pipeline": _detect_pipeline(evs),      # NVS / OVS / — (best-effort)
                 "log_title": _log_title(evs),   # filename from logs (works for ronl- ids)
             })
 

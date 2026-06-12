@@ -41,6 +41,65 @@ export function InfoTip({ text }) {
   );
 }
 
+// Reusable collapsible panel. Remembers its open/closed state per `id` across
+// reloads. `summary` (a short node) is shown inline when collapsed so the panel
+// still gives an at-a-glance signal without taking vertical space.
+export function CollapsiblePanel({
+  id,
+  title,
+  icon,
+  info,
+  summary,
+  defaultCollapsed = false,
+  alert = false,
+  className = "",
+  headerExtra,
+  children,
+}) {
+  const key = `dash.collapse.${id}`;
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? defaultCollapsed : v === "1";
+    } catch {
+      return defaultCollapsed;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, collapsed ? "1" : "0");
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
+  }, [key, collapsed]);
+
+  return (
+    <section
+      className={`panel panel--collapsible${alert ? " panel--alert" : ""}${
+        className ? ` ${className}` : ""
+      }${collapsed ? " is-collapsed" : ""}`}
+    >
+      <h3 className="panel-toggle">
+        <button
+          type="button"
+          className="collapse-btn"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          title={collapsed ? `Show ${title}` : `Hide ${title}`}
+        >
+          <span className={`chev ${collapsed ? "" : "chev--open"}`} aria-hidden="true">▸</span>
+          {icon ? `${icon} ` : ""}
+          {title}
+        </button>
+        {info && <InfoTip text={info} />}
+        {collapsed && summary && <span className="panel-collapsed-summary">{summary}</span>}
+        {!collapsed && headerExtra}
+      </h3>
+      {!collapsed && children}
+    </section>
+  );
+}
+
 function Delta({ pct }) {
   if (pct == null) return null;
   const up = pct > 0;
@@ -80,29 +139,40 @@ function PipeSplit({ by, outcome }) {
   return parts.length ? <span className="oc-split">{parts.join(" · ")}</span> : null;
 }
 
+const OUTCOMES_INFO =
+  "What actually happened to documents in this window, split by pipeline (OVS/NVS): published, updated, withdrawn (ingetrokken), and failed to publish (system error). 'Failed' is reconciled against open.overheid.nl, so a document that is in fact live is never counted as a failure. Click a tile to see the exact documents.";
+
 function OutcomesCard({ data, onNavigate }) {
   const [open, setOpen] = useState(null); // which outcome's drill list is shown
 
+  const sr = data?.success_rate;
+  const srCls = sr == null ? "muted" : sr >= 95 ? "ok" : sr >= 80 ? "warn" : "err";
+
+  const summary =
+    data && sr != null ? (
+      <span className={`panel-collapsed-summary--inline panel-collapsed-summary--${srCls}`}>
+        {sr}% success · {data.throughput} through · {data.backlog} in progress
+      </span>
+    ) : null;
+
   if (!data) {
     return (
-      <section className="panel">
-        <h3>📊 Pipeline outcomes</h3>
+      <CollapsiblePanel id="outcomes" title="Pipeline outcomes" icon="📊" info={OUTCOMES_INFO}>
         <p className="muted">Loading…</p>
-      </section>
+      </CollapsiblePanel>
     );
   }
 
   const t = data.totals || {};
-  const sr = data.success_rate;
-  const srCls = sr == null ? "muted" : sr >= 95 ? "ok" : sr >= 80 ? "warn" : "err";
 
   return (
-    <section className="panel">
-      <h3>
-        📊 Pipeline outcomes
-        <InfoTip text="What actually happened to documents in this window, split by pipeline (OVS/NVS): published, updated, withdrawn (ingetrokken), and failed to publish (system error). 'Failed' is reconciled against open.overheid.nl, so a document that is in fact live is never counted as a failure. Click a tile to see the exact documents." />
-      </h3>
-
+    <CollapsiblePanel
+      id="outcomes"
+      title="Pipeline outcomes"
+      icon="📊"
+      info={OUTCOMES_INFO}
+      summary={summary}
+    >
       <div className="oc-headline">
         <div className={`oc-kpi oc-kpi--${srCls}`}>
           <span className="oc-kpi-num">{sr == null ? "—" : `${sr}%`}</span>
@@ -203,7 +273,7 @@ function OutcomesCard({ data, onNavigate }) {
         {data.reconciled_live > 0 &&
           ` · ${data.reconciled_live} reclassified live via open.overheid.nl`}
       </p>
-    </section>
+    </CollapsiblePanel>
   );
 }
 
@@ -543,13 +613,32 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             );
           })()}
 
-          <OutcomesCard data={outcomes} onNavigate={onNavigate} />
-
-          <section className="panel">
-            <h3>
-              Certificate &amp; TLS health
-              <InfoTip text="Security (TLS) certificate status for the key sites. The app actively checks open.overheid.nl and doculoket.overheid.nl directly — expiry countdown plus any trust, chain, hostname or expiry problems — and also shows anything Kibana monitors. Green: >30 days & trusted; amber: under 30 days or a warning; red: under 14 days, expired, or not trusted." />
-            </h3>
+          <CollapsiblePanel
+            id="certs"
+            title="Certificate & TLS health"
+            info="Security (TLS) certificate status for the key sites. The app actively checks open.overheid.nl and doculoket.overheid.nl directly — expiry countdown plus any trust, chain, hostname or expiry problems — and also shows anything Kibana monitors. Green: >30 days & trusted; amber: under 30 days or a warning; red: under 14 days, expired, or not trusted."
+            summary={(() => {
+              if (!certs || certs.length === 0) return null;
+              const problems = certs.filter(
+                (c) => (c.issues && c.issues.length) || c.status === "critical" || c.status === "expired"
+              );
+              const min = certs
+                .filter((c) => c.reachable && c.days_remaining != null)
+                .reduce((m, c) => Math.min(m, c.days_remaining), Infinity);
+              return (
+                <span
+                  className={`panel-collapsed-summary--inline panel-collapsed-summary--${
+                    problems.length ? "err" : "ok"
+                  }`}
+                >
+                  {Number.isFinite(min) ? `${min} days min` : "checked"}
+                  {problems.length
+                    ? ` · ⚠ ${problems.length} issue${problems.length === 1 ? "" : "s"}`
+                    : " · all healthy"}
+                </span>
+              );
+            })()}
+          >
             {certs === null ? (
               <p className="muted">Checking…</p>
             ) : certs.length === 0 ? (
@@ -598,7 +687,9 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 );
               })()
             )}
-          </section>
+          </CollapsiblePanel>
+
+          <OutcomesCard data={outcomes} onNavigate={onNavigate} />
 
           {snap && (
             <>
@@ -641,11 +732,23 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 </div>
               </div>
 
-              <section className="panel panel--alert">
-                <h3>
-                  Documents not found (404)
-                  <InfoTip text="Pages or documents a user requested but that returned “file not found”. High counts usually mean broken links or removed/missing content on the site." />
-                </h3>
+              <CollapsiblePanel
+                id="notfound"
+                title="Documents not found (404)"
+                alert={snap.not_found_total > 0}
+                info="Pages or documents a user requested but that returned “file not found”. High counts usually mean broken links or removed/missing content on the site."
+                summary={
+                  <span
+                    className={`panel-collapsed-summary--inline panel-collapsed-summary--${
+                      snap.not_found_total > 0 ? "warn" : "ok"
+                    }`}
+                  >
+                    {snap.not_found_total > 0
+                      ? `${snap.not_found_total} not found`
+                      : "none"}
+                  </span>
+                }
+              >
                 {snap.not_found_total === 0 ? (
                   <p className="muted">
                     No “not found” errors in this window — every requested page resolved.
@@ -679,15 +782,15 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     )}
                   </>
                 )}
-              </section>
+              </CollapsiblePanel>
 
               <Pipelines nvs={snap.nvs_count} nvsDocs={snap.nvs_docs} onNavigate={onNavigate} />
 
-              <section className="panel">
-                <h3>
-                  Criticals over time
-                  <InfoTip text="When issues happened — each bar is a time bucket; taller means more criticals then. A single tall bar = a spike." />
-                </h3>
+              <CollapsiblePanel
+                id="overtime"
+                title="Criticals over time"
+                info="When issues happened — each bar is a time bucket; taller means more criticals then. A single tall bar = a spike."
+              >
                 <div className="spark">
                   {snap.timeseries.map((b, i) => (
                     <div
@@ -698,13 +801,13 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     />
                   ))}
                 </div>
-              </section>
+              </CollapsiblePanel>
 
-              <section className="panel">
-                <h3>
-                  By system
-                  <InfoTip text="Critical issues per data view (system). The highlighted tile is the one you're currently viewing; “unavailable” means that system couldn't be reached this load." />
-                </h3>
+              <CollapsiblePanel
+                id="bysystem"
+                title="By system"
+                info="Critical issues per data view (system). The highlighted tile is the one you're currently viewing; “unavailable” means that system couldn't be reached this load."
+              >
                 <div className="tiles">
                   {snap.systems.map((s) => (
                     <div
@@ -720,13 +823,19 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     </div>
                   ))}
                 </div>
-              </section>
+              </CollapsiblePanel>
 
-              <section className="panel">
-                <h3>
-                  Top error signatures
-                  <InfoTip text="The most frequent error types, with when each was first and last seen. A burst between two close times often points to one root cause." />
-                </h3>
+              <CollapsiblePanel
+                id="signatures"
+                title="Top error signatures"
+                info="The most frequent error types, with when each was first and last seen. A burst between two close times often points to one root cause."
+                summary={
+                  <span className="panel-collapsed-summary--inline">
+                    {snap.top_signatures.length} signature
+                    {snap.top_signatures.length === 1 ? "" : "s"}
+                  </span>
+                }
+              >
                 {snap.top_signatures.length === 0 ? (
                   <p className="muted">None.</p>
                 ) : (
@@ -746,13 +855,19 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     </tbody>
                   </table>
                 )}
-              </section>
+              </CollapsiblePanel>
 
-              <section className="panel">
-                <h3>
-                  Affected services
-                  <InfoTip text="The services (applications) emitting the most critical issues in this window — where to look first." />
-                </h3>
+              <CollapsiblePanel
+                id="services"
+                title="Affected services"
+                info="The services (applications) emitting the most critical issues in this window — where to look first."
+                summary={
+                  <span className="panel-collapsed-summary--inline">
+                    {snap.affected_services.length} service
+                    {snap.affected_services.length === 1 ? "" : "s"}
+                  </span>
+                }
+              >
                 {snap.affected_services.length === 0 ? (
                   <p className="muted">None.</p>
                 ) : (
@@ -765,13 +880,25 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     ))}
                   </div>
                 )}
-              </section>
+              </CollapsiblePanel>
 
-              <section className="panel">
-                <h3>
-                  HTTP 5xx
-                  <InfoTip text="Server errors — the site failed to respond properly (status 500–599). Listed with the URLs that failed. Different from 404, which means the page wasn't found." />
-                </h3>
+              <CollapsiblePanel
+                id="http5xx"
+                title="HTTP 5xx"
+                alert={snap.status_codes.length > 0}
+                info="Server errors — the site failed to respond properly (status 500–599). Listed with the URLs that failed. Different from 404, which means the page wasn't found."
+                summary={
+                  <span
+                    className={`panel-collapsed-summary--inline panel-collapsed-summary--${
+                      snap.status_codes.length > 0 ? "err" : "ok"
+                    }`}
+                  >
+                    {snap.status_codes.length > 0
+                      ? `${snap.status_codes.reduce((n, s) => n + s.count, 0)} server errors`
+                      : "none"}
+                  </span>
+                }
+              >
                 {snap.status_codes.length === 0 ? (
                   <p className="muted">No server errors.</p>
                 ) : (
@@ -793,22 +920,23 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     </ul>
                   </>
                 )}
-              </section>
+              </CollapsiblePanel>
 
-              <section className="panel panel--ai">
-                <div className="panel-head">
-                  <h3>
-                    AI daily triage
-                    <InfoTip text="An AI-written summary of the facts shown above (counts, signatures, services). It only describes those numbers — it can still phrase things wrong, so verify anything important in Kibana." />
-                  </h3>
+              <CollapsiblePanel
+                id="aitriage"
+                title="AI daily triage"
+                className="panel--ai"
+                info="An AI-written summary of the facts shown above (counts, signatures, services). It only describes those numbers — it can still phrase things wrong, so verify anything important in Kibana."
+                headerExtra={
                   <button
-                    className="btn btn--ghost"
+                    className="btn btn--ghost panel-header-action"
                     onClick={() => loadBriefing(true)}
                     disabled={briefingState === "loading"}
                   >
                     {briefingState === "loading" ? "Generating…" : "Regenerate"}
                   </button>
-                </div>
+                }
+              >
                 <p className="ai-disclosure">
                   AI-generated summary of the facts above. May contain
                   inaccuracies — verify critical findings in Kibana.
@@ -822,7 +950,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 ) : (
                   <p className="muted">Analyzing…</p>
                 )}
-              </section>
+              </CollapsiblePanel>
             </>
           )}
         </div>

@@ -104,10 +104,23 @@ def _get_provider(session: dict | None = None) -> str:
     return settings.llm_provider
 
 
+# Sentinel provider meaning "AI is switched off" — every generation call
+# short-circuits to an empty result so the deterministic fallbacks take over and
+# no request is ever sent to Ollama/Mistral.
+DISABLED_PROVIDER = "none"
+
+
+def ai_enabled(session: dict | None = None) -> bool:
+    """True when an AI model is selected for this session (not switched off)."""
+    return _get_provider(session) != DISABLED_PROVIDER
+
+
 def provider_model(session: dict | None = None) -> tuple[str, str]:
     """The (provider, model) pair that will actually answer for this session —
     used by the UI to show which AI produced a result."""
     provider = _get_provider(session)
+    if provider == DISABLED_PROVIDER:
+        return DISABLED_PROVIDER, "disabled"
     model = settings.mistral_model if provider == "mistral" else settings.ollama_model
     return provider, model
 
@@ -133,6 +146,8 @@ async def polish_text(text: str, session: dict | None = None) -> str:
         {"role": "user", "content": cleaned},
     ]
     provider = _get_provider(session)
+    if provider == DISABLED_PROVIDER:
+        return cleaned  # AI off — never touch the original text.
     try:
         if provider == "mistral":
             result = await _generate_mistral_answer(messages)
@@ -147,8 +162,10 @@ async def polish_text(text: str, session: dict | None = None) -> str:
 
 async def generate_answer(question: str, context: str, system: str | None = None, session: dict | None = None) -> str:
     """Generate a complete answer (non-streaming)."""
-    messages = _build_prompt(question, context, system=system)
     provider = _get_provider(session)
+    if provider == DISABLED_PROVIDER:
+        return ""  # AI off — caller falls back to the deterministic summary.
+    messages = _build_prompt(question, context, system=system)
     try:
         if provider == "mistral":
             return await _generate_mistral_answer(messages)
@@ -194,8 +211,10 @@ async def generate_answer_stream(
 ) -> AsyncIterator[str]:
     """Generate a streaming answer, yielding chunks as they arrive. `system`
     overrides the default chat persona (e.g. the grounded health-incident analyst)."""
-    messages = _build_prompt(question, context, system=system)
     provider = _get_provider(session)
+    if provider == DISABLED_PROVIDER:
+        return  # AI off — yield nothing; caller emits the deterministic summary.
+    messages = _build_prompt(question, context, system=system)
     try:
         if provider == "mistral":
             async for chunk in _generate_mistral_answer_stream(messages):

@@ -10,8 +10,9 @@ from fastapi import Header, HTTPException
 # token -> {"username": str, "sid": str, "llm_provider": str}
 _sessions: dict[str, dict] = {}
 
-# Valid LLM providers
-VALID_PROVIDERS = ["ollama", "mistral"]
+# Valid LLM providers. "none" means the AI is switched off for the session —
+# every generation call short-circuits and the deterministic fallbacks take over.
+VALID_PROVIDERS = ["ollama", "mistral", "none"]
 
 
 def create_session(username: str, sid: str, llm_provider: str | None = None) -> str:

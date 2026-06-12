@@ -51,6 +51,14 @@
   --provider-name: "Mistral";
 }
 
+/* AI off = neutral grey — the header de-emphasises so it's obvious AI is idle. */
+:root[data-provider="none"] {
+  --provider-accent: #6b7688;
+  --provider-accent-2: #8a94a6;
+  --provider-glow: rgba(107, 118, 136, 0.16);
+  --provider-name: "AI off";
+}
+
 body {
   font-family: var(--font);
   background:
@@ -1891,6 +1899,38 @@ body {
   .dash { padding: 16px 14px 30px; }
 }
 
+/* "AI is off" notice shown at the top of the chat */
+.ai-off-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--text-faint) 45%, var(--border));
+  background: color-mix(in srgb, var(--text-faint) 10%, transparent);
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+.ai-off-dot {
+  flex: none;
+  margin-top: 5px;
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--text-faint);
+}
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+}
+.link-btn:hover { color: var(--provider-accent-2, var(--accent)); }
+
 /* ── Settings (admin) — feature toggles ───────────────────── */
 .set-panel { max-width: 720px; }
 .set-intro { margin: -2px 0 14px; }
@@ -1933,3 +1973,59 @@ body {
 }
 .switch.is-on .switch-knob { left: 25px; background: var(--success); box-shadow: 0 0 8px var(--success); }
 .switch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.switch:disabled { cursor: not-allowed; opacity: 0.45; }
+.set-row--disabled .set-row-label { color: var(--text-secondary); }
+
+/* AI model provider picker (admin) */
+.set-providers {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.set-providers-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  margin-bottom: 10px;
+}
+.set-provider-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.set-provider-card {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 4px 10px;
+  text-align: left;
+  padding: 13px 15px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-input);
+  cursor: pointer;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+.set-provider-card[data-provider="ollama"] { --pc: #10b981; }
+.set-provider-card[data-provider="mistral"] { --pc: #fb6f3d; }
+.set-provider-card:hover:not(:disabled) { border-color: var(--pc); }
+.set-provider-card.is-active {
+  border-color: var(--pc);
+  background: color-mix(in srgb, var(--pc) 12%, var(--bg-input));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pc) 22%, transparent);
+}
+.set-provider-card:focus-visible { outline: 2px solid var(--pc); outline-offset: 2px; }
+.set-provider-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--pc, var(--text-faint));
+  grid-row: 1 / span 1;
+}
+.set-provider-card.is-active .set-provider-dot { box-shadow: 0 0 8px var(--pc); }
+.set-provider-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); }
+.set-provider-name em { font-style: normal; font-size: 11px; color: var(--pc, var(--text-faint)); margin-left: 4px; }
+.set-provider-hint { grid-column: 2; font-size: 12px; color: var(--text-faint); }
+.set-providers--off { opacity: 0.6; }
+.set-providers-note { margin-top: 10px; font-size: 12.5px; }

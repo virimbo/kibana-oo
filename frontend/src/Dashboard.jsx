@@ -330,7 +330,7 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -440,11 +440,12 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
     [period, dataView, token]
   );
 
-  // Auto-load the briefing once the numbers for this window are in.
+  // Auto-load the briefing once the numbers for this window are in — but only
+  // when AI is enabled, so an off switch makes zero AI calls.
   useEffect(() => {
-    if (snap) loadBriefing(false);
+    if (snap && aiEnabled) loadBriefing(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snap?.period_minutes, snap?.data_view]);
+  }, [snap?.period_minutes, snap?.data_view, aiEnabled]);
 
   // Email / webhook the at-risk digest now (uses the live session).
   const sendDigest = useCallback(async () => {
@@ -922,6 +923,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 )}
               </CollapsiblePanel>
 
+              {aiEnabled && (
               <CollapsiblePanel
                 id="aitriage"
                 title="AI daily triage"
@@ -951,6 +953,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                   <p className="muted">Analyzing…</p>
                 )}
               </CollapsiblePanel>
+              )}
             </>
           )}
         </div>

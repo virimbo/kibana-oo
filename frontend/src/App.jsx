@@ -5,6 +5,7 @@ import { getJSON } from "./api";
 import DashboardPage from "./Dashboard";
 import DocumentsPage from "./Documents";
 import SettingsPage from "./Settings";
+import AdminPage from "./Admin";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 
@@ -591,8 +592,8 @@ function ChatPage({
               <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
                 Documents
               </button>
-              <button className="btn btn--ghost" onClick={() => onNavigate("settings")} title="Settings">
-                <Icon.Gear />
+              <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Beheer (admin)">
+                Beheer
               </button>
             </>
           )}
@@ -1023,6 +1024,19 @@ export default function App() {
         aiEnabled={aiEnabled}
         stuckCount={stuckCount}
         initialTraceId={pendingTrace}
+      />
+    );
+  }
+
+  if (view === "admin" && isAdmin) {
+    return (
+      <AdminPage
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        stuckCount={stuckCount}
       />
     );
   }

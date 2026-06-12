@@ -494,8 +494,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
             Documents
           </button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("settings")} title="Settings">
-            ⚙
+          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Beheer (admin)">
+            Beheer
           </button>
           <span className="header-user">{username}</span>
           <button className="btn btn--ghost" onClick={onLogout}>

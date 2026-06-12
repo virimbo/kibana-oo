@@ -73,6 +73,7 @@ export default function SettingsPage({
         <div className="header-right">
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
+          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Terug naar Beheer">← Beheer</button>
           <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>Chat</button>
           <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>Dashboard</button>
           <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>Documents</button>

@@ -263,13 +263,27 @@ async def test_incident_survives_window_then_clears_when_published(monkeypatch):
     assert res3["stuck_count"] == 0
 
 
-def test_detect_pipeline_markers_then_fallback():
+def test_detect_pipeline_markers_then_fallback(monkeypatch):
+    # With NO trusted signal configured (date cutoff off), fall back to best-effort.
+    monkeypatch.setattr(documents.settings, "pipeline_nvs_cutoff", "")
     assert documents._detect_pipeline([{"service": "msvc", "message": "via NVS pipeline"}]) == "NVS"
     assert documents._detect_pipeline([{"service": "x", "message": "oude verwerkingsstraat run"}]) == "OVS"
     # No explicit marker, but the service maps onto the canonical NVS lifecycle.
     assert documents._detect_pipeline([{"service": "msvc-documentopslag", "message": "stored"}]) == "NVS"
     # Nothing recognizable → honest unknown, not a guess.
     assert documents._detect_pipeline([{"service": "weird", "message": "nothing"}]) == "—"
+
+
+def test_detect_pipeline_by_publication_date_cutoff(monkeypatch):
+    """The authoritative KOOP rule: active on/after the cutoff → NVS; before → OVS."""
+    monkeypatch.setattr(documents.settings, "pipeline_nvs_cutoff", "2026-04-28")
+    after = [{"service": "x", "message": "published", "timestamp": "2026-05-01T10:00:00Z"}]
+    before = [{"service": "x", "message": "published", "timestamp": "2026-04-27T10:00:00Z"}]
+    assert documents._detect_pipeline(after) == "NVS"
+    assert documents._detect_pipeline(before) == "OVS"
+    # The date rule overrides a stray free-text marker.
+    mixed = [{"service": "x", "message": "OVS leftover note", "timestamp": "2026-05-10T10:00:00Z"}]
+    assert documents._detect_pipeline(mixed) == "NVS"
 
 
 def test_detect_pipeline_reliable_by_dedicated_field(monkeypatch):

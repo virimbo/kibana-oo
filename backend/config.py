@@ -1,3 +1,5 @@
+from datetime import date
+
 from pydantic_settings import BaseSettings
 
 
@@ -49,6 +51,11 @@ class Settings(BaseSettings):
     #    the substrings that identify each pipeline's index. Empty = skip.
     pipeline_nvs_index: str = ""                  # e.g. "koop-plooi,nvs"
     pipeline_ovs_index: str = ""                  # e.g. "koop-sp,ovs"
+    # 3) Publication-date cutoff — the pipeline switchover. A document active/
+    #    published ON OR AFTER this date is NVS (nieuwe verwerkingsstraat); before
+    #    it, OVS (oude). This is the authoritative business rule for KOOP Plooi.
+    #    Set empty to disable. (ISO date, e.g. 2026-04-28.)
+    pipeline_nvs_cutoff: str = "2026-04-28"
 
     # Public portal base, used to turn document paths into clickable links.
     portal_base_url: str = "https://open.overheid.nl"
@@ -200,13 +207,26 @@ class Settings(BaseSettings):
         return self._csv_lower(self.pipeline_ovs_index)
 
     @property
+    def pipeline_nvs_cutoff_date(self) -> date | None:
+        """Parsed NVS/OVS switchover date, or None if unset/invalid."""
+        raw = (self.pipeline_nvs_cutoff or "").strip()
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            return None
+
+    @property
     def pipeline_reliable_configured(self) -> bool:
-        """True when a trusted pipeline signal (field or index) is configured —
-        in which case classification is authoritative (no free-text guessing)."""
+        """True when a trusted pipeline signal (field, index, or date cutoff) is
+        configured — in which case classification is authoritative (a document
+        that matches none is reported as unknown, never free-text guessed)."""
         return bool(
             self.pipeline_field
             or self.pipeline_nvs_index_list
             or self.pipeline_ovs_index_list
+            or self.pipeline_nvs_cutoff_date
         )
 
     @property

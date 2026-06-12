@@ -514,11 +514,12 @@ def _detect_pipeline(events: list[dict]) -> str:
     order of TRUST:
       1. a dedicated log field (settings.pipeline_field) — most reliable;
       2. the index / data-stream the events live in — structural, reliable;
-      3. explicit free-text markers in service/message;
-      4. mapping onto the canonical NVS lifecycle → NVS.
-    When a trusted signal (1 or 2) is configured, it is AUTHORITATIVE: a document
-    that matches neither pipeline is reported as '—' rather than guessed. When no
-    trusted signal is configured, layers 3-4 provide a best-effort label."""
+      3. the publication-date cutoff (the pipeline switchover) — the KOOP rule;
+      4. explicit free-text markers in service/message;
+      5. mapping onto the canonical NVS lifecycle → NVS.
+    When a trusted signal (1-3) is configured, it is AUTHORITATIVE: a document
+    that matches none is reported as '—' rather than guessed. When no trusted
+    signal is configured, layers 4-5 provide a best-effort label."""
     nvs_vals, ovs_vals = settings.pipeline_nvs_value_list, settings.pipeline_ovs_value_list
     nvs_idx, ovs_idx = settings.pipeline_nvs_index_list, settings.pipeline_ovs_index_list
 
@@ -536,11 +537,22 @@ def _detect_pipeline(events: list[dict]) -> str:
             if got:
                 return got
 
+    # 3) Publication-date cutoff — the pipeline switchover (authoritative business
+    # rule). A document active on/after the cutoff went through NVS; before, OVS.
+    cutoff = settings.pipeline_nvs_cutoff_date
+    if cutoff:
+        ref = max(
+            (pipeline.parse_ts(e.get("timestamp")) for e in events if e.get("timestamp")),
+            default=None,
+        )
+        if ref:
+            return "NVS" if ref.date() >= cutoff else "OVS"
+
     # A trusted signal was configured but nothing matched → honest unknown.
     if settings.pipeline_reliable_configured:
         return "—"
 
-    # 3) Best-effort fallback (only when no trusted signal is configured).
+    # 4-5) Best-effort fallback (only when no trusted signal is configured).
     text = " ".join(f"{e.get('service') or ''} {e.get('message') or ''}" for e in events)
     if _OVS_RE.search(text):
         return "OVS"

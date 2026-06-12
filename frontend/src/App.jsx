@@ -48,6 +48,7 @@ const DEFAULT_DATA_VIEWS = [
 
 const DATA_VIEW_KEY = "kibana_oo_dataview";
 const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
+const AI_ENABLED_KEY = "kibana_oo_ai_enabled";
 const AUTOCORRECT_KEY = "kibana_oo_autocorrect";
 const SHOW_WELCOME_KEY = "kibana_oo_show_welcome";
 const SHOW_HINT_KEY = "kibana_oo_show_hint";
@@ -316,7 +317,7 @@ function UserMessage({ msg }) {
 
 function ChatPage({
   token, username, onLogout, isAdmin, onNavigate,
-  llmProvider, onProviderChange,
+  llmProvider, onProviderChange, aiEnabled = true,
   autocorrect, showWelcome, showHint, showSuggestions, stuckCount,
 }) {
   const [messages, setMessages] = useState([]);
@@ -604,6 +605,19 @@ function ChatPage({
 
       <div className="chat-scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="chat-column">
+          {!aiEnabled && (
+            <div className="ai-off-banner">
+              <span className="ai-off-dot" aria-hidden="true" />
+              <span>
+                <b>AI is switched off.</b> Answers are deterministic, data-only
+                summaries — no model is queried. Turn it back on in{" "}
+                <button type="button" className="link-btn" onClick={() => onNavigate("settings")}>
+                  Settings
+                </button>
+                .
+              </span>
+            </div>
+          )}
           {messages.length === 0 ? (
             <div className="empty-state">
               {showWelcome && (
@@ -853,20 +867,43 @@ export default function App() {
   const [llmProvider, setLlmProvider] = useState(
     () => sessionStorage.getItem(LLM_PROVIDER_KEY) || "ollama"
   );
+  // Master AI on/off (admin Settings). When off, the effective provider sent to
+  // the backend is "none" — every AI surface is hidden and the backend short-
+  // circuits all generation to its deterministic fallbacks. The selected
+  // provider (ollama/mistral) is remembered so flipping back restores it.
+  const [aiEnabled, setAiEnabled] = useState(
+    () => sessionStorage.getItem(AI_ENABLED_KEY) !== "off"
+  );
+  const effectiveProvider = aiEnabled ? llmProvider : "none";
 
   useEffect(() => {
     sessionStorage.setItem(LLM_PROVIDER_KEY, llmProvider);
-    document.documentElement.dataset.provider = llmProvider; // themes every header
   }, [llmProvider]);
+  useEffect(() => {
+    sessionStorage.setItem(AI_ENABLED_KEY, aiEnabled ? "on" : "off");
+    document.documentElement.dataset.provider = effectiveProvider; // themes every header
+  }, [aiEnabled, effectiveProvider]);
 
-  // Push the provider to the backend session (query param) whenever it changes.
+  // Push the effective provider to the backend session whenever it changes.
   useEffect(() => {
     if (!token) return;
-    fetch(`${BACKEND_URL}/llm-provider?provider=${encodeURIComponent(llmProvider)}`, {
+    fetch(`${BACKEND_URL}/llm-provider?provider=${encodeURIComponent(effectiveProvider)}`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}` },
     }).catch(() => {});
-  }, [llmProvider, token]);
+  }, [effectiveProvider, token]);
+
+  // One handler for every provider control (the header pill and the admin
+  // radios). "none" switches AI off; a real provider switches it on and is
+  // remembered, so toggling back restores the last choice.
+  const handleProviderChange = useCallback((next) => {
+    if (next === "none") {
+      setAiEnabled(false);
+    } else {
+      setLlmProvider(next);
+      setAiEnabled(true);
+    }
+  }, []);
 
   // Feature toggles (managed from the admin Settings tab; persisted per session).
   // Defaults: a clean, minimal chat — the welcome screen and composer hint are
@@ -890,6 +927,7 @@ export default function App() {
   useEffect(() => sessionStorage.setItem(SHOW_SUGGESTIONS_KEY, showSuggestions ? "on" : "off"), [showSuggestions]);
 
   const settings = {
+    aiEnabled, setAiEnabled,
     autocorrect, setAutocorrect,
     showWelcome, setShowWelcome,
     showHint, setShowHint,
@@ -965,8 +1003,9 @@ export default function App() {
         username={username}
         onLogout={handleLogout}
         onNavigate={navigate}
-        llmProvider={llmProvider}
-        onProviderChange={setLlmProvider}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        aiEnabled={aiEnabled}
         stuckCount={stuckCount}
       />
     );
@@ -979,8 +1018,9 @@ export default function App() {
         username={username}
         onLogout={handleLogout}
         onNavigate={navigate}
-        llmProvider={llmProvider}
-        onProviderChange={setLlmProvider}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        aiEnabled={aiEnabled}
         stuckCount={stuckCount}
         initialTraceId={pendingTrace}
       />
@@ -993,8 +1033,9 @@ export default function App() {
         username={username}
         onLogout={handleLogout}
         onNavigate={navigate}
-        llmProvider={llmProvider}
-        onProviderChange={setLlmProvider}
+        llmProvider={effectiveProvider}
+        selectedProvider={llmProvider}
+        onProviderChange={handleProviderChange}
         settings={settings}
         stuckCount={stuckCount}
       />
@@ -1008,8 +1049,9 @@ export default function App() {
       onLogout={handleLogout}
       isAdmin={isAdmin}
       onNavigate={navigate}
-      llmProvider={llmProvider}
-      onProviderChange={setLlmProvider}
+      llmProvider={effectiveProvider}
+      onProviderChange={handleProviderChange}
+      aiEnabled={aiEnabled}
       autocorrect={autocorrect}
       showWelcome={showWelcome}
       showHint={showHint}

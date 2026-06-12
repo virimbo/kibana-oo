@@ -294,7 +294,7 @@ function PipelineHealth({ health, onTrace }) {
   );
 }
 
-export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, initialTraceId }) {
+export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, initialTraceId }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -327,8 +327,9 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
       );
       setTrace(d);
       // Kick off the grounded AI analysis in the background — the trace renders
-      // immediately; a failing/slow LLM never blocks it.
-      if (d.found) {
+      // immediately; a failing/slow LLM never blocks it. Skipped entirely when
+      // AI is switched off.
+      if (d.found && aiEnabled) {
         setAiLoading(true);
         getJSON(
           `/dashboard/document-trace/explain?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
@@ -344,7 +345,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
     } finally {
       setTraceLoading(false);
     }
-  }, [traceId, dataView, token, onLogout]);
+  }, [traceId, dataView, token, onLogout, aiEnabled]);
 
   useEffect(() => {
     let active = true;

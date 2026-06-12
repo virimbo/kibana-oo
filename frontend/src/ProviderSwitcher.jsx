@@ -1,16 +1,17 @@
 // A colour-coded pill shown in every page header so the active AI model is
-// always visible (and switchable). Ollama = emerald, Mistral = amber — the
-// whole header is themed to match via the `data-provider` attribute on :root
-// (set by App). Lives in its own module so every page can import it without a
-// circular dependency on App.
+// always visible (and switchable). Ollama = emerald, Mistral = amber, Off =
+// grey — the whole header is themed to match via the `data-provider` attribute
+// on :root (set by App). Lives in its own module so every page can import it
+// without a circular dependency on App.
 export default function ProviderSwitcher({ value, onChange, disabled = false }) {
-  const name = value === "mistral" ? "Mistral" : "Ollama";
-  const kind = value === "mistral" ? "cloud" : "local";
+  const off = value === "none";
+  const name = off ? "AI off" : value === "mistral" ? "Mistral" : "Ollama";
+  const kind = off ? "disabled" : value === "mistral" ? "cloud" : "local";
   return (
     <label
       className="provider-switch"
       data-provider={value}
-      title="AI model — applies to chat, dashboard triage and document analysis"
+      title="AI model — applies to chat, dashboard triage and document analysis. Choose Off to disable AI everywhere."
     >
       <span className="provider-switch-dot" aria-hidden="true" />
       <span className="provider-switch-text">
@@ -30,6 +31,7 @@ export default function ProviderSwitcher({ value, onChange, disabled = false }) 
       >
         <option value="ollama">Ollama (local)</option>
         <option value="mistral">Mistral (cloud)</option>
+        <option value="none">Off — disable AI</option>
       </select>
     </label>
   );

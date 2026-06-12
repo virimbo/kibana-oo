@@ -106,7 +106,7 @@ const Icon = {
 // ─── Login Page ─────────────────────────────────────────────
 
 function LoginPage({ onLogin }) {
-  const [username, setUsername] = useState("anton.partono@koop.overheid.nl");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -1007,7 +1007,7 @@ export default function App() {
       username={username}
       onLogout={handleLogout}
       isAdmin={isAdmin}
-      onNavigate={setView}
+      onNavigate={navigate}
       llmProvider={llmProvider}
       onProviderChange={setLlmProvider}
       autocorrect={autocorrect}

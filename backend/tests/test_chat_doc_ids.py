@@ -173,3 +173,45 @@ async def test_stream_response_recovers_via_nonstreaming_retry(monkeypatch):
     chunks = [e for e in events if e["event"] == "chunk"]
     assert len(chunks) == 1 and "grouped by service" in chunks[0]["data"]
     assert "empty response" not in chunks[0]["data"].lower()
+
+
+async def test_stream_response_emits_facts_preamble_first_then_ai(monkeypatch):
+    """Health questions: the deterministic facts are streamed INSTANTLY as the
+    first chunk, then the AI prose follows — the user never waits on the model
+    for the facts."""
+    import main
+
+    async def fake_stream(question, context, session=None):
+        yield "AI analysis: the indexer is the main risk."
+
+    monkeypatch.setattr(main, "generate_answer_stream", fake_stream)
+    events = [e async for e in main._stream_response(
+        "q", "ctx", [], {"llm_provider": "ollama"}, preamble="🔴 CRITICAL — 120 errors")]
+    chunks = [e["data"] for e in events if e["event"] == "chunk"]
+    assert chunks[0] == "🔴 CRITICAL — 120 errors"          # facts first, instantly
+    assert any("AI analysis" in c for c in chunks)          # prose streamed after
+    assert events[-1]["event"] == "done"
+
+
+async def test_stream_response_keeps_facts_when_llm_dead(monkeypatch):
+    """If the model returns nothing, the already-streamed facts are preserved and
+    we add a short note — no error event, no lost answer."""
+    import main
+
+    async def empty_stream(question, context, session=None):
+        return
+        yield
+
+    async def empty_answer(question, context, system=None, session=None):
+        return ""
+
+    monkeypatch.setattr(main, "generate_answer_stream", empty_stream)
+    monkeypatch.setattr(main, "generate_answer", empty_answer)
+    events = [e async for e in main._stream_response(
+        "q", "ctx", [], {"llm_provider": "ollama"}, preamble="🔴 CRITICAL — 120 errors")]
+    kinds = [e["event"] for e in events]
+    chunks = [e["data"] for e in events if e["event"] == "chunk"]
+    assert "error" not in kinds                              # facts preserved, no hard error
+    assert chunks[0] == "🔴 CRITICAL — 120 errors"
+    assert any("unavailable" in c.lower() for c in chunks)
+    assert kinds[-1] == "done"

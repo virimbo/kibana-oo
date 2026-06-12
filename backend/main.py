@@ -200,10 +200,12 @@ async def chat(
                 + (f" · image_text={len(image_text)}c" if image_text else "")
                 + (f" · doc_ids={doc_ids}" if doc_ids else ""))
 
-    async def _do_search() -> tuple[list[dict], str, str | None]:
-        """Returns (sources, llm_context, instant_message). When instant_message
-        is set, the data is genuinely empty and we answer immediately without
-        calling the (slow) LLM."""
+    async def _do_search() -> tuple[list[dict], str, str | None, str | None]:
+        """Returns (sources, llm_context, instant_message, preamble). When
+        instant_message is set, the data is genuinely empty and we answer
+        immediately without the (slow) LLM. When preamble is set (health
+        questions), it is deterministic facts shown INSTANTLY before the LLM
+        prose streams underneath."""
         if doc_ids:
             # Intelligent path: the text names specific document id(s). Trace each
             # across a WIDE window AND across EVERY data view, enriched with the
@@ -222,7 +224,7 @@ async def chat(
                     "this plainly: the id may be wrong, outside the retention window, or "
                     "the events are not yet indexed."
                 )
-            return results, ctx, None
+            return results, ctx, None, None
 
         # Generic path: search the SELECTED view + window first. If that is empty,
         # automatically broaden BOTH the index (all data views) AND the time window
@@ -254,7 +256,9 @@ async def chat(
             health = health_res if isinstance(health_res, dict) else None
             health_ctx = _build_health_context(snap, health)
             if health_ctx.strip():
-                return [], health_ctx, None
+                # Deterministic facts shown instantly; AI prose streams after.
+                facts = _render_health_facts(snap, health) or None
+                return [], health_ctx, None, facts
 
         all_views = settings.data_view_list
         logs, errors = await _fetch_generic(sid, search_text, minutes, data_view)
@@ -277,7 +281,7 @@ async def chat(
                 "- The cluster may simply be quiet right now\n"
                 "- For a specific document, paste or type its **id** and I'll trace it across every view"
             )
-            return [], "", instant
+            return [], "", instant, None
 
         ctx = _build_context(logs, [], errors)
         if broadened:
@@ -285,7 +289,7 @@ async def chat(
                 f"\n\n(Note: no events matched in '{data_view}' for the selected range; "
                 f"these results are from all data views over {window}. Mention this to the user.)"
             )
-        return results, ctx, None
+        return results, ctx, None, None
 
     async def _search_and_compose():
         """Spell-correct the question AND search Kibana concurrently, then assemble
@@ -293,12 +297,12 @@ async def chat(
         polish_coro = (
             polish_text(question, session) if (request.autocorrect and question) else _passthrough(question)
         )
-        polished, (all_results, context, instant) = await asyncio.gather(polish_coro, _do_search())
+        polished, (all_results, context, instant, preamble) = await asyncio.gather(polish_coro, _do_search())
         display_question = polished or "(screenshot)"
         llm_question = polished or "Analyze the attached screenshot and answer any question it contains."
         if image_text:
             llm_question = f"{llm_question}\n\n[Text extracted from the attached image]:\n{image_text}"
-        return display_question, llm_question, all_results, context, instant
+        return display_question, llm_question, all_results, context, instant, preamble
 
     # Streaming: return the SSE response IMMEDIATELY and do the (possibly slow)
     # search INSIDE the generator. This flushes the response headers right away and
@@ -308,7 +312,7 @@ async def chat(
     if request.stream:
         async def _chat_events():
             try:
-                display_question, llm_question, all_results, context, instant = await _search_and_compose()
+                display_question, llm_question, all_results, context, instant, preamble = await _search_and_compose()
             except Exception as e:  # noqa: BLE001
                 logger.error(f"Chat search failed: {e}")
                 yield {"event": "error", "data": f"Couldn't search the logs: {e}"}
@@ -318,7 +322,8 @@ async def chat(
                     yield ev
                 return
             async for ev in _stream_response(
-                llm_question, context, all_results, session, display_question=display_question
+                llm_question, context, all_results, session,
+                display_question=display_question, preamble=preamble,
             ):
                 yield ev
 
@@ -328,7 +333,7 @@ async def chat(
 
     # Non-streaming.
     try:
-        display_question, llm_question, all_results, context, instant = await _search_and_compose()
+        display_question, llm_question, all_results, context, instant, preamble = await _search_and_compose()
     except HTTPException:
         raise
     except Exception as e:
@@ -338,16 +343,23 @@ async def chat(
     if instant:
         return ChatResponse(answer=instant, sources=[])
 
+    # Health questions: the deterministic facts are the answer; the LLM prose is a
+    # best-effort bonus, so a model failure never costs the user the facts.
     try:
         answer = await generate_answer(llm_question, context, session=session)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Failed to generate answer: {e}")
+        if not preamble:
+            raise HTTPException(status_code=502, detail=f"Failed to generate answer: {e}")
+        answer = ""
 
     if not (answer or "").strip():
-        # Never return an empty bubble: recover, then synthesize from the data.
-        answer = await _recover_answer(llm_question, context, session) \
-            or _summarize_from_sources(all_results)
+        answer = await _recover_answer(llm_question, context, session)
+    if not (answer or "").strip() and not preamble:
+        answer = _summarize_from_sources(all_results)
+
+    if preamble:
+        answer = preamble + (_AI_ANALYSIS_DIVIDER + answer if (answer or "").strip() else "")
 
     return ChatResponse(answer=answer, sources=all_results[:5])
 
@@ -395,33 +407,43 @@ async def _stream_response(
     sources: list[dict],
     session: dict,
     display_question: str | None = None,
+    preamble: str | None = None,
 ):
-    """Stream the LLM response as SSE events. If the question was corrected (or
-    derived from an image), the cleaned text is sent first so the UI can update
-    the user's bubble to what was actually asked."""
+    """Stream the answer as SSE events. If a `preamble` is given (deterministic
+    health facts), it is emitted INSTANTLY first so the user has the answer before
+    the model runs; the LLM prose then streams underneath as a bonus. The LLM is
+    best-effort — once the facts are out, a model hiccup degrades to a short note
+    instead of an error, so the facts are never lost."""
+    if display_question:
+        yield {"event": "question", "data": display_question}
+    if preamble:
+        yield {"event": "chunk", "data": preamble}
+        yield {"event": "chunk", "data": _AI_ANALYSIS_DIVIDER}
+
+    produced = False
     try:
-        if display_question:
-            yield {"event": "question", "data": display_question}
-        produced = False
         async for chunk in generate_answer_stream(question, context, session=session):
             if chunk:
                 produced = True
                 yield {"event": "chunk", "data": chunk}
-        if not produced:
-            # The stream came back empty. With num_ctx now set explicitly this is
-            # rare, but we NEVER dead-end: retry once non-streaming, fall back to
-            # the local model, and finally synthesize a deterministic summary
-            # straight from the gathered log events — so the user always gets a
-            # real answer instead of an error.
-            fallback = await _recover_answer(question, context, session)
-            if not fallback:
-                fallback = _summarize_from_sources(sources)
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"LLM stream failed: {e}")  # fall through to recovery below
+
+    if not produced:
+        # Never dead-end: retry once non-streaming / local model. If even that is
+        # empty, synthesize from the gathered events — unless we already streamed
+        # the facts preamble, in which case a brief note is enough.
+        fallback = await _recover_answer(question, context, session)
+        if fallback:
             yield {"event": "chunk", "data": fallback}
-        yield {"event": "sources", "data": json.dumps(sources[:5])}
-        yield {"event": "done", "data": ""}
-    except Exception as e:
-        logger.error(f"Streaming failed: {e}")
-        yield {"event": "error", "data": str(e)}
+        elif preamble:
+            yield {"event": "chunk",
+                   "data": "_(AI analysis is unavailable right now — the facts above are from live monitoring data.)_"}
+        else:
+            yield {"event": "chunk", "data": _summarize_from_sources(sources)}
+
+    yield {"event": "sources", "data": json.dumps(sources[:5])}
+    yield {"event": "done", "data": ""}
 
 
 async def _recover_answer(question: str, context: str, session: dict) -> str:
@@ -622,6 +644,64 @@ def _build_health_context(snap: dict | None, health: dict | None) -> str:
         "going wrong for each. If everything is at zero, say the system looks healthy."
     )
     return "\n".join(parts)
+
+
+# Shown between the instant facts and the streamed AI prose.
+_AI_ANALYSIS_DIVIDER = "\n\n---\n_AI analysis:_\n\n"
+
+_STATUS_ICON = {"CRITICAL": "🔴", "DEGRADED": "🟠", "OK": "🟢"}
+
+
+def _render_health_facts(snap: dict | None, health: dict | None) -> str:
+    """A deterministic, human-readable summary built straight from the cached
+    health data. Shown INSTANTLY for a health question so the user never waits on
+    the LLM for the facts — the AI prose is then streamed underneath as a bonus."""
+    lines: list[str] = []
+
+    if snap:
+        status = str(snap.get("status_level", "ok")).upper()
+        icon = _STATUS_ICON.get(status, "•")
+        lines.append(
+            f"**{icon} {status}** — {snap.get('total', 0)} error/critical events in the "
+            f"last {snap.get('period_minutes')} min on `{snap.get('data_view')}`."
+        )
+        delta = snap.get("delta") or {}
+        if delta.get("pct_vs_previous") is not None:
+            pct = delta["pct_vs_previous"]
+            arrow = "▲" if pct > 0 else ("▼" if pct < 0 else "▶")
+            lines.append(f"- Trend: {arrow} {abs(pct):.0f}% vs the previous period.")
+
+        services = snap.get("affected_services") or []
+        if services:
+            lines.append("\n**Worst-affected services**")
+            for s in services[:6]:
+                lines.append(f"- `{s.get('name', '?')}` — {s.get('count', 0)} errors")
+
+        codes = [c for c in (snap.get("status_codes") or []) if str(c.get("code", "")).startswith("5")]
+        if codes:
+            lines.append("\n**Server errors (5xx):** "
+                         + ", ".join(f"{c.get('code')}×{c.get('count')}" for c in codes))
+
+        signatures = snap.get("top_signatures") or []
+        if signatures:
+            lines.append("\n**What's going wrong**")
+            for s in signatures[:6]:
+                lines.append(f"- {s.get('count', 0)}× {(s.get('signature') or '')[:160]}")
+
+    if health:
+        stuck = health.get("stuck_count", 0)
+        errs, warns = health.get("total_errors", 0), health.get("total_warnings", 0)
+        lines.append("")
+        if stuck:
+            lines.append(f"**Pipeline:** {stuck} document(s) not live & unresolved "
+                         f"({errs} errors, {warns} warnings).")
+        else:
+            lines.append(f"**Pipeline:** no stuck documents ({errs} errors, {warns} warnings).")
+        bad = [s for s in (health.get("stage_health") or []) if s.get("errors")]
+        for s in bad[:4]:
+            lines.append(f"- {s.get('name')}: {s.get('errors', 0)} errors")
+
+    return "\n".join(lines).strip()
 
 
 def _summarize_from_sources(sources: list[dict]) -> str:

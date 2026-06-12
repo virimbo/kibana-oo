@@ -13,7 +13,7 @@ from cache import TTLCache
 from digest import build_digest
 from certificates import fetch_certificates
 from config import settings
-from documents import build_document_activity, build_pipeline_health, trace_document
+from documents import build_document_activity, build_pipeline_health, build_pipeline_outcomes, trace_document
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view
 
@@ -26,6 +26,7 @@ _cert_cache = TTLCache(ttl=3600)  # certificates change slowly
 _documents_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _trace_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _health_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
+_outcomes_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
 # Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
 ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
@@ -164,6 +165,30 @@ async def pipeline_health(
     except Exception as e:
         logger.error(f"Pipeline health failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load pipeline health: {e}")
+
+
+@router.get("/outcomes")
+async def outcomes(
+    period: int = Query(default=60),
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Document outcomes for the window, split by pipeline (OVS/NVS): published,
+    updated, withdrawn, failed-to-publish, plus success rate, backlog, latency and
+    trend. Cached per (data view, period)."""
+    period = _period(period)
+    dv = resolve_data_view(data_view)
+    key = f"outcomes:{dv}:{period}"
+    cached = _outcomes_cache.get(key)
+    if cached is not None:
+        return cached
+    try:
+        result = await build_pipeline_outcomes(session["sid"], period, dv)
+    except Exception as e:
+        logger.error(f"Pipeline outcomes failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to load pipeline outcomes: {e}")
+    _outcomes_cache.set(key, result)
+    return result
 
 
 @router.post("/digest/send")

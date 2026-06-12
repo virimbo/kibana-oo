@@ -779,3 +779,220 @@ async def build_pipeline_health(
         "total_warnings": sum(c["warnings"] for c in stage_health),
         "total_errors": sum(c["errors"] for c in stage_health),
     }
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# Pipeline Outcomes — throughput & failures by outcome and pipeline (OVS/NVS)
+# ════════════════════════════════════════════════════════════════════════════
+
+# Outcome buckets, in display order. Only ONE applies to a document per window.
+OUTCOMES = ["published", "updated", "withdrawn", "failed", "in_progress"]
+PIPELINES = ["NVS", "OVS", "—"]
+# Lifecycle verdicts that mean the document reached the public portal.
+_LIVE_VERDICTS = {"published", "healthy", "warnings"}
+
+
+def _doc_outcome(events: list[dict], view: dict, settle_seconds: float, now: datetime) -> str:
+    """The single outcome for a document this window, by precedence:
+    withdrawn (intrekking) → published/updated (reached live) → failed (a settled
+    system error, i.e. quiet past the settle window and not live) → in_progress.
+    The settle gate is what keeps 'failed' honest — a transient error that the
+    pipeline is still retrying is 'in_progress', not a failure."""
+    actions = {e.get("action") for e in events}
+    if "deleted" in actions:
+        return "withdrawn"
+    if view["stages"][-1]["reached"] or view["verdict"] in _LIVE_VERDICTS:
+        # An update to an already-live document vs. a first publication.
+        if "updated" in actions and "created" not in actions:
+            return "updated"
+        return "published"
+    last_dt = pipeline.parse_ts(max((e.get("timestamp") or "" for e in events), default=""))
+    quiet = (now - last_dt).total_seconds() if last_dt else None
+    settled = quiet is not None and quiet >= settle_seconds
+    if settled and (view["verdict"] == "problem" or _has_alerting(events)):
+        return "failed"
+    return "in_progress"
+
+
+def _doc_link(did: str, meta: dict | None = None) -> str:
+    """Best, click-through link for a document: portal link → API-free details
+    page (UUIDs) → canonical document link."""
+    portal_uuid = _portal_id(did)
+    details = (
+        settings.portal_details_template.format(id=portal_uuid)
+        if _UUID_RE.fullmatch(portal_uuid) else None
+    )
+    return (meta.get("link") if meta else None) or details \
+        or settings.doc_link_template.format(id=did)
+
+
+def _publish_seconds(events: list[dict]) -> float | None:
+    """Intake→live wall-clock for a completed document, if we have both ends."""
+    times = sorted(t for t in (pipeline.parse_ts(e.get("timestamp")) for e in events) if t)
+    if len(times) < 2:
+        return None
+    return (times[-1] - times[0]).total_seconds()
+
+
+def _percentile(values: list[float], p: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    k = max(0, min(len(ordered) - 1, int(round((p / 100.0) * (len(ordered) - 1)))))
+    return round(ordered[k], 1)
+
+
+def _pct_change(curr: int, prev: int) -> float | None:
+    if not prev:
+        return None
+    return round((curr - prev) / prev * 100.0, 1)
+
+
+async def _scan_doc_events(sid: str, start: datetime, end: datetime,
+                           views: list[str], size: int) -> list[dict]:
+    """Document events in [start, end) across all views, tolerant of per-view
+    failures so one unavailable index never empties the whole window."""
+    body = {"size": size, "sort": [{"@timestamp": {"order": "asc"}}],
+            "query": _event_query(start, end)}
+    results = await asyncio.gather(
+        *[_es_search(sid, v, body) for v in views], return_exceptions=True
+    )
+    hits: list[dict] = []
+    for res in results:
+        if not isinstance(res, Exception):
+            hits.extend(res.get("hits", {}).get("hits", []))
+    return [summarize_event(h) for h in hits]
+
+
+def _group_by_doc(events: list[dict]) -> dict[str, list[dict]]:
+    groups: dict[str, list[dict]] = {}
+    for e in events:
+        did = _event_doc_id(e)
+        if did:
+            groups.setdefault(did, []).append(e)
+    return groups
+
+
+def _empty_counts() -> dict[str, dict[str, int]]:
+    return {p: {o: 0 for o in OUTCOMES} for p in PIPELINES}
+
+
+def _classify_window(groups: dict[str, list[dict]], settle_seconds: float, now: datetime):
+    """Classify every document in a window → (counts[pipeline][outcome], records,
+    publish-latencies). One pass; no network."""
+    counts = _empty_counts()
+    records: list[dict] = []
+    latencies: list[float] = []
+    for did, evs in groups.items():
+        view = pipeline.build_pipeline_view(evs, now=now)
+        outcome = _doc_outcome(evs, view, settle_seconds, now)
+        pl = _detect_pipeline(evs)
+        counts.setdefault(pl, {o: 0 for o in OUTCOMES})[outcome] += 1
+        records.append({
+            "id": did, "outcome": outcome, "pipeline": pl,
+            "stage": view["furthest_stage"], "service": _incident_service(evs),
+            "last_seen": max((e.get("timestamp") or "" for e in evs), default=""),
+            "events": len(evs), "title": _log_title(evs), "verdict": view["verdict"],
+        })
+        if outcome in ("published", "updated"):
+            secs = _publish_seconds(evs)
+            if secs is not None:
+                latencies.append(secs)
+    return counts, records, latencies
+
+
+async def build_pipeline_outcomes(
+    sid: str, period_minutes: int, data_view: str | None = None, now: datetime | None = None
+) -> dict:
+    """Document OUTCOMES for the selected window, split by pipeline (OVS/NVS):
+    how many were published / updated / withdrawn, how many FAILED to publish from
+    a system error, plus the publish success rate, backlog (work in progress),
+    time-to-publish (p50/p95), and a trend vs the previous equal window. The
+    'failed' set is reconciled against the public portal so a document that is in
+    fact live is never reported as a failure."""
+    now = now or datetime.now(timezone.utc)
+    views = settings.data_view_list
+    settle_seconds = settings.incident_settle_minutes * 60
+    size = settings.pipeline_health_scan_size
+    start, end = period_bounds(period_minutes, now)
+    prev_start = start - (end - start)
+
+    cur_events, prev_events = await asyncio.gather(
+        _scan_doc_events(sid, start, end, views, size),
+        _scan_doc_events(sid, prev_start, start, views, size),
+    )
+    counts, records, latencies = _classify_window(_group_by_doc(cur_events), settle_seconds, now)
+    prev_counts, _, _ = _classify_window(_group_by_doc(prev_events), settle_seconds, now)
+
+    # ── GROUND TRUTH: a 'failed' document that is actually live on the portal is
+    # not a failure. Reconcile the failed set (bounded, cached) and move confirmed
+    # live ones to 'published'. ──
+    failed = [r for r in records if r["outcome"] == "failed"]
+    verify = failed[:settings.pipeline_health_verify_max]
+    metas = await asyncio.gather(
+        *[fetch_document_meta(_portal_id(r["id"])) for r in verify], return_exceptions=True
+    )
+    reconciled_live = 0
+    for r, m in zip(verify, metas):
+        meta = m if isinstance(m, dict) else None
+        if meta and pipeline.is_published(meta.get("status")):
+            counts[r["pipeline"]]["failed"] -= 1
+            counts[r["pipeline"]]["published"] += 1
+            r["outcome"] = "published"
+            r["title"] = r["title"] or meta.get("title")
+            r["_meta"] = meta
+            reconciled_live += 1
+        elif meta:
+            r["title"] = r["title"] or meta.get("title")
+            r["_meta"] = meta
+
+    # ── roll up ──
+    totals = {o: sum(counts[p][o] for p in counts) for o in OUTCOMES}
+    prev_totals = {o: sum(prev_counts[p][o] for p in prev_counts) for o in OUTCOMES}
+    throughput = totals["published"] + totals["updated"]
+    prev_throughput = prev_totals["published"] + prev_totals["updated"]
+    decided = throughput + totals["failed"]
+    success_rate = round(throughput / decided * 100.0, 1) if decided else None
+
+    # ── drill-downs: top documents per outcome (most recent first), click-through ──
+    drill: dict[str, list[dict]] = {}
+    for o in OUTCOMES:
+        rows = [r for r in records if r["outcome"] == o]
+        rows.sort(key=lambda r: r["last_seen"], reverse=True)
+        drill[o] = [{
+            "id": r["id"],
+            "title": r["title"] or r["id"],
+            "link": _doc_link(r["id"], r.get("_meta")),
+            "pipeline": r["pipeline"],
+            "service": r["service"],
+            "stage": r["stage"],
+            "last_seen": r["last_seen"],
+            "when": _fmt_when(r["last_seen"]),
+        } for r in rows[:25]]
+
+    return {
+        "period_minutes": period_minutes,
+        "data_view": data_view or "all",
+        "window_start": start.isoformat(),
+        "window_end": end.isoformat(),
+        "documents": len(records),
+        "by_pipeline": counts,
+        "totals": totals,
+        "throughput": throughput,             # published + updated
+        "publish_failures": totals["failed"],
+        "backlog": totals["in_progress"],     # entered but not live, not failed
+        "success_rate": success_rate,         # %, or None when nothing was decided
+        "reconciled_live": reconciled_live,    # 'failed' docs found live on the portal
+        "latency": {
+            "p50_seconds": _percentile(latencies, 50),
+            "p95_seconds": _percentile(latencies, 95),
+            "samples": len(latencies),
+        },
+        "trend": {
+            "throughput_pct": _pct_change(throughput, prev_throughput),
+            "failed_pct": _pct_change(totals["failed"], prev_totals["failed"]),
+            "prev_throughput": prev_throughput,
+            "prev_failed": prev_totals["failed"],
+        },
+        "drill": drill,
+    }

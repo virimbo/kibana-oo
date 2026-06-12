@@ -51,6 +51,149 @@ function Delta({ pct }) {
   );
 }
 
+function fmtDur(secs) {
+  if (secs == null) return "—";
+  const s = Math.round(secs);
+  if (s < 60) return `${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  return `${h}h ${m % 60}m`;
+}
+
+// ─── Pipeline outcomes card ───────────────────────────────────────────────
+const OC_META = {
+  published: { label: "Published", icon: "🟢", cls: "ok" },
+  updated: { label: "Updated", icon: "🔵", cls: "info" },
+  withdrawn: { label: "Withdrawn", icon: "🟠", cls: "warn" },
+  failed: { label: "Failed", icon: "🔴", cls: "err" },
+  in_progress: { label: "In progress", icon: "⏳", cls: "muted" },
+};
+const OC_ORDER = ["published", "updated", "withdrawn", "failed", "in_progress"];
+
+function PipeSplit({ by, outcome }) {
+  const parts = [];
+  for (const p of ["NVS", "OVS", "—"]) {
+    const n = by?.[p]?.[outcome] || 0;
+    if (n) parts.push(`${p} ${n}`);
+  }
+  return parts.length ? <span className="oc-split">{parts.join(" · ")}</span> : null;
+}
+
+function OutcomesCard({ data, onNavigate }) {
+  const [open, setOpen] = useState(null); // which outcome's drill list is shown
+
+  if (!data) {
+    return (
+      <section className="panel">
+        <h3>📊 Pipeline outcomes</h3>
+        <p className="muted">Loading…</p>
+      </section>
+    );
+  }
+
+  const t = data.totals || {};
+  const sr = data.success_rate;
+  const srCls = sr == null ? "muted" : sr >= 95 ? "ok" : sr >= 80 ? "warn" : "err";
+
+  return (
+    <section className="panel">
+      <h3>
+        📊 Pipeline outcomes
+        <InfoTip text="What actually happened to documents in this window, split by pipeline (OVS/NVS): published, updated, withdrawn (ingetrokken), and failed to publish (system error). 'Failed' is reconciled against open.overheid.nl, so a document that is in fact live is never counted as a failure. Click a tile to see the exact documents." />
+      </h3>
+
+      <div className="oc-headline">
+        <div className={`oc-kpi oc-kpi--${srCls}`}>
+          <span className="oc-kpi-num">{sr == null ? "—" : `${sr}%`}</span>
+          <span className="oc-kpi-label">
+            publish success rate <Delta pct={data.trend?.throughput_pct} />
+          </span>
+        </div>
+        <ul className="oc-facts">
+          <li>
+            <b>{data.throughput}</b> through · <b>{data.publish_failures}</b> failed{" "}
+            <Delta pct={data.trend?.failed_pct} />
+          </li>
+          <li><b>{data.backlog}</b> in progress (backlog)</li>
+          <li>
+            time-to-publish p50 <b>{fmtDur(data.latency?.p50_seconds)}</b> · p95{" "}
+            <b>{fmtDur(data.latency?.p95_seconds)}</b>
+          </li>
+        </ul>
+      </div>
+
+      <div className="oc-tiles">
+        {OC_ORDER.map((o) => {
+          const meta = OC_META[o];
+          const n = t[o] || 0;
+          return (
+            <button
+              key={o}
+              className={`oc-tile oc-tile--${meta.cls} ${open === o ? "is-open" : ""}`}
+              onClick={() => setOpen(open === o ? null : o)}
+              disabled={!n}
+              title={n ? "Show these documents" : "None in this window"}
+            >
+              <span className="oc-tile-top">{meta.icon} {meta.label}</span>
+              <span className="oc-tile-num">{n}</span>
+              <PipeSplit by={data.by_pipeline} outcome={o} />
+            </button>
+          );
+        })}
+      </div>
+
+      {open &&
+        (data.drill?.[open]?.length ? (
+          <ul className="oc-drill">
+            {data.drill[open].map((d) => (
+              <li
+                key={d.id}
+                className="oc-drill-row"
+                role="button"
+                tabIndex={0}
+                onClick={() => onNavigate("documents", d.id)}
+                onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", d.id)}
+                title="Click to trace this document"
+              >
+                <span className={`oc-pill oc-pill--${OC_META[open].cls}`}>{d.pipeline}</span>
+                <span className="oc-drill-main">
+                  <span className="oc-drill-title">{d.title}</span>
+                  <span className="oc-drill-meta">
+                    {d.service && <span>{d.service}</span>}
+                    {d.stage && <span> · {d.stage}</span>}
+                    {d.when && <span> · 🕓 {d.when}</span>}
+                  </span>
+                </span>
+                {d.link && (
+                  <a
+                    className="oc-drill-link"
+                    href={d.link}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    title="Open on open.overheid.nl"
+                  >
+                    ↗
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted oc-drill-empty">No documents to show for “{OC_META[open].label}”.</p>
+        ))}
+
+      <p className="muted oc-foot">
+        Window: last {data.period_minutes} min · {data.documents} document
+        {data.documents === 1 ? "" : "s"}
+        {data.reconciled_live > 0 &&
+          ` · ${data.reconciled_live} reclassified live via open.overheid.nl`}
+      </p>
+    </section>
+  );
+}
+
 const isNewAction = (a) => /new|create|aanmaak|nieuw|insert/i.test(a || "");
 
 function Pipelines({ nvs, nvsDocs, onNavigate }) {
@@ -116,6 +259,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
   const [briefingState, setBriefingState] = useState("idle"); // idle|loading|error
   const [certs, setCerts] = useState(null); // null = loading
   const [health, setHealth] = useState(null); // documents at risk (stuck / critical)
+  const [outcomes, setOutcomes] = useState(null); // throughput/failures by outcome & pipeline
   const [digestMsg, setDigestMsg] = useState("");
 
   // Certificate expiry — read from Kibana monitoring data, independent of the metrics.
@@ -140,6 +284,21 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
       active = false;
     };
   }, [dataView, token]);
+
+  // Document outcomes (published / updated / withdrawn / failed) by pipeline.
+  useEffect(() => {
+    let active = true;
+    setOutcomes(null);
+    getJSON(
+      `/dashboard/outcomes?period=${period}&data_view=${encodeURIComponent(dataView)}`,
+      token
+    )
+      .then((d) => active && setOutcomes(d))
+      .catch(() => active && setOutcomes(null));
+    return () => {
+      active = false;
+    };
+  }, [period, dataView, token]);
 
   // Load the data-view list for the dropdown (single source of truth).
   useEffect(() => {
@@ -370,6 +529,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               </section>
             );
           })()}
+
+          <OutcomesCard data={outcomes} onNavigate={onNavigate} />
 
           <section className="panel">
             <h3>

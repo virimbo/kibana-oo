@@ -247,6 +247,11 @@ function PipelineHealth({ health, onTrace }) {
                 <span className="stuck-title">{d.title || d.id}</span>
                 <span className="stuck-head">{d.headline}</span>
               </span>
+              {d.open_since && (
+                <span className="stuck-age" title="How long this problem has been open and unresolved">
+                  open {d.open_since}
+                </span>
+              )}
             </li>
           ))}
         </ul>

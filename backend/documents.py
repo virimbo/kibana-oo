@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel
 
+import incidents
 import pipeline
 from elastic import _es_search, extract_doc_ids
 from config import settings
@@ -472,7 +473,51 @@ def _log_title(events: list[dict]) -> str | None:
     return None
 
 
-async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
+def _stage_index(stage_name: str | None) -> int:
+    """Position of a stage (by display name) in the canonical pipeline, or -1."""
+    for i, s in enumerate(pipeline.PIPELINE):
+        if s["name"] == stage_name:
+            return i
+    return -1
+
+
+def _age_label(first_detected: str | None, now: datetime) -> str:
+    """Plain-language age of an open incident, e.g. '3d 4h' or '12 min'."""
+    started = pipeline.parse_ts(first_detected)
+    if not started:
+        return ""
+    secs = int((now - started).total_seconds())
+    if secs < 60:
+        return "just now"
+    mins = secs // 60
+    if mins < 60:
+        return f"{mins} min"
+    hours = mins // 60
+    if hours < 24:
+        return f"{hours}h {mins % 60}m"
+    return f"{hours // 24}d {hours % 24}h"
+
+
+def _incident_to_row(rec: dict, now: datetime) -> dict:
+    """Shape a stored incident the way the Documents UI expects, plus how long it
+    has been open ('open_since' / 'first_detected')."""
+    return {
+        "id": rec["doc_id"],
+        "verdict": rec.get("verdict"),
+        "headline": rec.get("headline"),
+        "stuck_stage": rec.get("stage"),
+        "title": rec.get("title"),
+        "link": rec.get("link"),
+        "events": rec.get("events", 0),
+        "last_seen": rec.get("last_activity"),
+        "first_detected": rec.get("first_detected"),
+        "open_since": _age_label(rec.get("first_detected"), now),
+    }
+
+
+async def build_pipeline_health(
+    sid: str, data_view: str | None = None, now: datetime | None = None
+) -> dict:
     """Proactive, dashboard-level view of the whole pipeline: which documents are
     STUCK (entered but never finished, and went quiet), and where problems cluster
     by stage — so an admin spots issues without tracing each document by hand.
@@ -494,7 +539,7 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         if not isinstance(res, Exception):
             hits.extend(res.get("hits", {}).get("hits", []))
     events = [summarize_event(h) for h in hits]
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
 
     # ── where problems cluster: per-stage event / warning / error counts ──
     stage_health = []
@@ -521,10 +566,24 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         if did:
             groups.setdefault(did, []).append(e)
 
+    settle_seconds = settings.incident_settle_minutes * 60
     candidates = []
+    progressed_ids: set[str] = set()  # scanned docs that are NOT (any longer) at risk
     for did, evs in groups.items():
         view = pipeline.build_pipeline_view(evs, now=now)
         if view["verdict"] not in ("stuck", "problem"):
+            progressed_ids.add(did)  # healthy / in-progress / published → recovered
+            continue
+        # SETTLE TIME — the core false-positive fix. A document still emitting
+        # events is in motion, not an incident: a transient error at Intake that
+        # the pipeline retries past would otherwise be flagged for the minute or
+        # two before it moves on. Only flag once the document has gone SILENT for
+        # the settle period (and, below, is confirmed not live). A document with
+        # no parseable timestamp is treated as not-yet-settled (skip).
+        last_seen = max((e.get("timestamp") or "" for e in evs), default="")
+        last_dt = pipeline.parse_ts(last_seen)
+        quiet = (now - last_dt).total_seconds() if last_dt else None
+        if quiet is None or quiet < settle_seconds:
             continue
         # Only flag a document as genuinely at-risk — NOT every document whose
         # later-stage events just fell outside the scanned window. It must have a
@@ -540,7 +599,7 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
                 "stuck_stage": view["furthest_stage"],
                 "next_stage": view["next_stage"],
                 "events": len(evs),
-                "last_seen": max((e.get("timestamp") or "" for e in evs), default=""),
+                "last_seen": last_seen,
                 "log_title": _log_title(evs),   # filename from logs (works for ronl- ids)
             })
 
@@ -555,12 +614,13 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         d["id"]: (m if isinstance(m, dict) else None) for d, m in zip(verify, metas)
     }
 
-    stuck = []
+    confirmed = []          # genuine, not-published at-risk documents this scan
     confirmed_published = 0
     for d in candidates:
         meta = meta_by_id.get(d["id"])
         if meta and pipeline.is_published(meta.get("status")):
-            confirmed_published += 1   # false alarm — it's live & readable
+            confirmed_published += 1     # false alarm — it's live & readable
+            progressed_ids.add(d["id"])  # so any open incident for it auto-resolves
             continue
         # Title: official (portal, UUID only) → else the filename from the logs
         # (so ronl- documents show a real name, not just their id).
@@ -577,9 +637,46 @@ async def build_pipeline_health(sid: str, data_view: str | None = None) -> dict:
         )
         d["link"] = (meta.get("link") if meta else None) or details_link \
             or settings.doc_link_template.format(id=d["id"])
-        stuck.append(d)
-    # genuine problems first, then longest-idle
-    stuck.sort(key=lambda d: (d["verdict"] != "problem", d["last_seen"]))
+        d["stage_index"] = _stage_index(d["stuck_stage"])
+        d["data_view"] = data_view or "all"
+        confirmed.append(d)
+
+    # ── DURABLE INCIDENT STATE ─────────────────────────────────────────────────
+    # The displayed list is driven by the persistent store, not this single scan,
+    # so genuine problems stay visible for days (across restarts and beyond the
+    # scan window) until they are actually solved.
+    #   1. Open / refresh an incident for every confirmed at-risk document.
+    #   2. Auto-resolve incidents whose document has recovered THIS scan
+    #      (progressed to a later stage, became healthy, or is now published).
+    #   3. Auto-resolve out-of-window incidents that the portal now reports live.
+    for d in confirmed:
+        await incidents.upsert_open(d, now)
+
+    open_recs = await incidents.open_incidents()
+    confirmed_ids = {d["id"] for d in confirmed}
+
+    # (2) recovered within the window: previously open, scanned now, no longer at risk
+    for r in open_recs:
+        if r["doc_id"] in progressed_ids and r["doc_id"] not in confirmed_ids:
+            await incidents.resolve(r["doc_id"], "progressed", now)
+
+    # (3) out-of-window incidents: re-check the portal (bounded) — published ⇒ solved
+    stale = [r for r in open_recs
+             if r["doc_id"] not in groups and r["doc_id"] not in confirmed_ids]
+    stale = stale[:settings.incident_reverify_max]
+    stale_metas = await asyncio.gather(
+        *[fetch_document_meta(_portal_id(r["doc_id"])) for r in stale],
+        return_exceptions=True,
+    )
+    for r, m in zip(stale, stale_metas):
+        meta = m if isinstance(m, dict) else None
+        if meta and pipeline.is_published(meta.get("status")):
+            await incidents.resolve(r["doc_id"], "published", now)
+
+    # Final list = whatever is still OPEN, oldest (longest-unsolved) first.
+    final_open = await incidents.open_incidents()
+    stuck = [_incident_to_row(r, now) for r in final_open]
+    stuck.sort(key=lambda d: (d["verdict"] != "problem", d.get("first_detected") or ""))
 
     return {
         "lookback_minutes": lookback,

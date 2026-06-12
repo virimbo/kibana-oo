@@ -1,9 +1,24 @@
+from datetime import datetime, timedelta, timezone
+
 import documents
+import incidents
 
 
 def _hit(ts, service, msg):
     return {"_source": {"@timestamp": ts, "message": msg, "level": "INFO",
                         "service": {"name": service}}}
+
+
+NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=timezone.utc)
+
+
+def _hit_at(dt, service, msg):
+    return _hit(dt.strftime("%Y-%m-%dT%H:%M:%SZ"), service, msg)
+
+
+def _use_views(monkeypatch):
+    monkeypatch.setattr(documents.settings, "data_views",
+                        "logs-*,ds-prod5-koop-plooi*,ds-prod5-koop-sp")
 
 
 async def test_pipeline_health_finds_stuck_docs(monkeypatch):
@@ -157,3 +172,123 @@ async def test_pipeline_health_empty_is_clean(monkeypatch):
     assert res["stuck_count"] == 0
     assert res["documents_scanned"] == 0
     assert res["total_warnings"] == 0
+
+
+# ── Settle time + durable incident tracking (the false-positive fix) ──────────
+
+async def test_settle_time_skips_recently_active_document(monkeypatch):
+    """A document with a problem at Intake that is STILL emitting events (last
+    seen minutes ago) is in motion, not an incident — it must NOT be flagged.
+    This is the fix for the 'failed at Intake' rows that clear in a few minutes."""
+    uid = "aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa"
+    hits = [_hit_at(NOW - timedelta(minutes=5), "gateway-service", f"failed to process {uid}")]
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": hits if index == "ds-prod5-koop-plooi*" else []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    assert res["documents_scanned"] == 1
+    assert res["stuck_count"] == 0          # still moving → not an incident (yet)
+
+
+async def test_flagged_only_after_settle_and_persisted(monkeypatch):
+    """The same document, now SILENT past the settle window and not live, is a
+    genuine incident — flagged and stored as open."""
+    uid = "bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb"
+    hits = [_hit_at(NOW - timedelta(hours=2), "gateway-service", f"failed to process {uid}")]
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": hits if index == "ds-prod5-koop-plooi*" else []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    assert res["stuck_count"] == 1
+    assert res["stuck"][0]["id"] == uid
+    assert res["stuck"][0]["verdict"] == "problem"
+    assert res["stuck"][0]["open_since"]                 # age is surfaced
+
+    rows = await incidents.open_incidents()
+    assert len(rows) == 1 and rows[0]["doc_id"] == uid
+
+
+async def test_incident_survives_window_then_clears_when_published(monkeypatch):
+    """An incident stays OPEN across scans — even after the document falls out of
+    the 24h scan window — until the portal confirms it published, then clears.
+    This is the 'stays for days until solved' guarantee."""
+    uid = "cccccccc-3333-4333-8333-cccccccccccc"
+    silent = [_hit_at(NOW - timedelta(hours=2), "gateway-service", f"failed to process {uid}")]
+    portal = {"live": False}
+
+    async def meta(doc_id):
+        return ({"status": "gepubliceerd", "title": "Doc C", "link": "https://open.overheid.nl/c"}
+                if portal["live"] else None)
+
+    _use_views(monkeypatch)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+
+    # Scan 1 — document present & failing → opens an incident.
+    async def es_with(sid, index, body):
+        return {"hits": {"hits": silent if index == "ds-prod5-koop-plooi*" else []}}
+    monkeypatch.setattr(documents, "_es_search", es_with)
+    res1 = await documents.build_pipeline_health("sid", now=NOW)
+    assert res1["stuck_count"] == 1
+
+    # Scan 2 (a day later) — the document has fallen OUT of the scan window (no
+    # hits) but is still not live → the incident must remain open.
+    async def es_empty(sid, index, body):
+        return {"hits": {"hits": []}}
+    monkeypatch.setattr(documents, "_es_search", es_empty)
+    res2 = await documents.build_pipeline_health("sid", now=NOW + timedelta(days=1))
+    assert res2["documents_scanned"] == 0
+    assert res2["stuck_count"] == 1                       # STILL listed — not solved
+    assert res2["stuck"][0]["id"] == uid
+    assert "d" in res2["stuck"][0]["open_since"]          # ~1 day old
+
+    # Scan 3 — the portal now reports it published → auto-resolved, list clears.
+    portal["live"] = True
+    res3 = await documents.build_pipeline_health("sid", now=NOW + timedelta(days=1, hours=1))
+    assert res3["stuck_count"] == 0
+
+
+async def test_incident_clears_when_document_progresses(monkeypatch):
+    """If a flagged document later shows up healthy/progressed within the scan
+    window, its incident auto-resolves and drops off the list."""
+    uid = "dddddddd-4444-4444-8444-dddddddddddd"
+    failing = [_hit_at(NOW - timedelta(hours=2), "gateway-service", f"failed to process {uid}")]
+
+    async def meta(doc_id):
+        return None
+
+    _use_views(monkeypatch)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+
+    async def es_failing(sid, index, body):
+        return {"hits": {"hits": failing if index == "ds-prod5-koop-plooi*" else []}}
+    monkeypatch.setattr(documents, "_es_search", es_failing)
+    res1 = await documents.build_pipeline_health("sid", now=NOW)
+    assert res1["stuck_count"] == 1
+
+    # Later scan: the document is now seen flowing cleanly all the way to live.
+    progressed = [
+        _hit_at(NOW + timedelta(hours=1), "msvc-documentopslag", f"stored ok {uid}"),
+        _hit_at(NOW + timedelta(hours=2), "zoekportaal", f"live {uid}"),
+    ]
+
+    async def es_progressed(sid, index, body):
+        return {"hits": {"hits": progressed if index == "ds-prod5-koop-plooi*" else []}}
+    monkeypatch.setattr(documents, "_es_search", es_progressed)
+    res2 = await documents.build_pipeline_health("sid", now=NOW + timedelta(hours=3))
+    assert res2["stuck_count"] == 0                       # recovered → cleared

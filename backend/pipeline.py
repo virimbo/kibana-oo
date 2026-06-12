@@ -96,13 +96,19 @@ def event_severity(level: str | None, message: str | None) -> str:
     return "ok"
 
 
-def _parse(ts: str | None):
+def parse_ts(ts: str | None):
+    """Parse an ISO-8601 log timestamp (tolerating a trailing 'Z') to an aware
+    datetime, or None if it's missing/unparseable."""
     if not ts:
         return None
     try:
         return datetime.fromisoformat(ts.replace("Z", "+00:00"))
     except (ValueError, AttributeError):
         return None
+
+
+# Backwards-compatible internal alias (used throughout this module).
+_parse = parse_ts
 
 
 def _fmt_duration(seconds: float | None) -> str:

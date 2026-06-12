@@ -27,6 +27,10 @@ services:
       - .env
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      # Durable store for open document incidents — survives restarts so genuine
+      # problems stay listed for days until they are actually solved.
+      - backend_data:/app/data
     depends_on:
       - ollama
     restart: unless-stopped
@@ -42,3 +46,4 @@ services:
 
 volumes:
   ollama_data:
+  backend_data:

@@ -68,6 +68,19 @@ class Settings(BaseSettings):
     # Verify at most this many flagged candidates against the public portal
     # (cached, best-effort) to drop false 'stuck' alarms for live documents.
     pipeline_health_verify_max: int = 40
+    # ── Incident tracking (only genuinely stuck/failed docs, durable) ──────────
+    # A document is only an INCIDENT once it has gone silent (no new log events)
+    # for at least this long AND is not live — so a document still moving through
+    # the pipeline (e.g. a transient error at Intake that clears in minutes) is
+    # never flagged. This is the settle/grace period.
+    incident_settle_minutes: int = 45
+    # Open incidents are persisted here so genuine problems stay visible for days
+    # — across restarts and beyond the scan window — until they are actually
+    # resolved (published or progressed). Put this on a mounted volume.
+    incident_db_path: str = "/app/data/incidents.db"
+    # Per scan, re-check at most this many open incidents that fell outside the
+    # scan window against the public portal to auto-resolve published ones.
+    incident_reverify_max: int = 60
     # Best-effort source fields for a document's organization (tune to your logs).
     doc_org_fields: str = "organisatie,bronorganisatie,publisher,organization,source.organization,verantwoordelijke,bron,afzender"
     # Known document sources (bron) for the errors-by-source table.

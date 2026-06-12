@@ -133,7 +133,7 @@ function OutcomesCard({ data, onNavigate }) {
               className={`oc-tile oc-tile--${meta.cls} ${open === o ? "is-open" : ""}`}
               onClick={() => setOpen(open === o ? null : o)}
               disabled={!n}
-              title={n ? "Show these documents" : "None in this window"}
+              title={n ? "Click to list these documents" : "None in this window"}
             >
               <span className="oc-tile-top">{meta.icon} {meta.label}</span>
               <span className="oc-tile-num">{n}</span>
@@ -142,6 +142,12 @@ function OutcomesCard({ data, onNavigate }) {
           );
         })}
       </div>
+
+      {!open && (
+        <p className="muted oc-hint">
+          ▸ Click a tile to list its documents — then click one to trace it, or open it on open.overheid.nl ↗
+        </p>
+      )}
 
       {open &&
         (data.drill?.[open]?.length ? (
@@ -156,7 +162,14 @@ function OutcomesCard({ data, onNavigate }) {
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", d.id)}
                 title="Click to trace this document"
               >
-                <span className={`oc-pill oc-pill--${OC_META[open].cls}`}>{d.pipeline}</span>
+                <span
+                  className={`oc-pill oc-pill--${
+                    d.pipeline === "NVS" ? "nvs" : d.pipeline === "OVS" ? "ovs" : "unk"
+                  }`}
+                  title="Processing pipeline (OVS = oude, NVS = nieuwe verwerkingsstraat)"
+                >
+                  {d.pipeline || "—"}
+                </span>
                 <span className="oc-drill-main">
                   <span className="oc-drill-title">{d.title}</span>
                   <span className="oc-drill-meta">

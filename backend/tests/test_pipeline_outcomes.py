@@ -75,7 +75,8 @@ async def test_outcomes_counts_and_split(monkeypatch):
     assert t["failed"] == 1        # D only — F moved to published
     assert t["in_progress"] == 1   # E
 
-    assert res["by_pipeline"]["OVS"]["withdrawn"] == 1
+    # All current-window activity is after the NVS cutoff (28 Apr 2026) → NVS.
+    assert res["by_pipeline"]["NVS"]["withdrawn"] == 1
     assert res["by_pipeline"]["NVS"]["published"] == 2
     assert res["by_pipeline"]["NVS"]["failed"] == 1
     assert res["reconciled_live"] == 1

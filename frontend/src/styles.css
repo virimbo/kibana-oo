@@ -1697,9 +1697,10 @@ body {
 }
 .oc-drill-row:hover { border-color: var(--accent); transform: translateX(2px); }
 .oc-pill { flex: none; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border, rgba(255,255,255,0.15)); color: var(--text-secondary); }
-.oc-pill--ok { color: var(--success); border-color: var(--success); }
-.oc-pill--err { color: var(--error); border-color: var(--error); }
-.oc-pill--warn { color: var(--warn); border-color: var(--warn); }
+.oc-pill--nvs { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+.oc-pill--ovs { color: var(--warn); border-color: var(--warn); background: var(--warn-soft); }
+.oc-pill--unk { color: var(--text-faint); }
+.oc-hint { font-size: 11.5px; margin: 10px 0 0; }
 .oc-drill-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
 .oc-drill-title { font-size: 12.5px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .oc-drill-meta { font-size: 10.5px; color: var(--text-secondary); display: flex; gap: 4px; flex-wrap: wrap; }

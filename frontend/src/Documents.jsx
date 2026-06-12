@@ -698,7 +698,6 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                               </tr>
                               );
                             })}
-                            ))}
                           </tbody>
                         </table>
                       )}

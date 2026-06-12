@@ -245,6 +245,21 @@ function PipelineHealth({ health, onTrace }) {
               </span>
               <span className="stuck-main">
                 <span className="stuck-title">{d.title || d.id}</span>
+                <span className="stuck-meta">
+                  {d.status_label && (
+                    <span className={`stuck-chip stuck-chip--${d.verdict}`}>{d.status_label}</span>
+                  )}
+                  {d.pipeline && d.pipeline !== "—" && (
+                    <span className="stuck-chip" title="Processing pipeline (best-effort)">{d.pipeline}</span>
+                  )}
+                  {d.service && (
+                    <span className="stuck-chip stuck-chip--svc" title="Service where it stalled">{d.service}</span>
+                  )}
+                  {!d.title && <span className="stuck-id">{d.id}</span>}
+                  {d.last_seen_label && (
+                    <span className="stuck-when" title="Last activity in the logs">🕓 {d.last_seen_label}</span>
+                  )}
+                </span>
                 <span className="stuck-head">{d.headline}</span>
               </span>
               {d.open_since && (

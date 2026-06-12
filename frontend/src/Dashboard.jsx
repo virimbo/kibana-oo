@@ -534,32 +534,56 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           <section className="panel">
             <h3>
-              Certificate expiry
-              <InfoTip text="Days until each site's security (TLS) certificate expires, read from Kibana monitoring — not by opening the site. Green: >30 days; amber: under 30; red: under 14 or already expired." />
+              Certificate &amp; TLS health
+              <InfoTip text="Security (TLS) certificate status for the key sites. The app actively checks open.overheid.nl and doculoket.overheid.nl directly — expiry countdown plus any trust, chain, hostname or expiry problems — and also shows anything Kibana monitors. Green: >30 days & trusted; amber: under 30 days or a warning; red: under 14 days, expired, or not trusted." />
             </h3>
             {certs === null ? (
               <p className="muted">Checking…</p>
             ) : certs.length === 0 ? (
               <p className="muted">
-                No certificate data found in Kibana. This usually means TLS/uptime
-                monitoring (Heartbeat or Synthetics) isn't set up for these sites yet —
-                ask your Kibana admin to enable it, and the cards will appear here.
+                No certificate data yet — the active probe could not reach the
+                configured hosts, and Kibana has no TLS monitoring data.
               </p>
             ) : (
-              <div className="cert-cards">
-                {certs.map((c) => (
-                  <div key={c.host} className={`cert-card cert-card--${c.status}`}>
-                    <span className="cert-host">{c.host}</span>
-                    <span className="cert-days">
-                      {c.days_remaining < 0
-                        ? "Expired"
-                        : `${c.days_remaining} day${c.days_remaining === 1 ? "" : "s"} left`}
-                    </span>
-                    <span className="cert-meta">expires {fmtDate(c.not_after)}</span>
-                    {c.issuer && <span className="cert-meta">issued by {c.issuer}</span>}
-                  </div>
-                ))}
-              </div>
+              (() => {
+                const problems = certs.filter((c) => (c.issues && c.issues.length) || c.status === "critical" || c.status === "expired");
+                return (
+                  <>
+                    {problems.length > 0 && (
+                      <div className="alert alert--error cert-warning">
+                        ⚠ <b>{problems.length} certificate issue{problems.length === 1 ? "" : "s"} need attention:</b>{" "}
+                        {problems.map((c) => c.host).join(", ")}.
+                      </div>
+                    )}
+                    <div className="cert-cards">
+                      {certs.map((c) => (
+                        <div key={c.host} className={`cert-card cert-card--${c.status}`}>
+                          <span className="cert-host">
+                            {c.host}
+                            {c.source === "probe" && <span className="cert-tag" title="Checked live by KIBANA-OO">live</span>}
+                          </span>
+                          <span className="cert-days">
+                            {!c.reachable
+                              ? "Unreachable"
+                              : c.days_remaining < 0
+                              ? "EXPIRED"
+                              : `${c.days_remaining} day${c.days_remaining === 1 ? "" : "s"} left`}
+                          </span>
+                          {c.not_after && <span className="cert-meta">expires {fmtDate(c.not_after)}</span>}
+                          {c.issuer && <span className="cert-meta">issued by {c.issuer}</span>}
+                          {c.issues && c.issues.length > 0 && (
+                            <span className="cert-issues">
+                              {c.issues.map((iss, i) => (
+                                <span key={i} className="cert-issue">⚠ {iss}</span>
+                              ))}
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()
             )}
           </section>
 

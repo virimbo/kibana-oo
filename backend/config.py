@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Index patterns where TLS certificate monitoring data (Heartbeat / Synthetics)
     # lives. Used by the certificate-expiry cards. Read-only discovery.
     cert_index: str = "heartbeat-*,synthetics-*"
+    # Public hosts whose TLS certificate we ACTIVELY probe (independent of Kibana),
+    # so the expiry countdown and any trust/chain/hostname issues are always
+    # visible. Comma-separated host[:port]. Read-only outbound TLS.
+    cert_probe_hosts: str = "open.overheid.nl,doculoket.overheid.nl"
+    cert_probe_timeout: float = 6.0        # seconds; keep short so it never stalls the card
 
     # Document processing pipelines (Verwerkingsstraat): OVS = oude (old),
     # NVS = nieuwe (new). Query strings attributing documents to each pipeline.

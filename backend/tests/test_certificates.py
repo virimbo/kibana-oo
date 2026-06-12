@@ -69,13 +69,17 @@ async def test_fetch_certificates_merges_indices_and_skips_errors(monkeypatch):
     async def fake_es(sid, index, body):
         if index == "heartbeat-*":
             return {"hits": {"hits": [_hit({
-                "url": {"domain": "open.overheid.nl"},
+                "url": {"domain": "kibana-monitored.nl"},
                 "tls": {"server": {"x509": {"not_after": "2026-08-08T12:02:21Z"}}},
             })]}}
         raise RuntimeError("no such index")  # synthetics-* missing -> skipped
 
+    async def no_probe(now=None):
+        return []  # isolate the Kibana-merge behaviour (no live network probe)
+
     monkeypatch.setattr(certificates, "_es_search", fake_es)
+    monkeypatch.setattr(certificates, "probe_certificates", no_probe)
     monkeypatch.setattr(certificates.settings, "cert_index", "heartbeat-*,synthetics-*")
     certs = await certificates.fetch_certificates("sid", now=NOW)
     assert len(certs) == 1
-    assert certs[0].host == "open.overheid.nl"
+    assert certs[0].host == "kibana-monitored.nl"

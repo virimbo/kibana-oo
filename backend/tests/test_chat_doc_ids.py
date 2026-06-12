@@ -193,6 +193,24 @@ async def test_stream_response_emits_facts_preamble_first_then_ai(monkeypatch):
     assert events[-1]["event"] == "done"
 
 
+async def test_stream_response_passes_system_prompt_to_model(monkeypatch):
+    """The grounded analyst persona must actually reach the model on health
+    questions — otherwise the AI half isn't constrained to the data."""
+    import main
+
+    seen = {}
+
+    async def fake_stream(question, context, session=None, system=None):
+        seen["system"] = system
+        yield "Likely cause: indexer overload."
+
+    monkeypatch.setattr(main, "generate_answer_stream", fake_stream)
+    events = [e async for e in main._stream_response(
+        "q", "ctx", [], {"llm_provider": "ollama"}, system="ANALYST-PERSONA")]
+    assert seen["system"] == "ANALYST-PERSONA"
+    assert any(e["event"] == "chunk" for e in events)
+
+
 async def test_stream_response_keeps_facts_when_llm_dead(monkeypatch):
     """If the model returns nothing, the already-streamed facts are preserved and
     we add a short note — no error event, no lost answer."""

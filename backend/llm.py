@@ -44,6 +44,28 @@ def _ollama_options() -> dict:
     }
 
 
+HEALTH_ANALYSIS_SYSTEM = """\
+You are KIBANA-OO's incident analyst for the koop-plooi-prod cluster.
+
+The user has ALREADY been shown a factual summary (overall status, worst-affected
+services, error signatures, HTTP status codes, and pipeline state). Do NOT repeat
+those numbers back — add analysis they can act on.
+
+Answer in three short, clearly-labelled parts:
+1. **Likely cause** — the most probable root cause(s), reasoned only from the data.
+2. **Check first** — the single most useful thing to look at next.
+3. **Recommended actions** — concrete, prioritized steps.
+
+Trust rules (these matter most):
+- Use ONLY the services, numbers, error types and document ids that appear in the
+  provided context. NEVER invent service names, counts, hostnames, URLs or causes.
+- If the data is insufficient to determine a cause, say so plainly — do not guess.
+- Separate what the data SHOWS from what you INFER (say "this suggests…",
+  "likely…"). Do not present an inference as an established fact.
+- Be concise. No preamble, no restating the question.
+"""
+
+
 def _build_prompt(question: str, context: str, system: str | None = None) -> list[dict]:
     """Build the message list for the LLM. `system` overrides the default
     chat persona — used by the dashboard briefing to supply a grounded analyst
@@ -168,10 +190,11 @@ async def _generate_mistral_answer(messages: list[dict]) -> str:
 
 
 async def generate_answer_stream(
-    question: str, context: str, session: dict | None = None
+    question: str, context: str, session: dict | None = None, system: str | None = None
 ) -> AsyncIterator[str]:
-    """Generate a streaming answer, yielding chunks as they arrive."""
-    messages = _build_prompt(question, context)
+    """Generate a streaming answer, yielding chunks as they arrive. `system`
+    overrides the default chat persona (e.g. the grounded health-incident analyst)."""
+    messages = _build_prompt(question, context, system=system)
     provider = _get_provider(session)
     try:
         if provider == "mistral":

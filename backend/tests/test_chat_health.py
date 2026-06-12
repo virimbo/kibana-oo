@@ -105,3 +105,12 @@ def test_render_health_facts_is_instant_and_worst_first():
 
 def test_render_health_facts_empty_without_data():
     assert main._render_health_facts(None, None) == ""
+
+
+def test_health_analysis_system_enforces_grounding_and_actions():
+    """The analyst persona must (a) give actions, not restate facts, and (b) be
+    explicitly grounded — the trust guarantee."""
+    s = main.HEALTH_ANALYSIS_SYSTEM.lower()
+    assert "likely cause" in s and "recommended actions" in s
+    assert "never invent" in s          # no fabricated services/numbers/causes
+    assert "do not repeat" in s         # don't re-narrate the facts preamble

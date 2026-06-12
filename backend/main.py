@@ -20,7 +20,7 @@ from elastic import (
     search_by_document_id,
     search_logs,
 )
-from llm import generate_answer, generate_answer_stream, polish_text, provider_model
+from llm import generate_answer, generate_answer_stream, polish_text, provider_model, HEALTH_ANALYSIS_SYSTEM
 from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
@@ -321,9 +321,12 @@ async def chat(
                 async for ev in _instant_response(instant, display_question=display_question):
                     yield ev
                 return
+            # Health questions: the facts preamble is already authoritative, so the
+            # model is asked for grounded analysis & actions — not to restate them.
+            health_system = HEALTH_ANALYSIS_SYSTEM if preamble else None
             async for ev in _stream_response(
                 llm_question, context, all_results, session,
-                display_question=display_question, preamble=preamble,
+                display_question=display_question, preamble=preamble, system=health_system,
             ):
                 yield ev
 
@@ -344,9 +347,11 @@ async def chat(
         return ChatResponse(answer=instant, sources=[])
 
     # Health questions: the deterministic facts are the answer; the LLM prose is a
-    # best-effort bonus, so a model failure never costs the user the facts.
+    # best-effort, grounded analysis bonus, so a model failure never costs the
+    # user the facts.
+    health_system = HEALTH_ANALYSIS_SYSTEM if preamble else None
     try:
-        answer = await generate_answer(llm_question, context, session=session)
+        answer = await generate_answer(llm_question, context, system=health_system, session=session)
     except Exception as e:
         logger.error(f"LLM generation failed: {e}")
         if not preamble:
@@ -354,7 +359,7 @@ async def chat(
         answer = ""
 
     if not (answer or "").strip():
-        answer = await _recover_answer(llm_question, context, session)
+        answer = await _recover_answer(llm_question, context, session, system=health_system)
     if not (answer or "").strip() and not preamble:
         answer = _summarize_from_sources(all_results)
 
@@ -408,12 +413,14 @@ async def _stream_response(
     session: dict,
     display_question: str | None = None,
     preamble: str | None = None,
+    system: str | None = None,
 ):
     """Stream the answer as SSE events. If a `preamble` is given (deterministic
     health facts), it is emitted INSTANTLY first so the user has the answer before
     the model runs; the LLM prose then streams underneath as a bonus. The LLM is
     best-effort — once the facts are out, a model hiccup degrades to a short note
-    instead of an error, so the facts are never lost."""
+    instead of an error, so the facts are never lost. `system` overrides the model
+    persona (the grounded analyst for health questions)."""
     if display_question:
         yield {"event": "question", "data": display_question}
     if preamble:
@@ -422,7 +429,7 @@ async def _stream_response(
 
     produced = False
     try:
-        async for chunk in generate_answer_stream(question, context, session=session):
+        async for chunk in generate_answer_stream(question, context, session=session, system=system):
             if chunk:
                 produced = True
                 yield {"event": "chunk", "data": chunk}
@@ -433,7 +440,7 @@ async def _stream_response(
         # Never dead-end: retry once non-streaming / local model. If even that is
         # empty, synthesize from the gathered events — unless we already streamed
         # the facts preamble, in which case a brief note is enough.
-        fallback = await _recover_answer(question, context, session)
+        fallback = await _recover_answer(question, context, session, system=system)
         if fallback:
             yield {"event": "chunk", "data": fallback}
         elif preamble:
@@ -446,20 +453,20 @@ async def _stream_response(
     yield {"event": "done", "data": ""}
 
 
-async def _recover_answer(question: str, context: str, session: dict) -> str:
+async def _recover_answer(question: str, context: str, session: dict, system: str | None = None) -> str:
     """Recover from an empty streamed answer: retry once non-streaming with the
     same provider; if still empty and we were on Mistral, fall back to the local
     model (which is always available). Returns "" only if everything fails."""
     provider, _ = provider_model(session)
     try:
-        answer = await generate_answer(question, context, session=session)
+        answer = await generate_answer(question, context, system=system, session=session)
         if (answer or "").strip():
             return answer
     except Exception as e:  # noqa: BLE001
         logger.warning(f"Non-streaming retry failed: {e}")
     if provider == "mistral":
         try:
-            local = await generate_answer(question, context, session={"llm_provider": "ollama"})
+            local = await generate_answer(question, context, system=system, session={"llm_provider": "ollama"})
             if (local or "").strip():
                 return ("_(Mistral was unavailable — answered with the local model.)_\n\n" + local)
         except Exception as e:  # noqa: BLE001

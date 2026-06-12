@@ -1828,6 +1828,19 @@ body {
 .cert-card--critical .cert-days { color: var(--error); }
 .cert-card--expired { border-left-color: var(--error); opacity: 0.85; }
 .cert-card--expired .cert-days { color: var(--error); }
+.cert-warning { margin: 4px 0 12px; }
+.cert-host { display: flex; align-items: center; gap: 7px; }
+.cert-tag {
+  flex: none; font-size: 9.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 1px 6px; border-radius: 4px;
+  color: var(--accent); border: 1px solid var(--accent); background: var(--accent-soft);
+}
+.cert-issues { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.cert-issue {
+  font-size: 11px; font-weight: 600; color: var(--error);
+  background: var(--error-soft); border: 1px solid var(--error);
+  border-radius: 5px; padding: 2px 7px;
+}
 
 @media (max-width: 600px) {
   .kpis { grid-template-columns: 1fr; }

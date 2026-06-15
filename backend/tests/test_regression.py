@@ -13,11 +13,24 @@ from regression import CheckResult, RegressionRun
 
 @pytest.fixture(autouse=True)
 def _isolated(tmp_path, monkeypatch):
-    monkeypatch.setattr(settings, "regression_db_path", str(tmp_path / "reg.db"))
+    monkeypatch.setattr(settings, "app_db_path", str(tmp_path / "app.db"))
     monkeypatch.setattr(settings, "regression_alert_enabled", False)
     R._active.clear()
     R._latest_mem = None
     yield
+
+
+def _mk(run_id, verdict, started, check_status="pass"):
+    return RegressionRun(
+        run_id=run_id, started=started, finished=started, verdict=verdict,
+        trigger="manual", target="x", total=1,
+        passed=1 if check_status == "pass" else 0,
+        warned=1 if check_status == "warn" else 0,
+        failed=1 if check_status == "fail" else 0,
+        checks=[CheckResult(id="c1", name="Homepage", severity="critical", status=check_status,
+                            url="https://x/", method="GET", expected="status 200",
+                            actual="status 200", evidence="<title>Open overheid</title>")],
+    )
 
 
 async def _run_to_completion():
@@ -97,7 +110,7 @@ async def test_no_double_run(monkeypatch):
     first = await R.start_run()
     second = await R.start_run()           # while the first is still running
     assert first == second                 # same run, not a second one
-    await _run_to_completion()
+    await asyncio.gather(*R._tasks)        # drain the background task cleanly
 
 
 # ── Per-check evaluation ──────────────────────────────────────────────────────
@@ -163,6 +176,40 @@ async def test_tls_grade_maps_to_status(monkeypatch):
 
 
 # ── Change diff (informational) ───────────────────────────────────────────────
+# ── Persistence: evidence, drill-down, prune, reliability ─────────────────────
+def test_save_and_get_preserves_evidence(monkeypatch):
+    R._save_sync(_mk("r1", "PASS", "2026-06-15T10:00:00+00:00"))
+    got = R._get_sync("r1")
+    assert got is not None and len(got.checks) == 1
+    c = got.checks[0]
+    assert c.url == "https://x/" and c.expected == "status 200"
+    assert c.evidence == "<title>Open overheid</title>"
+
+
+def test_prune_drops_oldest_pass_first_keeps_failures_and_latest(monkeypatch):
+    monkeypatch.setattr(settings, "regression_history_cap", 3)
+    R._save_sync(_mk("t1", "PASS", "2026-06-15T10:00:01+00:00"))
+    R._save_sync(_mk("t2", "PASS", "2026-06-15T10:00:02+00:00"))
+    R._save_sync(_mk("t3", "FAIL", "2026-06-15T10:00:03+00:00", "fail"))
+    R._save_sync(_mk("t4", "PASS", "2026-06-15T10:00:04+00:00"))
+    R._save_sync(_mk("t5", "PASS", "2026-06-15T10:00:05+00:00"))
+    ids = {r["run_id"] for r in R._list_sync(50)}
+    assert ids == {"t3", "t4", "t5"}      # 3 kept
+    assert "t3" in ids                     # the FAIL survived
+    assert "t5" in ids                     # the most recent survived
+    # child rows of pruned runs cascade-deleted
+    assert R._get_sync("t1") is None
+
+
+def test_reliability_counts_per_check(monkeypatch):
+    R._save_sync(_mk("a", "PASS", "2026-06-15T10:00:01+00:00", "pass"))
+    R._save_sync(_mk("b", "FAIL", "2026-06-15T10:00:02+00:00", "fail"))
+    R._save_sync(_mk("c", "PASS", "2026-06-15T10:00:03+00:00", "pass"))
+    rel = R._reliability_sync(50)
+    row = next(r for r in rel if r["check_id"] == "c1")
+    assert row["total"] == 3 and row["passed"] == 2 and row["failed"] == 1
+
+
 def test_diff_first_run_has_note():
     cur = RegressionRun(run_id="1", started="t", verdict="PASS", trigger="manual", target="x")
     assert "First recorded run" in R._diff(None, cur)[0]

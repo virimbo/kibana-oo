@@ -243,6 +243,13 @@ async def regression_runs(limit: int = Query(default=20, ge=1, le=100),
     return {"runs": await regression.list_runs(limit)}
 
 
+@router.get("/regression/reliability")
+async def regression_reliability(limit: int = Query(default=50, ge=1, le=500),
+                                 session: dict = Depends(require_admin)):
+    """Per-check pass/warn/fail counts over the last `limit` runs — flaky-check radar."""
+    return {"checks": await regression.reliability(limit), "window": limit}
+
+
 @router.get("/regression/runs/{run_id}")
 async def regression_run_detail(run_id: str, session: dict = Depends(require_admin)):
     run = await regression.get_run(run_id)

@@ -42,7 +42,9 @@ class Settings(BaseSettings):
     regression_target_url: str = "https://open.overheid.nl"
     # A known, published document (UUID) used by the content-correctness checks.
     regression_known_doc_id: str = "1a7e9fc7-0be6-4815-90a9-e733d79a5f07"
-    regression_db_path: str = "/app/data/regression.db"
+    # Keep at most this many runs; pruning drops oldest PASS first (failures live
+    # longest) and never removes the most recent run.
+    regression_history_cap: int = 1000
     # Set to enable the token-authenticated CI trigger (POST /regression/trigger
     # with header X-Regression-Token). Empty = endpoint disabled.
     regression_trigger_token: str = ""
@@ -122,6 +124,9 @@ class Settings(BaseSettings):
     # — across restarts and beyond the scan window — until they are actually
     # resolved (published or progressed). Put this on a mounted volume.
     incident_db_path: str = "/app/data/incidents.db"
+    # Shared database for feature run/audit logs (regression runs, etc.) — one
+    # file, a table per feature. Put it on the same mounted volume. See db.py.
+    app_db_path: str = "/app/data/kibana_oo.db"
     # Per scan, re-check at most this many open incidents that fell outside the
     # scan window against the public portal to auto-resolve published ones.
     incident_reverify_max: int = 60

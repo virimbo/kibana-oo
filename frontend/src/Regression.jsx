@@ -14,8 +14,56 @@ function VerdictBadge({ verdict }) {
   return <span className={`reg-verdict reg-verdict--${cls}`}>{v === "running" ? "RUNNING…" : v}</span>;
 }
 
-// One full run: verdict, per-check results, and the informational change notes.
-function RunDetail({ run }) {
+// A small "48/50 ✓" reliability indicator over the recent runs.
+function Reliability({ stat }) {
+  if (!stat || !stat.total) return null;
+  const bad = stat.failed > 0 ? "fail" : stat.warned > 0 ? "warn" : "ok";
+  return (
+    <span className={`reg-rel reg-rel--${bad}`} title={`Over the last ${stat.total} runs: ${stat.passed} pass · ${stat.warned} warn · ${stat.failed} fail`}>
+      {stat.passed}/{stat.total} ✓
+    </span>
+  );
+}
+
+// One check row — click to reveal the drill-down evidence (url, expected vs actual, snippet).
+function CheckRow({ c, stat }) {
+  const [open, setOpen] = useState(false);
+  const hasEvidence = c.url || c.expected || c.actual || c.evidence;
+  return (
+    <li className={`reg-check reg-check--${c.status}`}>
+      <button
+        type="button"
+        className="reg-check-head"
+        onClick={() => hasEvidence && setOpen((o) => !o)}
+        aria-expanded={open}
+        disabled={!hasEvidence}
+      >
+        <span className="reg-check-icon">{STATUS_ICON[c.status] || "·"}</span>
+        <span className="reg-check-main">
+          <span className="reg-check-name">
+            {c.name}
+            {c.severity === "critical" && <span className="reg-sev">critical</span>}
+            <Reliability stat={stat} />
+          </span>
+          <span className="reg-check-detail">{c.detail}</span>
+        </span>
+        {c.response_ms != null && <span className="reg-check-ms">{c.response_ms} ms</span>}
+        {hasEvidence && <span className="reg-check-caret">{open ? "▾" : "▸"}</span>}
+      </button>
+      {open && hasEvidence && (
+        <dl className="reg-evidence">
+          {c.url && (<><dt>URL</dt><dd>{c.method ? `${c.method} ` : ""}{c.url}</dd></>)}
+          {c.expected && (<><dt>Expected</dt><dd>{c.expected}</dd></>)}
+          {c.actual && (<><dt>Actual</dt><dd>{c.actual}</dd></>)}
+          {c.evidence && (<><dt>Evidence</dt><dd><code className="reg-evidence-snippet">{c.evidence}</code></dd></>)}
+        </dl>
+      )}
+    </li>
+  );
+}
+
+// One full run: verdict, per-check results (drill-down), and the change notes.
+function RunDetail({ run, rel }) {
   if (!run) return null;
   return (
     <div className="reg-run">
@@ -34,25 +82,13 @@ function RunDetail({ run }) {
       </div>
 
       <ul className="reg-checks">
-        {(run.checks || []).map((c) => (
-          <li key={c.id} className={`reg-check reg-check--${c.status}`}>
-            <span className="reg-check-icon">{STATUS_ICON[c.status] || "·"}</span>
-            <span className="reg-check-main">
-              <span className="reg-check-name">
-                {c.name}
-                {c.severity === "critical" && <span className="reg-sev">critical</span>}
-              </span>
-              <span className="reg-check-detail">{c.detail}</span>
-            </span>
-            {c.response_ms != null && <span className="reg-check-ms">{c.response_ms} ms</span>}
-          </li>
-        ))}
+        {(run.checks || []).map((c) => <CheckRow key={c.id} c={c} stat={rel[c.id]} />)}
         {run.verdict === "running" && (run.checks || []).length < (run.total || 0) && (
           <li className="reg-check reg-check--running">
-            <span className="reg-check-icon">⏳</span>
-            <span className="reg-check-main">
-              <span className="reg-check-name">
-                Running… {(run.checks || []).length}/{run.total}
+            <span className="reg-check-head" style={{ cursor: "default" }}>
+              <span className="reg-check-icon">⏳</span>
+              <span className="reg-check-main">
+                <span className="reg-check-name">Running… {(run.checks || []).length}/{run.total}</span>
               </span>
             </span>
           </li>
@@ -76,6 +112,7 @@ export default function RegressionPage({
 }) {
   const [run, setRun] = useState(null);       // currently displayed run (latest or a selected history item)
   const [history, setHistory] = useState([]);
+  const [rel, setRel] = useState({});         // check_id -> {passed,warned,failed,total}
   const [running, setRunning] = useState(false);
   const [viewingId, setViewingId] = useState(null); // non-null when viewing a past run
   const [error, setError] = useState("");
@@ -101,11 +138,19 @@ export default function RegressionPage({
     } catch { /* non-fatal */ }
   }, [token]);
 
+  const loadReliability = useCallback(async () => {
+    try {
+      const d = await getJSON("/dashboard/regression/reliability?limit=50", token);
+      setRel(Object.fromEntries((d.checks || []).map((c) => [c.check_id, c])));
+    } catch { /* non-fatal */ }
+  }, [token]);
+
   useEffect(() => {
     loadLatest();
     loadHistory();
+    loadReliability();
     return () => clearInterval(pollRef.current);
-  }, [loadLatest, loadHistory]);
+  }, [loadLatest, loadHistory, loadReliability]);
 
   // Poll for live progress while a run is in flight.
   useEffect(() => {
@@ -117,10 +162,11 @@ export default function RegressionPage({
         clearInterval(pollRef.current);
         setRunning(false);
         loadHistory();
+        loadReliability();
       }
     }, 1500);
     return () => clearInterval(pollRef.current);
-  }, [running, loadLatest, loadHistory]);
+  }, [running, loadLatest, loadHistory, loadReliability]);
 
   const runNow = useCallback(async () => {
     setError("");
@@ -197,7 +243,7 @@ export default function RegressionPage({
             )}
 
             {run ? (
-              <RunDetail run={run} />
+              <RunDetail run={run} rel={rel} />
             ) : (
               <p className="muted">No runs yet — click “Run regression test” to start the first one.</p>
             )}

@@ -12,8 +12,8 @@ GRADE. Runs are persisted to SQLite (history + drill-in) and a FAIL alerts via
 the same webhook/email used by the cert monitor. Never raises into a request.
 """
 import asyncio
+import json
 import logging
-import sqlite3
 import time
 from contextlib import closing
 from datetime import datetime, timezone
@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 import httpx
 from pydantic import BaseModel
 
+import db
 import notify
 from certificates import audit_one
 from config import settings
@@ -32,6 +33,18 @@ _UA = {"User-Agent": "KIBANA-OO-Regression/1.0"}
 
 
 # ── Models ───────────────────────────────────────────────────────────────────
+_EVIDENCE_CAP = 500
+
+
+def _cap(text: str | None) -> str | None:
+    """Bound an evidence snippet so the DB never bloats and we never store a
+    full body (e.g. a 6.5 MB PDF) or large payloads."""
+    if not text:
+        return text
+    text = " ".join(text.split())  # collapse whitespace/newlines for compact storage
+    return text if len(text) <= _EVIDENCE_CAP else text[:_EVIDENCE_CAP] + "…"
+
+
 class CheckResult(BaseModel):
     id: str
     name: str
@@ -40,6 +53,12 @@ class CheckResult(BaseModel):
     detail: str = ""
     http_status: int | None = None
     response_ms: int | None = None
+    # ── Drill-down evidence (so a verdict can be audited without re-running) ──
+    url: str | None = None
+    method: str | None = None
+    expected: str | None = None   # human: "status 200; content-type text/html; text 'Open overheid'"
+    actual: str | None = None     # human: "status 200; content-type text/html; 622 bytes"
+    evidence: str | None = None   # bounded proof snippet (≤500 chars)
 
 
 class RegressionRun(BaseModel):
@@ -92,9 +111,25 @@ def _verdict_for(severity: str) -> str:
     return "fail" if severity == "critical" else "warn"
 
 
+def _expectation_str(cdef: dict) -> str:
+    parts = []
+    if "expect_status" in cdef:
+        parts.append(f"status {cdef['expect_status']}")
+    if "expect_status_lt" in cdef:
+        parts.append(f"status < {cdef['expect_status_lt']}")
+    if cdef.get("expect_content_type"):
+        parts.append(f"content-type ~ {cdef['expect_content_type']}")
+    if cdef.get("expect_text"):
+        parts.append(f"text '{cdef['expect_text']}'")
+    if cdef.get("max_ms"):
+        parts.append(f"≤ {cdef['max_ms']} ms")
+    return "; ".join(parts) or "reachable"
+
+
 async def _run_http(cdef: dict, method: str) -> CheckResult:
     sev = cdef["severity"]
-    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass")
+    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass",
+                      url=cdef["url"], method=method, expected=_expectation_str(cdef))
     t0 = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=cdef.get("max_ms", 8000) / 1000 + 5, headers=_UA,
@@ -104,16 +139,19 @@ async def _run_http(cdef: dict, method: str) -> CheckResult:
     except Exception as e:  # noqa: BLE001
         res.status = _verdict_for(sev)
         res.detail = f"request failed: {type(e).__name__}"
+        res.actual = res.detail
         return res
     res.response_ms = int((time.monotonic() - t0) * 1000)
     res.http_status = r.status_code
+    ct = r.headers.get("content-type", "")
+    res.actual = f"status {r.status_code}; content-type {ct or '—'}; {len(r.content)} bytes; {res.response_ms} ms"
+    res.evidence = _cap(body) if body else None
 
     problems: list[str] = []
     if "expect_status" in cdef and r.status_code != cdef["expect_status"]:
         problems.append(f"status {r.status_code}, expected {cdef['expect_status']}")
     if "expect_status_lt" in cdef and not (r.status_code < cdef["expect_status_lt"]):
         problems.append(f"status {r.status_code} (server error)")
-    ct = r.headers.get("content-type", "")
     if cdef.get("expect_content_type") and cdef["expect_content_type"].lower() not in ct.lower():
         problems.append(f"content-type '{ct or '—'}'")
     if cdef.get("expect_text") and cdef["expect_text"].lower() not in body.lower():
@@ -135,19 +173,26 @@ async def _run_file(cdef: dict) -> CheckResult:
     the whole body: a streamed GET whose headers we read and then close. (HEAD is
     not supported by the portal's file endpoint — it 404s.)"""
     sev = cdef["severity"]
-    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass")
+    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass",
+                      url=cdef["url"], method="GET (stream)", expected=_expectation_str(cdef))
     t0 = time.monotonic()
+    ct = ""
+    clen = None
     try:
         async with httpx.AsyncClient(timeout=cdef.get("max_ms", 8000) / 1000 + 5, headers=_UA,
                                      follow_redirects=True) as client:
             async with client.stream("GET", cdef["url"]) as r:
                 res.http_status = r.status_code
                 ct = r.headers.get("content-type", "")
+                clen = r.headers.get("content-length")
     except Exception as e:  # noqa: BLE001
         res.status = _verdict_for(sev)
         res.detail = f"request failed: {type(e).__name__}"
+        res.actual = res.detail
         return res
     res.response_ms = int((time.monotonic() - t0) * 1000)
+    res.actual = f"status {res.http_status}; content-type {ct or '—'}; {clen or '?'} bytes; {res.response_ms} ms"
+    res.evidence = _cap(f"Content-Type: {ct}; Content-Length: {clen}")
 
     problems: list[str] = []
     if "expect_status" in cdef and res.http_status != cdef["expect_status"]:
@@ -167,7 +212,8 @@ async def _run_file(cdef: dict) -> CheckResult:
 
 async def _run_api_meta(cdef: dict) -> CheckResult:
     sev = cdef["severity"]
-    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass")
+    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass",
+                      url=cdef["url"], method="GET", expected="200 + a document title in the JSON")
     t0 = time.monotonic()
     try:
         async with httpx.AsyncClient(timeout=settings.portal_meta_timeout + 4,
@@ -181,7 +227,10 @@ async def _run_api_meta(cdef: dict) -> CheckResult:
     except Exception as e:  # noqa: BLE001
         res.status = _verdict_for(sev)
         res.detail = f"API error: {type(e).__name__}"
+        res.actual = res.detail
         return res
+    res.actual = f"status {res.http_status}; title {'present' if title else 'missing'}; {res.response_ms} ms"
+    res.evidence = _cap(f"title: {title}") if title else "no document title in payload"
     if not title:
         res.status = _verdict_for(sev)
         res.detail = "API responded but returned no document title"
@@ -195,15 +244,23 @@ async def _run_api_meta(cdef: dict) -> CheckResult:
 
 async def _run_tls(cdef: dict) -> CheckResult:
     sev = cdef["severity"]
-    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass")
+    res = CheckResult(id=cdef["id"], name=cdef["name"], severity=sev, status="pass",
+                      url=f"https://{cdef['host']}", method="TLS", expected="grade OK or WARN (not CRITICAL)")
     t0 = time.monotonic()
     try:
         cert = await audit_one(cdef["host"])
     except Exception as e:  # noqa: BLE001
         res.status = _verdict_for(sev)
         res.detail = f"TLS probe failed: {type(e).__name__}"
+        res.actual = res.detail
         return res
     res.response_ms = int((time.monotonic() - t0) * 1000)
+    chain = " → ".join(c.position for c in (cert.chain or []))
+    res.actual = f"grade {cert.grade}; {cert.days_remaining}d left; chain {chain or '—'}"
+    res.evidence = _cap(
+        f"GRADE {cert.grade}; leaf {cert.days_remaining}d; "
+        + "; ".join(f"{f.level}:{f.text}" for f in (cert.findings or []))
+    )
     if cert.grade == "CRITICAL" or not cert.reachable:
         res.status = "fail"
         res.detail = f"TLS grade {cert.grade or 'unreachable'} ({cert.days_remaining}d)"
@@ -232,6 +289,7 @@ async def _run_check(cdef: dict) -> CheckResult:
 # ── Run management (in-memory live progress + SQLite history) ─────────────────
 _active: dict[str, RegressionRun] = {}
 _latest_mem: RegressionRun | None = None
+_tasks: set = set()
 _seq = 0
 
 
@@ -258,7 +316,9 @@ async def start_run(trigger: str = "manual") -> str:
     run = RegressionRun(run_id=_new_run_id(), started=_now_iso(), verdict="running",
                         trigger=trigger, target=settings.regression_target_url)
     _active[run.run_id] = run
-    asyncio.create_task(_execute(run.run_id))
+    task = asyncio.create_task(_execute(run.run_id))
+    _tasks.add(task)                 # keep a strong ref so it isn't GC'd mid-run
+    task.add_done_callback(_tasks.discard)
     return run.run_id
 
 
@@ -335,7 +395,7 @@ async def _alert(run: RegressionRun) -> None:
                             "<pre>" + text.replace("<", "&lt;") + "</pre>", text)
 
 
-# ── SQLite persistence ─────────────────────────────────────────────────────────
+# ── SQLite persistence (shared app DB, table per feature; hybrid schema) ──────
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS regression_runs (
     run_id      TEXT PRIMARY KEY,
@@ -346,45 +406,99 @@ CREATE TABLE IF NOT EXISTS regression_runs (
     target      TEXT,
     duration_ms INTEGER,
     total       INTEGER, passed INTEGER, warned INTEGER, failed INTEGER,
-    payload     TEXT NOT NULL
+    changes     TEXT
+);
+CREATE TABLE IF NOT EXISTS regression_checks (
+    run_id      TEXT NOT NULL,
+    ordinal     INTEGER,
+    check_id    TEXT, name TEXT, severity TEXT, status TEXT, detail TEXT,
+    http_status INTEGER, response_ms INTEGER,
+    url TEXT, method TEXT, expected TEXT, actual TEXT, evidence TEXT,
+    FOREIGN KEY(run_id) REFERENCES regression_runs(run_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_regression_started ON regression_runs(started DESC);
+CREATE INDEX IF NOT EXISTS idx_regression_checks_run ON regression_checks(run_id);
+CREATE INDEX IF NOT EXISTS idx_regression_checks_id ON regression_checks(check_id);
 """
 
 
-def _connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(settings.regression_db_path, timeout=5.0)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
+def _conn():
+    """Shared app DB connection with the regression tables ensured."""
+    conn = db.connect()
     conn.executescript(_SCHEMA)
-    conn.commit()
     return conn
 
 
 def _save_sync(run: RegressionRun) -> None:
-    with closing(_connect()) as c:
+    with closing(_conn()) as c:
         c.execute(
             """INSERT OR REPLACE INTO regression_runs
                (run_id, started, finished, verdict, trigger, target, duration_ms,
-                total, passed, warned, failed, payload)
+                total, passed, warned, failed, changes)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (run.run_id, run.started, run.finished, run.verdict, run.trigger, run.target,
              run.duration_ms, run.total, run.passed, run.warned, run.failed,
-             run.model_dump_json()),
+             json.dumps(run.changes)),
         )
+        c.execute("DELETE FROM regression_checks WHERE run_id = ?", (run.run_id,))
+        c.executemany(
+            """INSERT INTO regression_checks
+               (run_id, ordinal, check_id, name, severity, status, detail,
+                http_status, response_ms, url, method, expected, actual, evidence)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            [(run.run_id, i, ch.id, ch.name, ch.severity, ch.status, ch.detail,
+              ch.http_status, ch.response_ms, ch.url, ch.method, ch.expected, ch.actual, ch.evidence)
+             for i, ch in enumerate(run.checks)],
+        )
+        _prune(c, settings.regression_history_cap)
         c.commit()
 
 
+def _prune(conn, cap: int) -> None:
+    """Failure-aware retention: keep at most `cap` runs; delete oldest PASS first
+    so WARN/FAIL records survive longest, and never delete the most recent run.
+    Child check rows cascade-delete (foreign_keys=ON)."""
+    n = conn.execute("SELECT COUNT(*) FROM regression_runs").fetchone()[0]
+    if n <= cap:
+        return
+    latest = conn.execute("SELECT run_id FROM regression_runs ORDER BY started DESC LIMIT 1").fetchone()[0]
+    conn.execute(
+        """DELETE FROM regression_runs WHERE run_id IN (
+               SELECT run_id FROM regression_runs WHERE run_id != ?
+               ORDER BY CASE verdict WHEN 'PASS' THEN 0 ELSE 1 END ASC, started ASC
+               LIMIT ?
+           )""",
+        (latest, n - cap),
+    )
+
+
+def _row_to_run(conn, run_row) -> RegressionRun:
+    checks = conn.execute(
+        "SELECT * FROM regression_checks WHERE run_id = ? ORDER BY ordinal", (run_row["run_id"],)
+    ).fetchall()
+    return RegressionRun(
+        run_id=run_row["run_id"], started=run_row["started"], finished=run_row["finished"],
+        verdict=run_row["verdict"], trigger=run_row["trigger"], target=run_row["target"],
+        duration_ms=run_row["duration_ms"], total=run_row["total"], passed=run_row["passed"],
+        warned=run_row["warned"], failed=run_row["failed"],
+        changes=json.loads(run_row["changes"] or "[]"),
+        checks=[CheckResult(
+            id=r["check_id"], name=r["name"], severity=r["severity"], status=r["status"],
+            detail=r["detail"] or "", http_status=r["http_status"], response_ms=r["response_ms"],
+            url=r["url"], method=r["method"], expected=r["expected"], actual=r["actual"],
+            evidence=r["evidence"],
+        ) for r in checks],
+    )
+
+
 def _latest_finished_sync() -> RegressionRun | None:
-    with closing(_connect()) as c:
-        row = c.execute(
-            "SELECT payload FROM regression_runs ORDER BY started DESC LIMIT 1"
-        ).fetchone()
-    return RegressionRun.model_validate_json(row["payload"]) if row else None
+    with closing(_conn()) as c:
+        row = c.execute("SELECT * FROM regression_runs ORDER BY started DESC LIMIT 1").fetchone()
+        return _row_to_run(c, row) if row else None
 
 
 def _list_sync(limit: int) -> list[dict]:
-    with closing(_connect()) as c:
+    with closing(_conn()) as c:
         rows = c.execute(
             """SELECT run_id, started, finished, verdict, trigger, duration_ms,
                       total, passed, warned, failed
@@ -395,18 +509,35 @@ def _list_sync(limit: int) -> list[dict]:
 
 
 def _get_sync(run_id: str) -> RegressionRun | None:
-    with closing(_connect()) as c:
-        row = c.execute(
-            "SELECT payload FROM regression_runs WHERE run_id = ?", (run_id,)
-        ).fetchone()
-    return RegressionRun.model_validate_json(row["payload"]) if row else None
+    with closing(_conn()) as c:
+        row = c.execute("SELECT * FROM regression_runs WHERE run_id = ?", (run_id,)).fetchone()
+        return _row_to_run(c, row) if row else None
+
+
+def _reliability_sync(limit: int) -> list[dict]:
+    """Per-check pass/warn/fail counts over the last `limit` runs — the payoff of
+    the normalized schema: spot a flaky check at a glance."""
+    with closing(_conn()) as c:
+        rows = c.execute(
+            """SELECT check_id, name,
+                      SUM(status='pass') AS passed,
+                      SUM(status='warn') AS warned,
+                      SUM(status='fail') AS failed,
+                      COUNT(*) AS total
+               FROM regression_checks
+               WHERE run_id IN (SELECT run_id FROM regression_runs ORDER BY started DESC LIMIT ?)
+               GROUP BY check_id, name ORDER BY name""",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
 
 
 # ── Public accessors (async; used by the API) ─────────────────────────────────
 async def latest_run() -> RegressionRun | None:
-    running = [r for r in _active.values() if r.verdict == "running"]
-    if running:
-        return running[-1]
+    # While a run is in _active (running, or finished but mid-persist), serve it
+    # from memory — avoids racing a concurrent DB write with a DB read.
+    if _active:
+        return list(_active.values())[-1]
     if _latest_mem is not None:
         return _latest_mem
     return await asyncio.to_thread(_latest_finished_sync)
@@ -420,3 +551,7 @@ async def get_run(run_id: str) -> RegressionRun | None:
 
 async def list_runs(limit: int = 20) -> list[dict]:
     return await asyncio.to_thread(_list_sync, limit)
+
+
+async def reliability(limit: int = 50) -> list[dict]:
+    return await asyncio.to_thread(_reliability_sync, limit)

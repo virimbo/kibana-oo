@@ -15,7 +15,13 @@ This is the KIBANA-OO project. Update this section with project description as i
 
 ## Architecture
 
-_Document architecture decisions here as the project develops._
+- **Databases:** see [docs/database.md](docs/database.md) — `incidents.db` (durable
+  incident store) and the shared `kibana_oo.db` (feature run/audit logs, one table
+  per feature, via `backend/db.py`).
+- **Regression test:** see [docs/regression-test.md](docs/regression-test.md) — the
+  post-release health gate for open.overheid.nl (Beheer → Regressietest).
+
+_Document further architecture decisions here as the project develops._
 
 ## Custom Slash Commands
 

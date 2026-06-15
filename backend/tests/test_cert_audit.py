@@ -55,6 +55,24 @@ def test_missing_hsts_is_warn():
     assert _grade(hsts=False)[0] == "WARN"
 
 
+def test_expiring_intermediate_is_critical_even_with_healthy_leaf():
+    chain = [
+        ChainCert(position="leaf", days_remaining=300),
+        ChainCert(position="intermediate", days_remaining=10),
+    ]
+    grade, findings = _grade(days=300, chain=chain)
+    assert grade == "CRITICAL"
+    assert any("Intermediate certificate expires in 10 days" in f.text for f in findings)
+
+
+def test_intermediate_expiring_within_a_month_is_warn():
+    chain = [
+        ChainCert(position="leaf", days_remaining=300),
+        ChainCert(position="intermediate", days_remaining=20),
+    ]
+    assert _grade(days=300, chain=chain)[0] == "WARN"
+
+
 def test_revoked_cert_is_critical():
     chain = [ChainCert(position="leaf", ocsp="revoked")]
     grade, findings = _grade(chain=chain)

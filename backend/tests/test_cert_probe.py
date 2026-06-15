@@ -8,9 +8,27 @@ from cryptography.x509.oid import NameOID
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
+import pytest
+
 import certificates as C
 
 NOW = datetime(2026, 6, 12, 12, 0, 0, tzinfo=timezone.utc)
+
+
+@pytest.fixture(autouse=True)
+def _no_network(monkeypatch):
+    """Neutralise the slow network extras so the probe tests stay hermetic; the
+    served chain and trust verdict are injected per test."""
+    monkeypatch.setattr(C, "_tls_version_support", lambda h, p, t: {
+        "TLS 1.0": False, "TLS 1.1": False, "TLS 1.2": True, "TLS 1.3": True,
+    })
+    monkeypatch.setattr(C, "_hsts_enabled", lambda h, p, t: True)
+    monkeypatch.setattr(C.settings, "cert_check_revocation", False)
+
+
+def _chain(der, tls="TLSv1.3"):
+    """Mimic _served_chain_der's (list[DER], version) return for a single leaf."""
+    return ([der], tls)
 
 
 def _make_der(host, not_after, self_signed=True, issuer_cn=None):
@@ -34,7 +52,7 @@ def _make_der(host, not_after, self_signed=True, issuer_cn=None):
 
 def test_probe_self_signed_expiring_soon(monkeypatch):
     der = _make_der("open.overheid.nl", NOW + timedelta(days=5), self_signed=True)
-    monkeypatch.setattr(C, "_leaf_certificate_der", lambda h, p, t: der)
+    monkeypatch.setattr(C, "_served_chain_der", lambda h, p, t: _chain(der))
     monkeypatch.setattr(C, "_trust_issue", lambda h, p, t: "self-signed / not trusted")
 
     c = C._probe_host_sync("open.overheid.nl", 443, 6.0, NOW)
@@ -47,7 +65,7 @@ def test_probe_self_signed_expiring_soon(monkeypatch):
 
 def test_probe_expired_certificate(monkeypatch):
     der = _make_der("doculoket.overheid.nl", NOW - timedelta(days=2), self_signed=False, issuer_cn="Real CA")
-    monkeypatch.setattr(C, "_leaf_certificate_der", lambda h, p, t: der)
+    monkeypatch.setattr(C, "_served_chain_der", lambda h, p, t: _chain(der))
     monkeypatch.setattr(C, "_trust_issue", lambda h, p, t: "certificate expired")
 
     c = C._probe_host_sync("doculoket.overheid.nl", 443, 6.0, NOW)
@@ -58,11 +76,12 @@ def test_probe_expired_certificate(monkeypatch):
 
 def test_probe_trusted_and_healthy(monkeypatch):
     der = _make_der("open.overheid.nl", NOW + timedelta(days=200), self_signed=False, issuer_cn="DigiCert")
-    monkeypatch.setattr(C, "_leaf_certificate_der", lambda h, p, t: der)
+    monkeypatch.setattr(C, "_served_chain_der", lambda h, p, t: _chain(der))
     monkeypatch.setattr(C, "_trust_issue", lambda h, p, t: None)
 
     c = C._probe_host_sync("open.overheid.nl", 443, 6.0, NOW)
     assert c.status == "ok"
+    assert c.grade == "OK"
     assert c.issues == []
     assert c.issuer == "DigiCert"
 
@@ -70,7 +89,7 @@ def test_probe_trusted_and_healthy(monkeypatch):
 def test_probe_unreachable_host(monkeypatch):
     def boom(h, p, t):
         raise OSError("connection refused")
-    monkeypatch.setattr(C, "_leaf_certificate_der", boom)
+    monkeypatch.setattr(C, "_served_chain_der", boom)
 
     c = C._probe_host_sync("nope.example", 443, 6.0, NOW)
     assert c.reachable is False
@@ -80,7 +99,7 @@ def test_probe_unreachable_host(monkeypatch):
 
 async def test_fetch_merges_probe_over_monitor(monkeypatch):
     der = _make_der("open.overheid.nl", NOW + timedelta(days=200), self_signed=False, issuer_cn="CA")
-    monkeypatch.setattr(C, "_leaf_certificate_der", lambda h, p, t: der)
+    monkeypatch.setattr(C, "_served_chain_der", lambda h, p, t: _chain(der))
     monkeypatch.setattr(C, "_trust_issue", lambda h, p, t: None)
     monkeypatch.setattr(C.settings, "cert_probe_hosts", "open.overheid.nl")
 

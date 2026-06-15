@@ -330,6 +330,109 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
   );
 }
 
+// ─── Certificate card with full chain & TLS audit ─────────────────────────
+const FINDING_MARK = { ok: "✓", note: "ℹ", warn: "!", bad: "✗" };
+
+function GradeBadge({ grade }) {
+  if (!grade) return null;
+  const cls = grade === "OK" ? "ok" : grade === "WARN" ? "warn" : "crit";
+  return <span className={`cert-grade cert-grade--${cls}`}>GRADE {grade}</span>;
+}
+
+function CertCard({ c }) {
+  const [open, setOpen] = useState(false);
+  const hasAudit = c.source === "probe" && ((c.chain && c.chain.length) || (c.findings && c.findings.length));
+  const enabledTls = c.tls_versions
+    ? Object.entries(c.tls_versions).filter(([, v]) => v).map(([k]) => k)
+    : [];
+
+  return (
+    <div className={`cert-card cert-card--${c.status}`}>
+      <span className="cert-host">
+        {c.host}
+        {c.source === "probe" && <span className="cert-tag" title="Checked live by KIBANA-OO">live</span>}
+        <GradeBadge grade={c.grade} />
+      </span>
+      <span className="cert-days">
+        {!c.reachable
+          ? "Unreachable"
+          : c.days_remaining < 0
+          ? "EXPIRED"
+          : `${c.days_remaining} day${c.days_remaining === 1 ? "" : "s"} left`}
+      </span>
+      {c.not_after && <span className="cert-meta">expires {fmtDate(c.not_after)}</span>}
+      {c.issuer && <span className="cert-meta">issued by {c.issuer}</span>}
+      {c.issues && c.issues.length > 0 && (
+        <span className="cert-issues">
+          {c.issues.map((iss, i) => (
+            <span key={i} className="cert-issue">⚠ {iss}</span>
+          ))}
+        </span>
+      )}
+
+      {hasAudit && (
+        <button
+          type="button"
+          className="cert-audit-toggle"
+          onClick={() => setOpen((o) => !o)}
+          aria-expanded={open}
+        >
+          {open ? "▾ Hide chain & TLS audit" : "▸ Full chain & TLS audit"}
+        </button>
+      )}
+
+      {open && hasAudit && (
+        <div className="cert-audit">
+          {c.findings && c.findings.length > 0 && (
+            <ul className="cert-findings">
+              {c.findings.map((f, i) => (
+                <li key={i} className={`cert-finding cert-finding--${f.level}`}>
+                  <span className="cert-finding-mark">{FINDING_MARK[f.level] || "·"}</span> {f.text}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="cert-audit-meta">
+            <span>TLS: {enabledTls.length ? enabledTls.join(", ") : "—"}</span>
+            {c.hsts != null && <span> · HSTS {c.hsts ? "on" : "off"}</span>}
+            {c.checked_at && <span> · checked {new Date(c.checked_at).toLocaleString("nl-NL")}</span>}
+          </div>
+
+          {c.chain && c.chain.length > 0 && (
+            <div className="cert-chain">
+              {c.chain.map((cc, i) => (
+                <div key={i} className={`cert-chain-cert cert-chain-cert--${cc.position}`}>
+                  <span className="cert-chain-pos">{cc.position}</span>
+                  <div className="cert-chain-body">
+                    <span className="cert-chain-subj">{cc.subject || "—"}</span>
+                    <span className="cert-chain-row">issuer: {cc.issuer || "—"}</span>
+                    <span className="cert-chain-row">
+                      valid {fmtDate(cc.not_before)} → {fmtDate(cc.not_after)}{" "}
+                      {cc.expired ? (
+                        <b className="cert-ocsp--revoked">EXPIRED</b>
+                      ) : (
+                        <span className="muted">({cc.days_remaining}d)</span>
+                      )}
+                    </span>
+                    <span className="cert-chain-row muted">
+                      {cc.key_type}
+                      {cc.sig_algorithm ? ` · ${cc.sig_algorithm}` : ""}
+                    </span>
+                    {cc.ocsp && (
+                      <span className={`cert-chain-row cert-ocsp--${cc.ocsp}`}>OCSP: {cc.ocsp}</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -660,28 +763,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     )}
                     <div className="cert-cards">
                       {certs.map((c) => (
-                        <div key={c.host} className={`cert-card cert-card--${c.status}`}>
-                          <span className="cert-host">
-                            {c.host}
-                            {c.source === "probe" && <span className="cert-tag" title="Checked live by KIBANA-OO">live</span>}
-                          </span>
-                          <span className="cert-days">
-                            {!c.reachable
-                              ? "Unreachable"
-                              : c.days_remaining < 0
-                              ? "EXPIRED"
-                              : `${c.days_remaining} day${c.days_remaining === 1 ? "" : "s"} left`}
-                          </span>
-                          {c.not_after && <span className="cert-meta">expires {fmtDate(c.not_after)}</span>}
-                          {c.issuer && <span className="cert-meta">issued by {c.issuer}</span>}
-                          {c.issues && c.issues.length > 0 && (
-                            <span className="cert-issues">
-                              {c.issues.map((iss, i) => (
-                                <span key={i} className="cert-issue">⚠ {iss}</span>
-                              ))}
-                            </span>
-                          )}
-                        </div>
+                        <CertCard key={c.host} c={c} />
                       ))}
                     </div>
                   </>

@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import re
+from contextlib import asynccontextmanager
 
 import httpx
 from fastapi import FastAPI, HTTPException, Header, Depends
@@ -25,14 +26,32 @@ from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router, get_cached_snapshot, get_cached_health
+from cert_monitor import run_cert_monitor_loop
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Start background workers on boot, cancel them on shutdown."""
+    cert_task = asyncio.create_task(run_cert_monitor_loop())
+    logger.info("Started daily TLS certificate monitor.")
+    try:
+        yield
+    finally:
+        cert_task.cancel()
+        try:
+            await cert_task
+        except asyncio.CancelledError:
+            pass
+
 
 app = FastAPI(
     title="KIBANA-OO",
     description="AI-powered chat interface for Elasticsearch logs and metrics",
     version="0.4.0",
+    lifespan=lifespan,
 )
 
 app.add_middleware(

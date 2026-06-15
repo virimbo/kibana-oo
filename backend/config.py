@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # visible. Comma-separated host[:port]. Read-only outbound TLS.
     cert_probe_hosts: str = "open.overheid.nl,doculoket.overheid.nl"
     cert_probe_timeout: float = 6.0        # seconds; keep short so it never stalls the card
+    cert_check_revocation: bool = True     # best-effort OCSP revocation check per cert
+    # Daily proactive TLS audit: re-checks every host on this interval and alerts
+    # (via the digest webhook / email) when a host's grade is WARN or CRITICAL.
+    cert_audit_interval_hours: float = 24.0
+    cert_alert_enabled: bool = True
 
     # Document processing pipelines (Verwerkingsstraat): OVS = oude (old),
     # NVS = nieuwe (new). Query strings attributing documents to each pipeline.

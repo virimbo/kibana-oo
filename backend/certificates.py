@@ -436,6 +436,21 @@ def _grade_and_findings(
     else:
         f.append(Finding(level="ok", text=f"Leaf valid for {days} more days."))
 
+    # Expiry of the REST of the chain — an expiring intermediate breaks the whole
+    # site even while the leaf is fine. That's a classic, surprising outage, so we
+    # grade on the soonest-expiring certificate in the chain, not just the leaf.
+    for c in chain:
+        if c.position == "leaf" or c.days_remaining is None:
+            continue
+        d = c.days_remaining
+        label = c.position.capitalize()
+        if d < 0:
+            f.append(Finding(level="bad", text=f"{label} certificate has EXPIRED."))
+        elif d < CRITICAL_DAYS:
+            f.append(Finding(level="bad", text=f"{label} certificate expires in {d} days."))
+        elif d < WARNING_DAYS:
+            f.append(Finding(level="warn", text=f"{label} certificate expires in {d} days."))
+
     # Revocation.
     revoked = [c for c in chain if c.ocsp == "revoked"]
     if revoked:

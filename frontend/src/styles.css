@@ -1950,6 +1950,22 @@ body {
 .cert-ocsp--revoked { color: var(--error); font-weight: 700; }
 .cert-ocsp--unknown { color: var(--text-faint); }
 
+/* Per-certificate "days left" countdown pill (chain breakdown) */
+.cert-days-pill {
+  display: inline-block;
+  margin-left: 7px;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid;
+  white-space: nowrap;
+}
+.cert-days-pill--ok { color: var(--success); border-color: var(--success); background: color-mix(in srgb, var(--success) 13%, transparent); }
+.cert-days-pill--warn { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 15%, transparent); }
+.cert-days-pill--crit { color: var(--error); border-color: var(--error); background: color-mix(in srgb, var(--error) 16%, transparent); }
+.cert-days-pill--expired { color: #fff; border-color: var(--error); background: var(--error); }
+
 @media (max-width: 600px) {
   .kpis { grid-template-columns: 1fr; }
   .dash { padding: 16px 14px 30px; }

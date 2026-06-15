@@ -333,6 +333,14 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
 // ─── Certificate card with full chain & TLS audit ─────────────────────────
 const FINDING_MARK = { ok: "✓", note: "ℹ", warn: "!", bad: "✗" };
 
+// Urgency class for a days-remaining countdown: 🔴 < 14d, 🟠 < 30d, 🟢 otherwise.
+function certDaysClass(days, expired) {
+  if (expired || days == null || days < 0) return "expired";
+  if (days < 14) return "crit";
+  if (days < 30) return "warn";
+  return "ok";
+}
+
 function GradeBadge({ grade }) {
   if (!grade) return null;
   const cls = grade === "OK" ? "ok" : grade === "WARN" ? "warn" : "crit";
@@ -408,12 +416,12 @@ function CertCard({ c }) {
                     <span className="cert-chain-subj">{cc.subject || "—"}</span>
                     <span className="cert-chain-row">issuer: {cc.issuer || "—"}</span>
                     <span className="cert-chain-row">
-                      valid {fmtDate(cc.not_before)} → {fmtDate(cc.not_after)}{" "}
-                      {cc.expired ? (
-                        <b className="cert-ocsp--revoked">EXPIRED</b>
-                      ) : (
-                        <span className="muted">({cc.days_remaining}d)</span>
-                      )}
+                      valid {fmtDate(cc.not_before)} → {fmtDate(cc.not_after)}
+                      <span className={`cert-days-pill cert-days-pill--${certDaysClass(cc.days_remaining, cc.expired)}`}>
+                        {cc.expired || cc.days_remaining < 0
+                          ? "EXPIRED"
+                          : `${cc.days_remaining} days left`}
+                      </span>
                     </span>
                     <span className="cert-chain-row muted">
                       {cc.key_type}

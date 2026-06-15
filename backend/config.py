@@ -170,11 +170,32 @@ class Settings(BaseSettings):
     digest_kibana_user: str = ""
     digest_kibana_password: str = ""
 
+    # ── Piwik PRO analytics (public page views per document) ──
+    # The proper source for "how many people viewed this document" — the ES
+    # processing logs do not carry reliable page-view data. Inert until all four
+    # are set. Generate the client id/secret in Piwik PRO: Menu → (your email)
+    # → API keys → Create a key. website_id is the UUID in the analytics URL
+    # (https://<account>.piwik.pro/analytics/#/<website_id>/...).
+    piwik_account_url: str = ""        # e.g. https://koop.piwik.pro
+    piwik_client_id: str = ""
+    piwik_client_secret: str = ""
+    piwik_website_id: str = ""
+
     # Backend
     backend_port: int = 8000
     frontend_origin: str = "http://localhost:3000"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    @property
+    def piwik_configured(self) -> bool:
+        """True only when every Piwik PRO credential is present."""
+        return bool(
+            self.piwik_account_url
+            and self.piwik_client_id
+            and self.piwik_client_secret
+            and self.piwik_website_id
+        )
 
     @property
     def data_view_list(self) -> list[str]:

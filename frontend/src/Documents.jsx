@@ -311,6 +311,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
   const [showAllEvents, setShowAllEvents] = useState(false);
   const [ai, setAi] = useState(null); // { summary, provider, model, error }
   const [aiLoading, setAiLoading] = useState(false);
+  const [views, setViews] = useState(null); // Piwik PRO page views { configured, page_views, ... }
   const [health, setHealth] = useState(null); // pipeline health (stuck docs + stage health)
 
   const runTrace = useCallback(async (explicitId) => {
@@ -320,12 +321,21 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
     setTraceError("");
     setTrace(null);
     setAi(null);
+    setViews(null);
     try {
       const d = await getJSON(
         `/dashboard/document-trace?id=${encodeURIComponent(id)}&data_view=${encodeURIComponent(dataView)}`,
         token
       );
       setTrace(d);
+      // Public page views from Piwik PRO — uses the document's public URL.
+      // Inert (configured:false) until Piwik credentials are set; never blocks.
+      const publicUrl = d.portal_link || d.details_link || d.doculoket_link;
+      if (d.found && publicUrl) {
+        getJSON(`/dashboard/document-views?url=${encodeURIComponent(publicUrl)}&days=30`, token)
+          .then((r) => setViews(r))
+          .catch(() => setViews({ error: true }));
+      }
       // Kick off the grounded AI analysis in the background — the trace renders
       // immediately; a failing/slow LLM never blocks it. Skipped entirely when
       // AI is switched off.
@@ -645,6 +655,16 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                           {trace.first_seen && (
                             <span className="trace-stat">
                               {fmtDate(trace.first_seen)} {fmtTime(trace.first_seen)} → {fmtTime(trace.last_seen)}
+                            </span>
+                          )}
+                          {views && views.configured && !views.error && (
+                            <span
+                              className="trace-stat trace-stat--views"
+                              title={`Public visits to this document on open.overheid.nl over the last ${views.days} days (Piwik PRO)`}
+                            >
+                              👁 {views.page_views.toLocaleString("nl-NL")} view{views.page_views === 1 ? "" : "s"}
+                              {" · "}
+                              {views.unique_visitors.toLocaleString("nl-NL")} unique ({views.days}d)
                             </span>
                           )}
                         </div>

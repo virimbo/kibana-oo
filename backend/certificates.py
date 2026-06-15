@@ -579,6 +579,13 @@ def _parse_probe_target(raw: str) -> tuple[str, int]:
     return raw, 443
 
 
+async def audit_one(host: str, port: int = 443, now: datetime | None = None) -> Certificate:
+    """Comprehensive TLS audit of a single host — used by the regression suite to
+    reuse the exact same chain/grade logic the dashboard cards show."""
+    now = now or datetime.now(timezone.utc)
+    return await asyncio.to_thread(_probe_host_sync, host, port, settings.cert_probe_timeout, now)
+
+
 async def probe_certificates(now: datetime | None = None) -> list[Certificate]:
     """Actively probe each configured public host's TLS certificate."""
     now = now or datetime.now(timezone.utc)

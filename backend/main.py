@@ -27,6 +27,7 @@ from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router, get_cached_snapshot, get_cached_health
 from cert_monitor import run_cert_monitor_loop
+import regression
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -105,6 +106,20 @@ async def health():
     """Health check endpoint (no auth required)."""
     model = settings.mistral_model if settings.llm_provider == "mistral" else settings.ollama_model
     return {"status": "ok", "model": model, "provider": settings.llm_provider}
+
+
+@app.post("/regression/trigger")
+async def regression_trigger(x_regression_token: str | None = Header(default=None)):
+    """Token-authenticated trigger for CI/CD to run the regression suite on deploy.
+    Disabled unless REGRESSION_TRIGGER_TOKEN is set. Not session-based, so a
+    pipeline can call it with a static secret header (X-Regression-Token)."""
+    token = settings.regression_trigger_token
+    if not token:
+        raise HTTPException(status_code=404, detail="Regression trigger is not enabled")
+    if x_regression_token != token:
+        raise HTTPException(status_code=401, detail="Invalid regression token")
+    run_id = await regression.start_run(trigger="ci")
+    return {"run_id": run_id, "running": True}
 
 
 @app.get("/llm-providers")

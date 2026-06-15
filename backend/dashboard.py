@@ -16,6 +16,7 @@ from config import settings
 from documents import build_document_activity, build_pipeline_health, build_pipeline_outcomes, trace_document
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view
+import regression
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard")
@@ -219,6 +220,35 @@ async def digest_send(
         "count": digest["count"],
         "critical": digest["critical"],
     }
+
+
+# ── Regression test (post-release health gate for open.overheid.nl) ──────────
+@router.post("/regression/run")
+async def regression_run(session: dict = Depends(require_admin)):
+    """Start a regression run in the background; returns its id to poll."""
+    run_id = await regression.start_run(trigger="manual")
+    return {"run_id": run_id, "running": True}
+
+
+@router.get("/regression/latest")
+async def regression_latest(session: dict = Depends(require_admin)):
+    """The most recent run (live while in progress), or null if none yet."""
+    run = await regression.latest_run()
+    return run.model_dump() if run else {"run": None}
+
+
+@router.get("/regression/runs")
+async def regression_runs(limit: int = Query(default=20, ge=1, le=100),
+                          session: dict = Depends(require_admin)):
+    return {"runs": await regression.list_runs(limit)}
+
+
+@router.get("/regression/runs/{run_id}")
+async def regression_run_detail(run_id: str, session: dict = Depends(require_admin)):
+    run = await regression.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run.model_dump()
 
 
 @router.get("/document-trace")

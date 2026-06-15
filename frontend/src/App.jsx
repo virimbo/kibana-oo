@@ -6,6 +6,7 @@ import DashboardPage from "./Dashboard";
 import DocumentsPage from "./Documents";
 import SettingsPage from "./Settings";
 import AdminPage from "./Admin";
+import RegressionPage from "./Regression";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 
@@ -1031,6 +1032,20 @@ export default function App() {
   if (view === "admin" && isAdmin) {
     return (
       <AdminPage
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        stuckCount={stuckCount}
+      />
+    );
+  }
+
+  if (view === "regression" && isAdmin) {
+    return (
+      <RegressionPage
+        token={token}
         username={username}
         onLogout={handleLogout}
         onNavigate={navigate}

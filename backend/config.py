@@ -36,6 +36,18 @@ class Settings(BaseSettings):
     cert_audit_interval_hours: float = 24.0
     cert_alert_enabled: bool = True
 
+    # ── Regression test (post-release health gate for the public portal) ──
+    # A robust, data-driven suite run after a prod release to confirm
+    # open.overheid.nl still works. See regression.py for the default checks.
+    regression_target_url: str = "https://open.overheid.nl"
+    # A known, published document (UUID) used by the content-correctness checks.
+    regression_known_doc_id: str = "1a7e9fc7-0be6-4815-90a9-e733d79a5f07"
+    regression_db_path: str = "/app/data/regression.db"
+    # Set to enable the token-authenticated CI trigger (POST /regression/trigger
+    # with header X-Regression-Token). Empty = endpoint disabled.
+    regression_trigger_token: str = ""
+    regression_alert_enabled: bool = True   # alert via webhook/email when a run FAILs
+
     # Document processing pipelines (Verwerkingsstraat): OVS = oude (old),
     # NVS = nieuwe (new). Query strings attributing documents to each pipeline.
     # Tune these to match how your logs label the pipelines.

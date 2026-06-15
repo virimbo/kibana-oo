@@ -16,6 +16,7 @@ from config import settings
 from documents import build_document_activity, build_pipeline_health, build_pipeline_outcomes, trace_document
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view
+from piwik import document_views as piwik_document_views
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard")
@@ -27,6 +28,7 @@ _documents_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _trace_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _health_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _outcomes_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
+_views_cache = TTLCache(ttl=600)  # Piwik page views change slowly; cache 10 min
 
 # Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
 ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
@@ -234,6 +236,24 @@ async def document_trace(
     except Exception as e:
         logger.error(f"Document trace failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to trace document: {e}")
+
+
+@router.get("/document-views")
+async def document_views(
+    url: str = Query(..., min_length=2, max_length=500),
+    days: int = Query(default=30, ge=1, le=365),
+    session: dict = Depends(require_admin),
+):
+    """Public page views & unique visitors for a document, from Piwik PRO.
+    Pass the document's public URL (or id). Returns {"configured": False} when
+    Piwik PRO is not set up; never fails the caller."""
+    key = f"{url}|{days}"
+    cached = _views_cache.get(key)
+    if cached is not None:
+        return cached
+    result = await piwik_document_views(url, days)
+    _views_cache.set(key, result)
+    return result
 
 
 @router.get("/document-trace/explain")

@@ -26,6 +26,13 @@ const CARDS = [
     subtitle: "Documents",
     desc: "Documenten traceren (OVS/NVS), zoeken en vastgelopen publicaties opsporen.",
   },
+  {
+    view: "regression",
+    icon: "🧪",
+    title: "Regressietest",
+    subtitle: "Regression",
+    desc: "Na een release: controleer of open.overheid.nl nog werkt — beschikbaarheid, journeys, API en TLS.",
+  },
 ];
 
 export default function AdminPage({

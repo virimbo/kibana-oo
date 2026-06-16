@@ -608,14 +608,77 @@ function DlqCard({ data }) {
   );
 }
 
+// A collapsible dashboard *zone*: the section header (with its fading divider)
+// becomes a toggle that shows/hides the whole group of cards beneath it. The
+// open/closed choice is remembered per `id` across reloads, like
+// CollapsiblePanel but one level up — so power users can fold away what they
+// don't watch and the page remembers their layout.
+function DashZone({ id, title, alert = false, defaultCollapsed = false, children }) {
+  const key = `dash.zone.${id}`;
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      const v = localStorage.getItem(key);
+      return v === null ? defaultCollapsed : v === "1";
+    } catch {
+      return defaultCollapsed;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, collapsed ? "1" : "0");
+    } catch {
+      /* storage unavailable — non-fatal */
+    }
+  }, [key, collapsed]);
+
+  return (
+    <section className={`dash-zone${collapsed ? " is-collapsed" : ""}`}>
+      <h2 className={`dash-section${alert ? " dash-section--alert" : ""}`}>
+        <button
+          type="button"
+          className="dash-section-toggle"
+          onClick={() => setCollapsed((c) => !c)}
+          aria-expanded={!collapsed}
+          title={collapsed ? `Show ${title}` : `Hide ${title}`}
+        >
+          <span className={`chev ${collapsed ? "" : "chev--open"}`} aria-hidden="true">▸</span>
+          {title}
+        </button>
+      </h2>
+      {!collapsed && children}
+    </section>
+  );
+}
+
+// Tiny inline trend line for a hero tile — pure SVG, no deps. Draws a soft
+// filled area under a stroked line so a quick "is it climbing?" read is instant.
+function Sparkline({ points }) {
+  if (!points || points.length < 2) return null;
+  const max = Math.max(1, ...points);
+  const w = 100, h = 22, n = points.length;
+  const step = w / (n - 1);
+  const line = points
+    .map((p, i) => `${(i * step).toFixed(1)},${(h - (p / max) * (h - 2) - 1).toFixed(1)}`)
+    .join(" ");
+  return (
+    <svg className="hero-spark" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden="true">
+      <polygon className="hero-spark-area" points={`0,${h} ${line} ${w},${h}`} />
+      <polyline className="hero-spark-line" points={line} />
+    </svg>
+  );
+}
+
 // ─── Hero: system health at a glance (control-tower row) ───────────────────
-function HeroStat({ tone, value, label, hint, onClick }) {
+function HeroStat({ tone, value, label, hint, onClick, skeleton, spark }) {
   const Tag = onClick ? "button" : "div";
   return (
     <Tag className={`hero-stat hero-stat--${tone}${onClick ? " hero-stat--clickable" : ""}`}
          onClick={onClick} title={hint}>
-      <span className="hero-stat-value">{value}</span>
+      <span className="hero-stat-value">
+        {skeleton ? <span className="skel skel--value" /> : value}
+      </span>
       <span className="hero-stat-label">{label}</span>
+      {!skeleton && spark && <Sparkline points={spark} />}
     </Tag>
   );
 }
@@ -626,21 +689,22 @@ function HeroStrip({ snap, health, certs, aanlever, dlq, can, onNavigate }) {
   if (can("dashboard")) {
     const lvl = snap?.status_level;
     const tone = lvl === "ok" ? "ok" : lvl === "degraded" ? "warn" : lvl ? "crit" : "muted";
-    stats.push({ key: "status", tone,
+    stats.push({ key: "status", tone, skeleton: !snap,
       value: lvl === "ok" ? "All clear" : lvl === "degraded" ? "Degraded" : lvl ? "Critical" : "—",
       label: "System status", hint: "Overall status for the selected window" });
-    stats.push({ key: "crit", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok",
-      value: snap ? snap.total : "—", label: "Criticals", hint: "Error-level logs, 5xx and APM errors in this window" });
+    stats.push({ key: "crit", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok", skeleton: !snap,
+      value: snap ? snap.total : "—", label: "Criticals", hint: "Error-level logs, 5xx and APM errors in this window",
+      spark: (snap?.timeseries || []).map((b) => b.count) });
   }
   if (can("pipeline_health")) {
     const n = (health?.stuck || []).length;
-    stats.push({ key: "risk", tone: n > 0 ? "crit" : "ok", value: health ? n : "—",
+    stats.push({ key: "risk", tone: n > 0 ? "crit" : "ok", value: health ? n : "—", skeleton: health === null,
       label: "Docs at risk", hint: "Documents not yet live — stuck or errored",
       onClick: n > 0 ? () => onNavigate("documents") : undefined });
   }
   if (can("aanleverfouten")) {
     const n = aanlever?.count;
-    stats.push({ key: "aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—",
+    stats.push({ key: "aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—", skeleton: aanlever === null,
       label: "Aanleverfouten", hint: "Documents rejected at delivery" });
   }
   if (can("rabbitmq") && dlq && dlq.configured !== false) {
@@ -915,7 +979,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           <HeroStrip snap={snap} health={health} certs={certs} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
 
-          <h2 className="dash-section dash-section--alert">Needs attention</h2>
+          <DashZone id="attention" title="Needs attention" alert>
 
           {can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
@@ -977,14 +1041,15 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             )}
           </CollapsiblePanel>
           )}
+          </DashZone>
 
-          <h2 className="dash-section">Throughput &amp; outcomes</h2>
-
+          <DashZone id="throughput" title="Throughput & outcomes">
           {can("outcomes") && <OutcomesCard data={outcomes} onNavigate={onNavigate} />}
+          </DashZone>
 
           {snap && (
             <>
-              <h2 className="dash-section">Overview &amp; diagnostics</h2>
+              <DashZone id="overview" title="Overview & diagnostics">
               <div className={`status-banner status-banner--${snap.status_level}`}>
                 <strong>
                   {snap.status_level === "ok"
@@ -1271,8 +1336,10 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 );
               })()}
 
-              {aiEnabled && <h2 className="dash-section">AI insights</h2>}
+              </DashZone>
+
               {aiEnabled && (
+              <DashZone id="ai" title="AI insights">
               <CollapsiblePanel
                 id="aitriage"
                 title="AI daily triage"
@@ -1302,6 +1369,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                   <p className="muted">Analyzing…</p>
                 )}
               </CollapsiblePanel>
+              </DashZone>
               )}
             </>
           )}

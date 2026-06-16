@@ -2422,3 +2422,37 @@ body {
 .hero-stat--crit .hero-stat-value { color: var(--error); }
 .hero-stat--muted { border-top-color: var(--border-strong); }
 .hero-stat--muted .hero-stat-value { color: var(--text-secondary); }
+
+/* ── Collapsible dashboard zones ──────────────────────────── */
+.dash-zone { margin: 0; }
+.dash-section-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+  cursor: pointer; transition: color 0.12s ease;
+}
+.dash-section-toggle:hover { color: var(--text-secondary); }
+.dash-section--alert .dash-section-toggle:hover { color: var(--warn); filter: brightness(1.1); }
+.dash-section .chev { font-size: 10px; transition: transform 0.15s ease; opacity: 0.7; }
+.dash-section .chev--open { transform: rotate(90deg); }
+
+/* ── Skeleton shimmer (loading placeholders) ──────────────── */
+.skel {
+  display: inline-block; border-radius: 6px;
+  background: linear-gradient(90deg, var(--border) 25%, var(--border-strong) 37%, var(--border) 63%);
+  background-size: 400% 100%; animation: skel-shimmer 1.3s ease-in-out infinite;
+}
+.skel--value { width: 64px; height: 24px; vertical-align: middle; }
+@keyframes skel-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+
+/* ── Hero sparkline (Criticals trend) ─────────────────────── */
+.hero-spark { width: 100%; height: 22px; margin-top: 6px; display: block; overflow: visible; }
+.hero-spark-line { fill: none; stroke: var(--text-faint); stroke-width: 1.6; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
+.hero-spark-area { fill: currentColor; opacity: 0.08; }
+.hero-stat--crit .hero-spark-line { stroke: var(--error); }
+.hero-stat--crit .hero-spark-area { fill: var(--error); }
+.hero-stat--warn .hero-spark-line { stroke: var(--warn); }
+.hero-stat--warn .hero-spark-area { fill: var(--warn); }
+.hero-stat--ok .hero-spark-line { stroke: var(--success); }
+.hero-stat--ok .hero-spark-area { fill: var(--success); }

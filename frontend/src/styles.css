@@ -2398,3 +2398,27 @@ body {
 .dash-section--alert::after { background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 45%, transparent), transparent); }
 /* The first zone sits right under the controls — tighten its top gap. */
 .dash-controls + .dash-section { margin-top: 16px; }
+
+/* ── Hero: system-health-at-a-glance strip ────────────────── */
+.hero-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin: 4px 0 6px;
+}
+.hero-stat {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px 16px; border-radius: var(--radius);
+  background: var(--bg-panel); border: 1px solid var(--border); border-top-width: 3px;
+  text-align: left; font: inherit;
+}
+.hero-stat--clickable { cursor: pointer; transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.hero-stat--clickable:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.hero-stat-value { font-size: 24px; font-weight: 800; line-height: 1.05; }
+.hero-stat-label { font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-faint); }
+.hero-stat--ok { border-top-color: var(--success); }
+.hero-stat--ok .hero-stat-value { color: var(--success); }
+.hero-stat--warn { border-top-color: var(--warn); }
+.hero-stat--warn .hero-stat-value { color: var(--warn); }
+.hero-stat--crit { border-top-color: var(--error); }
+.hero-stat--crit .hero-stat-value { color: var(--error); }
+.hero-stat--muted { border-top-color: var(--border-strong); }
+.hero-stat--muted .hero-stat-value { color: var(--text-secondary); }

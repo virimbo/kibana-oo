@@ -608,6 +608,63 @@ function DlqCard({ data }) {
   );
 }
 
+// ─── Hero: system health at a glance (control-tower row) ───────────────────
+function HeroStat({ tone, value, label, hint, onClick }) {
+  const Tag = onClick ? "button" : "div";
+  return (
+    <Tag className={`hero-stat hero-stat--${tone}${onClick ? " hero-stat--clickable" : ""}`}
+         onClick={onClick} title={hint}>
+      <span className="hero-stat-value">{value}</span>
+      <span className="hero-stat-label">{label}</span>
+    </Tag>
+  );
+}
+
+function HeroStrip({ snap, health, certs, aanlever, dlq, can, onNavigate }) {
+  const stats = [];
+
+  if (can("dashboard")) {
+    const lvl = snap?.status_level;
+    const tone = lvl === "ok" ? "ok" : lvl === "degraded" ? "warn" : lvl ? "crit" : "muted";
+    stats.push({ key: "status", tone,
+      value: lvl === "ok" ? "All clear" : lvl === "degraded" ? "Degraded" : lvl ? "Critical" : "—",
+      label: "System status", hint: "Overall status for the selected window" });
+    stats.push({ key: "crit", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok",
+      value: snap ? snap.total : "—", label: "Criticals", hint: "Error-level logs, 5xx and APM errors in this window" });
+  }
+  if (can("pipeline_health")) {
+    const n = (health?.stuck || []).length;
+    stats.push({ key: "risk", tone: n > 0 ? "crit" : "ok", value: health ? n : "—",
+      label: "Docs at risk", hint: "Documents not yet live — stuck or errored",
+      onClick: n > 0 ? () => onNavigate("documents") : undefined });
+  }
+  if (can("aanleverfouten")) {
+    const n = aanlever?.count;
+    stats.push({ key: "aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—",
+      label: "Aanleverfouten", hint: "Documents rejected at delivery" });
+  }
+  if (can("rabbitmq") && dlq && dlq.configured !== false) {
+    const n = dlq.count || 0;
+    stats.push({ key: "dlq", tone: n > 0 ? "warn" : "ok", value: n, label: "DLQs with msgs",
+      hint: "RabbitMQ dead-letter queues holding messages" });
+  }
+  if (can("certificates") && certs && certs.length) {
+    const probs = certs.filter((c) => (c.issues && c.issues.length) || c.status === "critical" || c.status === "expired");
+    const minDays = certs.filter((c) => c.reachable && c.days_remaining != null)
+      .reduce((m, c) => Math.min(m, c.days_remaining), Infinity);
+    stats.push({ key: "certs", tone: probs.length ? "crit" : minDays < 30 ? "warn" : "ok",
+      value: probs.length ? "⚠" : Number.isFinite(minDays) ? `${minDays}d` : "OK",
+      label: "TLS certs", hint: "Soonest certificate expiry / issues" });
+  }
+
+  if (!stats.length) return null;
+  return (
+    <div className="hero-strip">
+      {stats.map((s) => <HeroStat key={s.key} {...s} />)}
+    </div>
+  );
+}
+
 export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, stuckCount, aanleverCount, dlqCount }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
@@ -855,6 +912,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           </div>
 
           {error && <div className="alert alert--error">{error}</div>}
+
+          <HeroStrip snap={snap} health={health} certs={certs} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
 
           <h2 className="dash-section dash-section--alert">Needs attention</h2>
 

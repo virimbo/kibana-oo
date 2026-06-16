@@ -118,7 +118,11 @@ async def certificates(session: dict = Depends(require_admin)):
         logger.error(f"Certificate lookup failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load certificates: {e}")
     payload = {"certificates": [c.model_dump() for c in certs]}
-    _cert_cache.set("certs", payload)
+    # A transient DNS/connect blip (gaierror) must NOT pin a "Unreachable/CRITICAL"
+    # card for the full hour. Cache a degraded result briefly so it self-heals on
+    # the next poll; cache a healthy result for the normal long TTL.
+    degraded = not certs or any(not c.reachable for c in certs)
+    _cert_cache.set("certs", payload, ttl=60 if degraded else None)
     return payload
 
 

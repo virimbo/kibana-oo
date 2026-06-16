@@ -19,8 +19,10 @@ class TTLCache:
             return None
         return value
 
-    def set(self, key: str, value: object) -> None:
-        self._store[key] = (self._now() + self._ttl, value)
+    def set(self, key: str, value: object, ttl: float | None = None) -> None:
+        """Store with the default TTL, or a per-entry override (e.g. a short TTL
+        for a degraded/transient result so it self-heals quickly)."""
+        self._store[key] = (self._now() + (self._ttl if ttl is None else ttl), value)
 
     def clear(self) -> None:
         self._store.clear()

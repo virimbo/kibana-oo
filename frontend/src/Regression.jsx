@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getJSON } from "./api";
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -110,7 +107,7 @@ function RunDetail({ run, rel }) {
 }
 
 export default function RegressionPage({
-  token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount, dlqCount,
+  token, username, onLogout, onNavigate, llmProvider, onProviderChange, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount,
 }) {
   const [run, setRun] = useState(null);       // currently displayed run (latest or a selected history item)
   const [history, setHistory] = useState([]);
@@ -204,25 +201,22 @@ export default function RegressionPage({
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">🧪</span>
-          <div className="brand-text">
-            <span className="brand-name">Regressietest</span>
-            <span className="brand-sub">open.overheid.nl · post-release health gate</span>
-          </div>
-        </div>
-        <div className="header-right">
-          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
-          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
-          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Terug naar Beheer">← Beheer</button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>Dashboard</button>
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={onLogout}>Sign out</button>
-        </div>
-      </header>
+      <TopNav
+        active="regression"
+        brandMark="🧪"
+        brandName="Regressietest"
+        brandSub="open.overheid.nl · post-release health gate"
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
 
       <div className="chat-scroll">
         <div className="dash">

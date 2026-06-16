@@ -1,7 +1,4 @@
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 
 // A reusable on/off switch.
 function Toggle({ checked, onChange, label, hint, disabled = false }) {
@@ -52,6 +49,8 @@ export default function SettingsPage({
   selectedProvider,
   onProviderChange,
   settings,
+  can = () => true,
+  isAdmin = false,
   stuckCount, aanleverCount, dlqCount,
 }) {
   const {
@@ -64,27 +63,22 @@ export default function SettingsPage({
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">⚙</span>
-          <div className="brand-text">
-            <span className="brand-name">Settings</span>
-            <span className="brand-sub">AI &amp; feature toggles · admin</span>
-          </div>
-        </div>
-        <div className="header-right">
-          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
-          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
-          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Terug naar Beheer">← Beheer</button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>Chat</button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>Dashboard</button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>Documents</button>
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={onLogout}>Sign out</button>
-        </div>
-      </header>
+      <TopNav
+        active="settings"
+        brandMark="⚙"
+        brandName="Settings"
+        brandSub="AI & feature toggles · admin"
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
 
       <div className="chat-scroll">
         <div className="dash">

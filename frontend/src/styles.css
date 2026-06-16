@@ -2456,3 +2456,55 @@ body {
 .hero-stat--warn .hero-spark-area { fill: var(--warn); }
 .hero-stat--ok .hero-spark-line { stroke: var(--success); }
 .hero-stat--ok .hero-spark-area { fill: var(--success); }
+
+/* ── Unified top navigation (shared TopNav) ───────────────── */
+.brand--btn {
+  background: none; border: none; padding: 0; margin: 0;
+  font: inherit; color: inherit; text-align: left; cursor: pointer;
+}
+.brand--btn:hover .brand-name { color: var(--accent); }
+
+.topnav {
+  display: flex; align-items: center; gap: 2px;
+  padding: 3px; border-radius: 12px;
+  background: var(--bg-app); border: 1px solid var(--border);
+}
+.topnav-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px; border: none; border-radius: 9px;
+  background: none; color: var(--text-secondary);
+  font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1;
+  cursor: pointer; white-space: nowrap;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.topnav-link svg { opacity: 0.8; }
+.topnav-link:hover { background: var(--bg-elevated); color: var(--text-primary); }
+.topnav-link.is-active {
+  background: var(--accent-soft); color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent-soft);
+}
+.topnav-link.is-active svg { opacity: 1; }
+
+.user-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 11px 4px 4px; border-radius: 999px;
+  background: var(--bg-app); border: 1px solid var(--border);
+}
+.user-avatar {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+}
+.user-name {
+  font-size: 13px; color: var(--text-secondary);
+  max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Narrow screens: icon-only nav + hide the long username, keep it uncluttered. */
+@media (max-width: 1180px) {
+  .topnav-link span { display: none; }
+  .topnav-link { padding: 8px; }
+  .user-name { display: none; }
+  .user-chip { padding: 4px; }
+}

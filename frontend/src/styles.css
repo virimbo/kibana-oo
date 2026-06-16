@@ -2345,23 +2345,40 @@ body {
 .dlq-hdr:hover { background: color-mix(in srgb, var(--warn) 22%, transparent); }
 .dlq-hdr-dot { font-size: 12px; }
 
-.dlq-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.dlq-row {
-  display: flex; align-items: center; gap: 12px;
-  padding: 9px 12px; border-radius: var(--radius-sm);
-  background: var(--bg-input); border: 1px solid var(--border); border-left-width: 3px;
+/* Status summary pills in the card header */
+.dlq-summary { margin-left: auto; display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.dlq-pill {
+  font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 999px; border: 1px solid;
 }
-.dlq-row--warn { border-left-color: var(--warn); }
-.dlq-row--critical { border-left-color: var(--error); }
-.dlq-depth { flex: none; font-size: 20px; font-weight: 800; min-width: 48px; text-align: right; }
-.dlq-row--warn .dlq-depth { color: var(--warn); }
-.dlq-row--critical .dlq-depth { color: var(--error); }
-.dlq-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
-.dlq-name { font-size: 13px; font-weight: 600; color: var(--text-primary); word-break: break-all; }
-.dlq-meta { font-size: 11.5px; color: var(--text-faint); }
-.dlq-sev {
-  flex: none; font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
-  padding: 1px 7px; border-radius: 4px; border: 1px solid;
+.dlq-pill--ok { color: var(--success); border-color: color-mix(in srgb, var(--success) 60%, var(--border)); background: color-mix(in srgb, var(--success) 12%, transparent); }
+.dlq-pill--warn { color: var(--warn); border-color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.dlq-pill--critical { color: var(--error); border-color: var(--error); background: color-mix(in srgb, var(--error) 15%, transparent); }
+
+/* Every DLQ as a colour-coded tile */
+.dlq-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px; margin-top: 12px;
 }
-.dlq-sev--warn { color: var(--warn); border-color: var(--warn); }
-.dlq-sev--critical { color: var(--error); border-color: var(--error); }
+.dlq-tile {
+  position: relative; display: flex; flex-direction: column; gap: 3px;
+  padding: 12px 13px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); border-left-width: 4px;
+  background: var(--bg-input); transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.dlq-tile:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.dlq-tile--ok { border-left-color: var(--success); background: color-mix(in srgb, var(--success) 7%, var(--bg-input)); }
+.dlq-tile--warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 9%, var(--bg-input)); }
+.dlq-tile--critical { border-left-color: var(--error); background: color-mix(in srgb, var(--error) 10%, var(--bg-input)); }
+.dlq-tile-top { display: flex; align-items: center; justify-content: space-between; }
+.dlq-tile-icon { font-size: 14px; }
+.dlq-tile--ok .dlq-tile-icon { color: var(--success); }
+.dlq-tile--warn .dlq-tile-icon { color: var(--warn); }
+.dlq-tile--critical .dlq-tile-icon { color: var(--error); }
+.dlq-tile-num { font-size: 26px; font-weight: 800; line-height: 1; color: var(--text-secondary); }
+.dlq-tile--ok .dlq-tile-num { color: var(--success); }
+.dlq-tile--warn .dlq-tile-num { color: var(--warn); }
+.dlq-tile--critical .dlq-tile-num { color: var(--error); }
+.dlq-tile-name { font-size: 13px; font-weight: 700; color: var(--text-primary); text-transform: capitalize; word-break: break-word; }
+.dlq-tile-meta { font-size: 11px; color: var(--text-faint); }
+.dlq-tile-cons { font-size: 10.5px; font-weight: 600; color: var(--success); }
+.dlq-tile-cons--none { color: var(--error); }

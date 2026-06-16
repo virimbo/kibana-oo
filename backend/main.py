@@ -27,6 +27,7 @@ from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router, get_cached_snapshot, get_cached_health
 from cert_monitor import run_cert_monitor_loop
+from rabbitmq_dlq import run_dlq_monitor_loop
 from auth import require_super
 import permissions
 import regression
@@ -43,15 +44,17 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001 — must not block startup
         logger.error(f"Feature-grant seeding failed: {e}")
     cert_task = asyncio.create_task(run_cert_monitor_loop())
-    logger.info("Started daily TLS certificate monitor.")
+    dlq_task = asyncio.create_task(run_dlq_monitor_loop())
+    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ).")
     try:
         yield
     finally:
-        cert_task.cancel()
-        try:
-            await cert_task
-        except asyncio.CancelledError:
-            pass
+        for t in (cert_task, dlq_task):
+            t.cancel()
+            try:
+                await t
+            except asyncio.CancelledError:
+                pass
 
 
 app = FastAPI(

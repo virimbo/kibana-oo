@@ -11,6 +11,7 @@ import AuthorizationPage from "./Authorization";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import DlqBadge from "./DlqBadge";
 
 const SUGGESTIONS = [
   {
@@ -323,7 +324,7 @@ function UserMessage({ msg }) {
 function ChatPage({
   token, username, onLogout, isAdmin, can = () => false, onNavigate,
   llmProvider, onProviderChange, aiEnabled = true,
-  autocorrect, showWelcome, showHint, showSuggestions, stuckCount, aanleverCount,
+  autocorrect, showWelcome, showHint, showSuggestions, stuckCount, aanleverCount, dlqCount,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -586,6 +587,7 @@ function ChatPage({
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
+          {isAdmin && <DlqBadge count={dlqCount} onNavigate={onNavigate} />}
           {isAdmin && <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />}
           {isAdmin && <StuckBadge count={stuckCount} onNavigate={onNavigate} />}
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} disabled={loading} />
@@ -955,20 +957,31 @@ export default function App() {
   // keeps this cheap).
   const [stuckCount, setStuckCount] = useState(0);
   const [aanleverCount, setAanleverCount] = useState(0);
+  const [dlqCount, setDlqCount] = useState(0);
   useEffect(() => {
     if (!token || !isAdmin) {
       setStuckCount(0);
       setAanleverCount(0);
+      setDlqCount(0);
       return;
     }
     let active = true;
     const poll = () => {
-      getJSON("/dashboard/pipeline-health", token)
-        .then((d) => active && setStuckCount(d.stuck_count || 0))
-        .catch(() => {});
-      getJSON("/dashboard/aanleverfouten", token)
-        .then((d) => active && setAanleverCount(d.count || 0))
-        .catch(() => {});
+      if (can("pipeline_health")) {
+        getJSON("/dashboard/pipeline-health", token)
+          .then((d) => active && setStuckCount(d.stuck_count || 0))
+          .catch(() => {});
+      }
+      if (can("aanleverfouten")) {
+        getJSON("/dashboard/aanleverfouten", token)
+          .then((d) => active && setAanleverCount(d.count || 0))
+          .catch(() => {});
+      }
+      if (can("rabbitmq")) {
+        getJSON("/dashboard/dlq", token)
+          .then((d) => active && setDlqCount(d.count || 0))
+          .catch(() => {});
+      }
     };
     poll();
     const id = setInterval(poll, 60000);
@@ -976,7 +989,7 @@ export default function App() {
       active = false;
       clearInterval(id);
     };
-  }, [token, isAdmin]);
+  }, [token, isAdmin, can]);
 
   // What this user may see/do — drives page/card gating (deny-by-default).
   useEffect(() => {
@@ -1025,6 +1038,8 @@ export default function App() {
         can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
+        dlqCount={dlqCount}
       />
     );
   }
@@ -1041,6 +1056,8 @@ export default function App() {
         aiEnabled={aiEnabled}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
+        dlqCount={dlqCount}
         initialTraceId={pendingTrace}
       />
     );
@@ -1058,6 +1075,8 @@ export default function App() {
         isSuper={isSuper}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
+        dlqCount={dlqCount}
       />
     );
   }
@@ -1073,6 +1092,8 @@ export default function App() {
         onProviderChange={handleProviderChange}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
+        dlqCount={dlqCount}
       />
     );
   }
@@ -1088,6 +1109,8 @@ export default function App() {
         onProviderChange={handleProviderChange}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
+        dlqCount={dlqCount}
       />
     );
   }
@@ -1104,6 +1127,8 @@ export default function App() {
         settings={settings}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
+        dlqCount={dlqCount}
       />
     );
   }
@@ -1125,6 +1150,7 @@ export default function App() {
       showSuggestions={showSuggestions}
       stuckCount={stuckCount}
       aanleverCount={aanleverCount}
+      dlqCount={dlqCount}
     />
   );
 }

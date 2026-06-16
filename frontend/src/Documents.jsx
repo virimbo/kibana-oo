@@ -4,6 +4,7 @@ import { InfoTip } from "./Dashboard";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import DlqBadge from "./DlqBadge";
 import TimeRange, { timeParams, loadRange, saveRange } from "./TimeRange";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
@@ -297,7 +298,7 @@ function PipelineHealth({ health, onTrace }) {
   );
 }
 
-export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount, initialTraceId }) {
+export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount, dlqCount, initialTraceId }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -445,6 +446,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
           </div>
         </div>
         <div className="header-right">
+          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
           <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           {onProviderChange && (

@@ -3,6 +3,7 @@ import { getJSON } from "./api";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import DlqBadge from "./DlqBadge";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -109,7 +110,7 @@ function RunDetail({ run, rel }) {
 }
 
 export default function RegressionPage({
-  token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount,
+  token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount, dlqCount,
 }) {
   const [run, setRun] = useState(null);       // currently displayed run (latest or a selected history item)
   const [history, setHistory] = useState([]);
@@ -212,6 +213,7 @@ export default function RegressionPage({
           </div>
         </div>
         <div className="header-right">
+          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
           <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />

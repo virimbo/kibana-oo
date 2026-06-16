@@ -34,6 +34,8 @@ This is the KIBANA-OO project. Update this section with project description as i
   custom from→to window (additive `from`/`to`; the `period` path is unchanged).
 - **Authorization:** see [docs/authorization.md](docs/authorization.md) — super admin
   (config) + per-user × per-feature grant matrix; `require_feature` enforces server-side.
+- **RabbitMQ DLQ:** see [docs/rabbitmq-dlq.md](docs/rabbitmq-dlq.md) — dead-letter-queue
+  monitor (Management API, read-only); background poll + alerts + `/dashboard/dlq`.
 
 _Document further architecture decisions here as the project develops._
 

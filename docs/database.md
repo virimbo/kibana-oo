@@ -44,6 +44,11 @@ cross-run questions — "how often has the document-file check failed in the las
 50 runs?" — with a `GROUP BY check_id`, instead of parsing thousands of JSON
 blobs. The summary columns on the run row keep the history list fast.
 
+**RabbitMQ DLQ** (`backend/rabbitmq_dlq.py`) — `dlq_state`: one row per currently
+non-empty dead-letter queue (`first_seen` for age, `alerted` for dedup). Deleted
+when the queue drains — the broker is the real-time source of truth for depth, so
+only this minimal state is stored. See [rabbitmq-dlq.md](rabbitmq-dlq.md).
+
 **Authorization** (`backend/permissions.py`) — `feature_grants` (one row per
 `username`+`feature`, the access matrix), `feature_grants_audit` (every
 grant/revoke/seed with actor + timestamp), and `feature_grants_meta` (the

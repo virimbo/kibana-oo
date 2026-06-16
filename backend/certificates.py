@@ -12,6 +12,7 @@ import hashlib
 import logging
 import socket
 import ssl
+import time
 from datetime import datetime, timezone
 
 import httpx
@@ -496,12 +497,23 @@ def _probe_host_sync(host: str, port: int, timeout: float, now: datetime) -> Cer
     """Comprehensive active audit of one host: served chain breakdown, trust,
     completeness, anchor/order, revocation (OCSP), protocol versions, HSTS, and a
     composite grade — the chainsmith + SSL-Labs style check, in one card."""
-    try:
-        ders, _tls_version = _served_chain_der(host, port, timeout)
-    except (ssl.SSLError, OSError) as e:
+    # Retry once on a connection error — a transient DNS/connect blip (gaierror)
+    # must not flip a healthy host to "Unreachable / CRITICAL".
+    ders = None
+    last_err: Exception | None = None
+    for attempt in range(2):
+        try:
+            ders, _tls_version = _served_chain_der(host, port, timeout)
+            last_err = None
+            break
+        except (ssl.SSLError, OSError) as e:
+            last_err = e
+            if attempt == 0:
+                time.sleep(0.5)
+    if last_err is not None:
         return Certificate(
             host=host, not_after="", days_remaining=-99999, status="critical",
-            issues=[f"could not connect ({type(e).__name__})"], source="probe", reachable=False,
+            issues=[f"could not connect ({type(last_err).__name__})"], source="probe", reachable=False,
             grade="CRITICAL", checked_at=now.isoformat(),
         )
     if not ders:

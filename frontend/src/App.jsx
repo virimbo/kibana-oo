@@ -786,6 +786,11 @@ async function consumeSSE(body, signal, { onChunk, onSources, onError, onQuestio
       const { done, value } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
+      // sse-starlette frames events with CRLF ("\r\n"), so events are separated
+      // by "\r\n\r\n". Normalise to "\n" so the boundary split below matches and
+      // tokens render live — without this the whole stream is parsed once at the
+      // end as a single "done" event and nothing is ever shown.
+      buffer = buffer.replace(/\r\n/g, "\n");
 
       let sep;
       while ((sep = buffer.indexOf("\n\n")) !== -1) {

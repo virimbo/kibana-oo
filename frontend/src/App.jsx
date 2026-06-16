@@ -8,10 +8,7 @@ import SettingsPage from "./Settings";
 import AdminPage from "./Admin";
 import RegressionPage from "./Regression";
 import AuthorizationPage from "./Authorization";
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 
 const SUGGESTIONS = [
   {
@@ -572,48 +569,26 @@ function ChatPage({
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">
-            <Icon.Spark />
-          </span>
-          <div className="brand-text">
-            <span className="brand-name">KIBANA-OO</span>
-            <span className="brand-sub">AI Log Assistant · koop-plooi-prod</span>
-          </div>
-        </div>
-        <div className="header-right">
-          <span className={`status status--${connected === null ? "idle" : connected ? "ok" : "down"}`}>
-            <span className="status-dot" />
-            {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
-          </span>
-          {isAdmin && <DlqBadge count={dlqCount} onNavigate={onNavigate} />}
-          {isAdmin && <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />}
-          {isAdmin && <StuckBadge count={stuckCount} onNavigate={onNavigate} />}
-          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} disabled={loading} />
-          {isAdmin && (
-            <>
-              {can("dashboard") && (
-                <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
-                  Dashboard
-                </button>
-              )}
-              {can("documents") && (
-                <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
-                  Documents
-                </button>
-              )}
-              <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Beheer (admin)">
-                Beheer
-              </button>
-            </>
-          )}
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={handleLogout}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <TopNav
+        active="chat"
+        brandMark={<Icon.Spark />}
+        brandName="KIBANA-OO"
+        brandSub="AI Log Assistant · koop-plooi-prod"
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+        status={{
+          tone: connected === null ? "idle" : connected ? "ok" : "down",
+          label: connected === null ? "Checking" : connected ? "Connected" : "Offline",
+        }}
+      />
 
       <div className="chat-scroll" ref={scrollRef} onScroll={onScroll}>
         <div className="chat-column">
@@ -1038,8 +1013,8 @@ export default function App() {
         can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
         dlqCount={dlqCount}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -1054,9 +1029,10 @@ export default function App() {
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
+        can={can}
+        isAdmin={isAdmin}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
         dlqCount={dlqCount}
         initialTraceId={pendingTrace}
       />
@@ -1075,8 +1051,8 @@ export default function App() {
         isSuper={isSuper}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
         dlqCount={dlqCount}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -1090,10 +1066,12 @@ export default function App() {
         onNavigate={navigate}
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
+        can={can}
+        isSuper={isSuper}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
         dlqCount={dlqCount}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -1107,10 +1085,11 @@ export default function App() {
         onNavigate={navigate}
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
+        can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
         dlqCount={dlqCount}
+        isAdmin={isAdmin}
       />
     );
   }
@@ -1125,10 +1104,11 @@ export default function App() {
         selectedProvider={llmProvider}
         onProviderChange={handleProviderChange}
         settings={settings}
+        can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
         dlqCount={dlqCount}
+        isAdmin={isAdmin}
       />
     );
   }

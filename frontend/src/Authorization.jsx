@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { getJSON } from "./api";
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -13,7 +10,7 @@ const fmtWhen = (iso) => (iso ? new Date(iso).toLocaleString("nl-NL") : "");
 // a user access to a card/tool; uncheck to revoke. Add users by email to
 // pre-authorise them before their first login.
 export default function AuthorizationPage({
-  token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount, dlqCount,
+  token, username, onLogout, onNavigate, llmProvider, onProviderChange, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount,
 }) {
   const [data, setData] = useState(null);     // { catalog, users, super_admins }
   const [extra, setExtra] = useState([]);     // emails added locally, no grants yet
@@ -71,7 +68,7 @@ export default function AuthorizationPage({
   };
 
   if (!data) {
-    return <Shell {...{ username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount }}>
+    return <Shell {...{ username, onLogout, onNavigate, llmProvider, onProviderChange, can, isAdmin, stuckCount, aanleverCount, dlqCount }}>
       <p className="muted">Laden…</p>
     </Shell>;
   }
@@ -82,7 +79,7 @@ export default function AuthorizationPage({
   ];
 
   return (
-    <Shell {...{ username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount }}>
+    <Shell {...{ username, onLogout, onNavigate, llmProvider, onProviderChange, can, isAdmin, stuckCount, aanleverCount, dlqCount }}>
       <section className="panel">
         <h3>🔐 Autorisatie — wie mag wat</h3>
         <p className="muted set-intro">
@@ -164,27 +161,25 @@ export default function AuthorizationPage({
   );
 }
 
-function Shell({ username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount, children }) {
+function Shell({ username, onLogout, onNavigate, llmProvider, onProviderChange, can, isAdmin, stuckCount, aanleverCount, dlqCount, children }) {
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">🔐</span>
-          <div className="brand-text">
-            <span className="brand-name">Autorisatie</span>
-            <span className="brand-sub">Super admin · toegang per gebruiker &amp; functie</span>
-          </div>
-        </div>
-        <div className="header-right">
-          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
-          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
-          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Terug naar Beheer">← Beheer</button>
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={onLogout}>Sign out</button>
-        </div>
-      </header>
+      <TopNav
+        active="authorization"
+        brandMark="🔐"
+        brandName="Autorisatie"
+        brandSub="Super admin · toegang per gebruiker & functie"
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
       <div className="chat-scroll"><div className="dash">{children}</div></div>
     </>
   );

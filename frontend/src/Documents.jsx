@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { getJSON } from "./api";
 import { InfoTip } from "./Dashboard";
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 import TimeRange, { timeParams, loadRange, saveRange } from "./TimeRange";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
@@ -298,7 +295,7 @@ function PipelineHealth({ health, onTrace }) {
   );
 }
 
-export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount, dlqCount, initialTraceId }) {
+export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount, initialTraceId }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -437,36 +434,22 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">▤</span>
-          <div className="brand-text">
-            <span className="brand-name">Documents · NVS</span>
-            <span className="brand-sub">New pipeline (nieuwe verwerkingsstraat) · {dataView}</span>
-          </div>
-        </div>
-        <div className="header-right">
-          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
-          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
-          {onProviderChange && (
-            <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-          )}
-          <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>
-            Chat
-          </button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
-            Dashboard
-          </button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Beheer (admin)">
-            Beheer
-          </button>
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={onLogout}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <TopNav
+        active="documents"
+        brandMark="▤"
+        brandName="Documents · NVS"
+        brandSub={`New pipeline (nieuwe verwerkingsstraat) · ${dataView}`}
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
 
       <div className="chat-scroll">
         <div className="dash">

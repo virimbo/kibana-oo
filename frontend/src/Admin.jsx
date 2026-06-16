@@ -1,7 +1,4 @@
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 
 // Admin landing hub ("Beheer"). A single entry point that gathers every
 // management surface as a card, so the admin tools have one clear home and the
@@ -54,6 +51,7 @@ export default function AdminPage({
   onProviderChange,
   can = () => true,
   isSuper = false,
+  isAdmin = true,
   stuckCount, aanleverCount, dlqCount,
 }) {
   // Show only the cards this admin may use; super admin also gets Autorisatie.
@@ -61,26 +59,22 @@ export default function AdminPage({
   if (isSuper) cards.push(SUPER_CARD);
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">🛠</span>
-          <div className="brand-text">
-            <span className="brand-name">Beheer</span>
-            <span className="brand-sub">Admin · beheer &amp; instellingen</span>
-          </div>
-        </div>
-        <div className="header-right">
-          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
-          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
-          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-          <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>Chat</button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>Dashboard</button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>Documents</button>
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={onLogout}>Sign out</button>
-        </div>
-      </header>
+      <TopNav
+        active="admin"
+        brandMark="🛠"
+        brandName="Beheer"
+        brandSub="Admin · beheer & instellingen"
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
 
       <div className="chat-scroll">
         <div className="dash">

@@ -2,10 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
-import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
-import AanleverBadge from "./AanleverBadge";
-import DlqBadge from "./DlqBadge";
+import TopNav from "./Nav";
 import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
@@ -729,7 +726,7 @@ function HeroStrip({ snap, health, certs, aanlever, dlq, can, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, stuckCount, aanleverCount, dlqCount }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -903,38 +900,22 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
   return (
     <>
-      <header className="header">
-        <div className="brand">
-          <span className="brand-mark">◆</span>
-          <div className="brand-text">
-            <span className="brand-name">Monitoring</span>
-            <span className="brand-sub">
-              Critical issues · {rangeLabel(range)} · {dataView}
-            </span>
-          </div>
-        </div>
-        <div className="header-right">
-          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
-          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-          <StuckBadge count={stuckCount} onNavigate={onNavigate} />
-          {onProviderChange && (
-            <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-          )}
-          <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>
-            Chat
-          </button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
-            Documents
-          </button>
-          <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Beheer (admin)">
-            Beheer
-          </button>
-          <span className="header-user">{username}</span>
-          <button className="btn btn--ghost" onClick={onLogout}>
-            Sign out
-          </button>
-        </div>
-      </header>
+      <TopNav
+        active="dashboard"
+        brandMark="◆"
+        brandName="Monitoring"
+        brandSub={`Critical issues · ${rangeLabel(range)} · ${dataView}`}
+        can={can}
+        isAdmin={isAdmin}
+        username={username}
+        onLogout={onLogout}
+        onNavigate={onNavigate}
+        llmProvider={llmProvider}
+        onProviderChange={onProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
 
       <div className="chat-scroll">
         <div className="dash">

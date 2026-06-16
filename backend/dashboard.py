@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 import asyncio
 
 import notify
-from auth import require_admin
+from auth import require_admin, require_feature
 from briefing import explain_trace, generate_briefing
 from cache import TTLCache
 from digest import build_digest
@@ -86,7 +86,7 @@ async def summary(
     data_view: str | None = Query(default=None),
     frm: str | None = Query(default=None, alias="from"),
     to: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("dashboard")),
 ):
     try:
         return await get_cached_snapshot(session["sid"], period, data_view, frm, to)
@@ -102,7 +102,7 @@ async def briefing(
     regenerate: bool = Query(default=False),
     frm: str | None = Query(default=None, alias="from"),
     to: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("dashboard")),
 ):
     period = _period(period)
     dv = resolve_data_view(data_view)
@@ -125,7 +125,7 @@ async def briefing(
 
 
 @router.get("/certificates")
-async def certificates(session: dict = Depends(require_admin)):
+async def certificates(session: dict = Depends(require_feature("certificates"))):
     """TLS certificate expiry countdowns, read from Kibana monitoring data."""
     cached = _cert_cache.get("certs")
     if cached is not None:
@@ -150,7 +150,7 @@ async def documents(
     data_view: str | None = Query(default=None),
     frm: str | None = Query(default=None, alias="from"),
     to: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("documents")),
 ):
     """Document-flow activity: lifecycle events, types, errors, and a live feed."""
     period = _period(period)
@@ -185,7 +185,7 @@ async def _get_trace(sid: str, doc_id: str, dv: str) -> dict:
 @router.get("/pipeline-health")
 async def pipeline_health(
     data_view: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("pipeline_health")),
 ):
     """Proactive: documents stuck in the pipeline + where problems cluster by
     stage, so admins catch issues without tracing each document."""
@@ -202,7 +202,7 @@ async def outcomes(
     data_view: str | None = Query(default=None),
     frm: str | None = Query(default=None, alias="from"),
     to: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("outcomes")),
 ):
     """Document outcomes for the window, split by pipeline (OVS/NVS): published,
     updated, withdrawn, failed-to-publish, plus success rate, backlog, latency and
@@ -227,7 +227,7 @@ async def outcomes(
 @router.post("/digest/send")
 async def digest_send(
     data_view: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("pipeline_health")),
 ):
     """Build the 'documents needing attention' digest and send it now via the
     configured channels (email and/or webhook). Uses the caller's session."""
@@ -256,14 +256,14 @@ async def digest_send(
 
 # ── Regression test (post-release health gate for open.overheid.nl) ──────────
 @router.post("/regression/run")
-async def regression_run(session: dict = Depends(require_admin)):
+async def regression_run(session: dict = Depends(require_feature("regression"))):
     """Start a regression run in the background; returns its id to poll."""
     run_id = await regression.start_run(trigger="manual")
     return {"run_id": run_id, "running": True}
 
 
 @router.get("/regression/latest")
-async def regression_latest(session: dict = Depends(require_admin)):
+async def regression_latest(session: dict = Depends(require_feature("regression"))):
     """The most recent run (live while in progress), or null if none yet."""
     run = await regression.latest_run()
     return run.model_dump() if run else {"run": None}
@@ -271,19 +271,19 @@ async def regression_latest(session: dict = Depends(require_admin)):
 
 @router.get("/regression/runs")
 async def regression_runs(limit: int = Query(default=20, ge=1, le=100),
-                          session: dict = Depends(require_admin)):
+                          session: dict = Depends(require_feature("regression"))):
     return {"runs": await regression.list_runs(limit)}
 
 
 @router.get("/regression/reliability")
 async def regression_reliability(limit: int = Query(default=50, ge=1, le=500),
-                                 session: dict = Depends(require_admin)):
+                                 session: dict = Depends(require_feature("regression"))):
     """Per-check pass/warn/fail counts over the last `limit` runs — flaky-check radar."""
     return {"checks": await regression.reliability(limit), "window": limit}
 
 
 @router.get("/regression/runs/{run_id}")
-async def regression_run_detail(run_id: str, session: dict = Depends(require_admin)):
+async def regression_run_detail(run_id: str, session: dict = Depends(require_feature("regression"))):
     run = await regression.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -294,7 +294,7 @@ async def regression_run_detail(run_id: str, session: dict = Depends(require_adm
 @router.get("/aanleverfouten")
 async def aanleverfouten(
     data_view: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("aanleverfouten")),
 ):
     """Documents rejected at the doculoket/aanlever stage, grouped by publisher +
     error type. Durable (open until published or acknowledged), reconciled against
@@ -312,7 +312,7 @@ async def aanleverfouten(
 
 
 @router.post("/aanleverfouten/{doc_id}/ack")
-async def aanleverfouten_ack(doc_id: str, session: dict = Depends(require_admin)):
+async def aanleverfouten_ack(doc_id: str, session: dict = Depends(require_feature("aanleverfouten"))):
     """Acknowledge (dismiss) an aanleverfout so it stops showing in the list/badge."""
     ok = await aanlever.acknowledge(doc_id)
     _aanlever_cache.clear()  # reflect immediately
@@ -323,7 +323,7 @@ async def aanleverfouten_ack(doc_id: str, session: dict = Depends(require_admin)
 async def document_trace(
     id: str = Query(..., min_length=2, max_length=200),
     data_view: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("documents")),
 ):
     """Trace one document's full lifecycle across services by its Plooi/ronl id."""
     dv = resolve_data_view(data_view)
@@ -338,7 +338,7 @@ async def document_trace(
 async def document_trace_explain(
     id: str = Query(..., min_length=2, max_length=200),
     data_view: str | None = Query(default=None),
-    session: dict = Depends(require_admin),
+    session: dict = Depends(require_feature("documents")),
 ):
     """Grounded, plain-language AI summary of one document's journey. Reports the
     provider/model used. Never fails the request on an LLM error — the error is

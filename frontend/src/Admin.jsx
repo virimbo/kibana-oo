@@ -36,14 +36,28 @@ const CARDS = [
   },
 ];
 
+// Super-admin-only card.
+const SUPER_CARD = {
+  view: "authorization",
+  icon: "🔐",
+  title: "Autorisatie",
+  subtitle: "Authorisation",
+  desc: "Beheer wie toegang heeft tot welke kaarten en tools (gebruiker × functie-matrix).",
+};
+
 export default function AdminPage({
   username,
   onLogout,
   onNavigate,
   llmProvider,
   onProviderChange,
+  can = () => true,
+  isSuper = false,
   stuckCount, aanleverCount,
 }) {
+  // Show only the cards this admin may use; super admin also gets Autorisatie.
+  const cards = CARDS.filter((c) => can(c.view));
+  if (isSuper) cards.push(SUPER_CARD);
   return (
     <>
       <header className="header">
@@ -75,7 +89,7 @@ export default function AdminPage({
             </p>
 
             <div className="admin-grid">
-              {CARDS.map((c) => (
+              {cards.map((c) => (
                 <button
                   key={c.view}
                   type="button"

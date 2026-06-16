@@ -527,7 +527,7 @@ function AanleverfoutenCard({ data, onAck, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, stuckCount, aanleverCount }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -765,7 +765,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           {error && <div className="alert alert--error">{error}</div>}
 
-          {health && (() => {
+          {can("pipeline_health") && health && (() => {
             const atRisk = health.stuck || [];
             const critical = atRisk.filter((d) => d.verdict === "problem").length;
             return atRisk.length > 0 ? (
@@ -822,8 +822,9 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             );
           })()}
 
-          <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />
+          {can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
+          {can("certificates") && (
           <CollapsiblePanel
             id="certs"
             title="Certificate & TLS health"
@@ -878,8 +879,9 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               })()
             )}
           </CollapsiblePanel>
+          )}
 
-          <OutcomesCard data={outcomes} onNavigate={onNavigate} />
+          {can("outcomes") && <OutcomesCard data={outcomes} onNavigate={onNavigate} />}
 
           {snap && (
             <>

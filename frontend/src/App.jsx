@@ -7,6 +7,7 @@ import DocumentsPage from "./Documents";
 import SettingsPage from "./Settings";
 import AdminPage from "./Admin";
 import RegressionPage from "./Regression";
+import AuthorizationPage from "./Authorization";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
@@ -320,7 +321,7 @@ function UserMessage({ msg }) {
 // ─── Chat Page ──────────────────────────────────────────────
 
 function ChatPage({
-  token, username, onLogout, isAdmin, onNavigate,
+  token, username, onLogout, isAdmin, can = () => false, onNavigate,
   llmProvider, onProviderChange, aiEnabled = true,
   autocorrect, showWelcome, showHint, showSuggestions, stuckCount, aanleverCount,
 }) {
@@ -590,12 +591,16 @@ function ChatPage({
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} disabled={loading} />
           {isAdmin && (
             <>
-              <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
-                Dashboard
-              </button>
-              <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
-                Documents
-              </button>
+              {can("dashboard") && (
+                <button className="btn btn--ghost" onClick={() => onNavigate("dashboard")}>
+                  Dashboard
+                </button>
+              )}
+              {can("documents") && (
+                <button className="btn btn--ghost" onClick={() => onNavigate("documents")}>
+                  Documents
+                </button>
+              )}
               <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Beheer (admin)">
                 Beheer
               </button>
@@ -858,7 +863,13 @@ export default function App() {
     () => sessionStorage.getItem("kibana_oo_user") || ""
   );
   const [view, setView] = useState("chat"); // "chat" | "dashboard" | "documents" | "settings"
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [perms, setPerms] = useState(null); // { is_super, features[], catalog[] } | null
+  const can = useCallback(
+    (f) => !!perms && (perms.is_super || (perms.features || []).includes(f)),
+    [perms]
+  );
+  const isSuper = !!perms && perms.is_super;
+  const isAdmin = !!perms && (perms.is_super || (perms.features || []).length > 0);
   // Navigate between views, optionally deep-linking a document to trace (used by
   // the dashboard "documents at risk" list and the header badge).
   const [pendingTrace, setPendingTrace] = useState(null);
@@ -967,22 +978,16 @@ export default function App() {
     };
   }, [token, isAdmin]);
 
-  // Probe admin access: 403 means non-admin; 200/502 means admin (endpoint reached).
+  // What this user may see/do — drives page/card gating (deny-by-default).
   useEffect(() => {
     if (!token) {
-      setIsAdmin(false);
+      setPerms(null);
       return;
     }
     let active = true;
-    // 200 → admin; 502 → admin but ES is down (gating passed before the query);
-    // 403/401 → not an admin / no valid session.
-    getJSON("/dashboard/summary", token)
-      .then(() => active && setIsAdmin(true))
-      .catch(
-        (e) =>
-          active &&
-          setIsAdmin(e.message !== "forbidden" && e.message !== "unauthorized")
-      );
+    getJSON("/me/permissions", token)
+      .then((p) => active && setPerms(p))
+      .catch(() => active && setPerms({ is_super: false, features: [], catalog: [] }));
     return () => {
       active = false;
     };
@@ -1007,7 +1012,7 @@ export default function App() {
     return <LoginPage onLogin={handleLogin} />;
   }
 
-  if (view === "dashboard" && isAdmin) {
+  if (view === "dashboard" && can("dashboard")) {
     return (
       <DashboardPage
         token={token}
@@ -1017,14 +1022,14 @@ export default function App() {
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
+        can={can}
         stuckCount={stuckCount}
-      aanleverCount={aanleverCount}
         aanleverCount={aanleverCount}
       />
     );
   }
 
-  if (view === "documents" && isAdmin) {
+  if (view === "documents" && can("documents")) {
     return (
       <DocumentsPage
         token={token}
@@ -1035,7 +1040,6 @@ export default function App() {
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
         stuckCount={stuckCount}
-      aanleverCount={aanleverCount}
         aanleverCount={aanleverCount}
         initialTraceId={pendingTrace}
       />
@@ -1050,14 +1054,30 @@ export default function App() {
         onNavigate={navigate}
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
+        can={can}
+        isSuper={isSuper}
         stuckCount={stuckCount}
-      aanleverCount={aanleverCount}
         aanleverCount={aanleverCount}
       />
     );
   }
 
-  if (view === "regression" && isAdmin) {
+  if (view === "authorization" && isSuper) {
+    return (
+      <AuthorizationPage
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+      />
+    );
+  }
+
+  if (view === "regression" && can("regression")) {
     return (
       <RegressionPage
         token={token}
@@ -1067,13 +1087,12 @@ export default function App() {
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
         stuckCount={stuckCount}
-      aanleverCount={aanleverCount}
         aanleverCount={aanleverCount}
       />
     );
   }
 
-  if (view === "settings" && isAdmin) {
+  if (view === "settings" && can("settings")) {
     return (
       <SettingsPage
         username={username}
@@ -1084,7 +1103,6 @@ export default function App() {
         onProviderChange={handleProviderChange}
         settings={settings}
         stuckCount={stuckCount}
-      aanleverCount={aanleverCount}
         aanleverCount={aanleverCount}
       />
     );
@@ -1096,6 +1114,7 @@ export default function App() {
       username={username}
       onLogout={handleLogout}
       isAdmin={isAdmin}
+      can={can}
       onNavigate={navigate}
       llmProvider={effectiveProvider}
       onProviderChange={handleProviderChange}

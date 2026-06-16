@@ -2382,3 +2382,19 @@ body {
 .dlq-tile-meta { font-size: 11px; color: var(--text-faint); }
 .dlq-tile-cons { font-size: 10.5px; font-weight: 600; color: var(--success); }
 .dlq-tile-cons--none { color: var(--error); }
+
+/* ── Dashboard section dividers (visual zones) ────────────── */
+.dash-section {
+  margin: 26px 2px 4px;
+  font-size: 11.5px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-faint);
+  display: flex; align-items: center; gap: 12px;
+}
+.dash-section::after {
+  content: ""; flex: 1; height: 1px;
+  background: linear-gradient(90deg, var(--border), transparent);
+}
+.dash-section--alert { color: var(--warn); }
+.dash-section--alert::after { background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 45%, transparent), transparent); }
+/* The first zone sits right under the controls — tighten its top gap. */
+.dash-controls + .dash-section { margin-top: 16px; }

@@ -856,62 +856,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           {error && <div className="alert alert--error">{error}</div>}
 
-          {can("pipeline_health") && health && (() => {
-            const atRisk = health.stuck || [];
-            const critical = atRisk.filter((d) => d.verdict === "problem").length;
-            return atRisk.length > 0 ? (
-              <section className="panel panel--alert">
-                <h3>
-                  🚨 Documents needing attention
-                  <InfoTip text="Documents that are NOT yet live on open.overheid.nl — errored (cannot be published) or stuck/hanging in a service. Surfaced proactively so you act before users report it. Click a document to trace exactly where it failed." />
-                </h3>
-                <p className="pipe-alert">
-                  {atRisk.length} document{atRisk.length === 1 ? "" : "s"} at risk
-                  {critical > 0 ? ` · ${critical} critical` : ""} — act before users notice.
-                </p>
-                <div className="digest-bar">
-                  <button className="btn btn--ghost" onClick={sendDigest} title="Email / Slack this list now">
-                    📧 Send me this digest
-                  </button>
-                  {digestMsg && <span className="digest-msg">{digestMsg}</span>}
-                </div>
-                <ul className="stuck-list">
-                  {atRisk.map((d) => (
-                    <li
-                      key={d.id}
-                      className="stuck-row"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => onNavigate("documents", d.id)}
-                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", d.id)}
-                      title="Click to trace this document"
-                    >
-                      <span className={`stuck-badge stuck-badge--${d.verdict}`}>
-                        {d.verdict === "problem" ? "⛔ CRITICAL" : "🕒"} {d.stuck_stage}
-                      </span>
-                      <span className="stuck-main">
-                        <span className="stuck-title">{d.title || d.id}</span>
-                        <span className="stuck-head">{d.headline}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                {health.confirmed_published > 0 && (
-                  <p className="muted pipe-confirmed">
-                    ✓ {health.confirmed_published} other document{health.confirmed_published === 1 ? "" : "s"} had hiccups but {health.confirmed_published === 1 ? "is" : "are"} already published &amp; readable — not at risk.
-                  </p>
-                )}
-              </section>
-            ) : (
-              <section className="panel">
-                <h3>
-                  🚦 Documents pipeline
-                  <InfoTip text="Proactive check: are any documents failing to reach open.overheid.nl? Updates automatically." />
-                </h3>
-                <p className="pipe-ok">✓ No documents at risk — everything is reaching open.overheid.nl.</p>
-              </section>
-            );
-          })()}
+          <h2 className="dash-section dash-section--alert">Needs attention</h2>
 
           {can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
@@ -974,10 +919,13 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           </CollapsiblePanel>
           )}
 
+          <h2 className="dash-section">Throughput &amp; outcomes</h2>
+
           {can("outcomes") && <OutcomesCard data={outcomes} onNavigate={onNavigate} />}
 
           {snap && (
             <>
+              <h2 className="dash-section">Overview &amp; diagnostics</h2>
               <div className={`status-banner status-banner--${snap.status_level}`}>
                 <strong>
                   {snap.status_level === "ok"
@@ -1207,6 +1155,64 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 )}
               </CollapsiblePanel>
 
+              {can("pipeline_health") && health && (() => {
+                const atRisk = health.stuck || [];
+                const critical = atRisk.filter((d) => d.verdict === "problem").length;
+                return atRisk.length > 0 ? (
+                  <section className="panel panel--alert">
+                    <h3>
+                      🚨 Documents needing attention
+                      <InfoTip text="Documents that are NOT yet live on open.overheid.nl — errored (cannot be published) or stuck/hanging in a service. Surfaced proactively so you act before users report it. Click a document to trace exactly where it failed." />
+                    </h3>
+                    <p className="pipe-alert">
+                      {atRisk.length} document{atRisk.length === 1 ? "" : "s"} at risk
+                      {critical > 0 ? ` · ${critical} critical` : ""} — act before users notice.
+                    </p>
+                    <div className="digest-bar">
+                      <button className="btn btn--ghost" onClick={sendDigest} title="Email / Slack this list now">
+                        📧 Send me this digest
+                      </button>
+                      {digestMsg && <span className="digest-msg">{digestMsg}</span>}
+                    </div>
+                    <ul className="stuck-list">
+                      {atRisk.map((d) => (
+                        <li
+                          key={d.id}
+                          className="stuck-row"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => onNavigate("documents", d.id)}
+                          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", d.id)}
+                          title="Click to trace this document"
+                        >
+                          <span className={`stuck-badge stuck-badge--${d.verdict}`}>
+                            {d.verdict === "problem" ? "⛔ CRITICAL" : "🕒"} {d.stuck_stage}
+                          </span>
+                          <span className="stuck-main">
+                            <span className="stuck-title">{d.title || d.id}</span>
+                            <span className="stuck-head">{d.headline}</span>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {health.confirmed_published > 0 && (
+                      <p className="muted pipe-confirmed">
+                        ✓ {health.confirmed_published} other document{health.confirmed_published === 1 ? "" : "s"} had hiccups but {health.confirmed_published === 1 ? "is" : "are"} already published &amp; readable — not at risk.
+                      </p>
+                    )}
+                  </section>
+                ) : (
+                  <section className="panel">
+                    <h3>
+                      🚦 Documents pipeline
+                      <InfoTip text="Proactive check: are any documents failing to reach open.overheid.nl? Updates automatically." />
+                    </h3>
+                    <p className="pipe-ok">✓ No documents at risk — everything is reaching open.overheid.nl.</p>
+                  </section>
+                );
+              })()}
+
+              {aiEnabled && <h2 className="dash-section">AI insights</h2>}
               {aiEnabled && (
               <CollapsiblePanel
                 id="aitriage"

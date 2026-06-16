@@ -47,6 +47,7 @@ const DEFAULT_DATA_VIEWS = [
   { id: "logs-*", label: "All logs" },
   { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
   { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
+  { id: "apm-*", label: "APM" },
 ];
 
 const DATA_VIEW_KEY = "kibana_oo_dataview";

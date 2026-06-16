@@ -20,6 +20,7 @@ const FALLBACK_DATA_VIEWS = [
   { id: "logs-*", label: "All logs" },
   { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
   { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
+  { id: "apm-*", label: "APM" },
 ];
 const ACTIONS = ["created", "updated", "deleted", "retrieved", "other"];
 

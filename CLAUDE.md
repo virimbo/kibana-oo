@@ -20,6 +20,8 @@ This is the KIBANA-OO project. Update this section with project description as i
   per feature, via `backend/db.py`).
 - **Regression test:** see [docs/regression-test.md](docs/regression-test.md) — the
   post-release health gate for open.overheid.nl (Beheer → Regressietest).
+- **Aanleverfouten:** see [docs/aanleverfouten.md](docs/aanleverfouten.md) — monitors
+  documents rejected at delivery (detect in logs → reconcile → durable incidents).
 
 _Document further architecture decisions here as the project develops._
 

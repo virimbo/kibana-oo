@@ -44,6 +44,14 @@ cross-run questions — "how often has the document-file check failed in the las
 50 runs?" — with a `GROUP BY check_id`, instead of parsing thousands of JSON
 blobs. The summary columns on the run row keep the history list fast.
 
+**Aanleverfouten** (`backend/aanlever.py`) — `aanlever_incidents`: one row per
+rejected document (`doc_id` PK), with `publisher`, `error_key`/`error_type`,
+`message`, `link` (doculoket), `title`, `first_detected`/`last_detected`,
+`status` (open|resolved), and `acknowledged`. A durable incident store (like the
+stuck-doc one, but in the shared DB): OPEN until the document is published on
+open.overheid.nl (auto-resolved) or an admin acknowledges it. See
+[aanleverfouten.md](aanleverfouten.md).
+
 ### Retention
 
 Per feature. Regression uses a **failure-aware count cap**

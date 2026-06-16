@@ -36,6 +36,27 @@ class Settings(BaseSettings):
     cert_audit_interval_hours: float = 24.0
     cert_alert_enabled: bool = True
 
+    # ── Aanleverfouten monitor (documents rejected at delivery/intake) ──
+    # Documents that failed at the doculoket/aanlever stage ("aanleverfout") and
+    # were never published. Detected in the logs, reconciled against the portal
+    # (a published doc = fixed & re-delivered), tracked as durable incidents.
+    # See aanlever.py + docs/aanleverfouten.md.
+    aanlever_enabled: bool = True
+    aanlever_data_view: str = "ds-prod5-koop-plooi*"
+    aanlever_lookback_hours: float = 48.0
+    # Detection — structured-field-first (option D). If the logs carry a status
+    # field, set its dotted name + the values that mean "rejected"; it then takes
+    # precedence. Leave the field empty to use the stage+pattern fallback below.
+    aanlever_status_field: str = ""
+    aanlever_status_values: str = "aanleverfout,afgekeurd,geweigerd,rejected,invalid"
+    # Fallback signal: an ERROR at an intake/aanlever service, OR a message matching
+    # these phrases. Tune to the real ds-prod5-koop-plooi logs.
+    aanlever_services: str = "doculoket,aanlever,aanlevering,gateway,ingest,intake"
+    aanlever_patterns: str = ("aanleverfout,afgekeurd,geweigerd,validatie,validation,"
+                              "schema,herstel,opnieuw aanleveren,rejected,invalid,niet geldig")
+    aanlever_settle_minutes: int = 10     # error must persist this long to count
+    aanlever_alert_enabled: bool = True   # alert (webhook/email) on NEW aanleverfouten
+
     # ── Regression test (post-release health gate for the public portal) ──
     # A robust, data-driven suite run after a prod release to confirm
     # open.overheid.nl still works. See regression.py for the default checks.
@@ -219,6 +240,18 @@ class Settings(BaseSettings):
     @property
     def pipeline_ovs_value_list(self) -> list[str]:
         return self._csv_lower(self.pipeline_ovs_values)
+
+    @property
+    def aanlever_service_list(self) -> list[str]:
+        return self._csv_lower(self.aanlever_services)
+
+    @property
+    def aanlever_pattern_list(self) -> list[str]:
+        return [p.strip() for p in self.aanlever_patterns.split(",") if p.strip()]
+
+    @property
+    def aanlever_status_value_list(self) -> list[str]:
+        return [v.strip() for v in self.aanlever_status_values.split(",") if v.strip()]
 
     @property
     def pipeline_nvs_index_list(self) -> list[str]:

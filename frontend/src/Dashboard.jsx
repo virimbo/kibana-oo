@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
+import AanleverBadge from "./AanleverBadge";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -441,7 +442,102 @@ function CertCard({ c }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount }) {
+// ─── Aanleverfouten card: documents rejected at delivery, by publisher ─────
+const AANLEVER_INFO =
+  "Documents rejected at delivery (aanlevering) and NOT published — the doculoket 'Aanleverfouten'. The errored document never reaches open.overheid.nl, so this is detected in the logs and reconciled: it auto-resolves the moment the corrected document is published. Grouped by publisher so you know who to contact; click a title to trace it, ↗ to open it in doculoket, ✓ to dismiss.";
+
+function AanleverfoutenCard({ data, onAck, onNavigate }) {
+  if (!data) {
+    return (
+      <section className="panel">
+        <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
+        <p className="muted">Laden…</p>
+      </section>
+    );
+  }
+  if (!data.count) {
+    return (
+      <section className="panel">
+        <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
+        <p className="pipe-ok">✓ Geen openstaande aanleverfouten — alles is correct aangeleverd.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="panel panel--alert">
+      <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
+      <p className="pipe-alert">{data.headline} — herstel en lever opnieuw aan.</p>
+
+      {data.by_type && data.by_type.length > 0 && (
+        <div className="aanlever-types">
+          {data.by_type.map((t) => (
+            <span key={t.type} className="aanlever-type">{t.type} · {t.count}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="aanlever-groups">
+        {data.groups.map((g) => (
+          <div key={g.publisher} className="aanlever-group">
+            <div className="aanlever-group-head">
+              <span className="aanlever-pub">{g.publisher}</span>
+              <span className="aanlever-pub-count">{g.count}</span>
+            </div>
+            <ul className="aanlever-list">
+              {g.incidents.map((inc) => (
+                <li key={inc.doc_id} className="aanlever-row">
+                  <span className={`aanlever-tag aanlever-tag--${inc.is_new ? "new" : "old"}`}>
+                    {inc.is_new ? "NIEUW" : "open"}
+                  </span>
+                  <span className="aanlever-main">
+                    <span
+                      className="aanlever-title"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => onNavigate("documents", inc.doc_id)}
+                      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", inc.doc_id)}
+                      title="Trace dit document"
+                    >
+                      {inc.title || inc.doc_id}
+                    </span>
+                    <span className="aanlever-meta">
+                      {inc.error_type}
+                      {inc.service ? ` · ${inc.service}` : ""}
+                      {inc.message ? ` · ${inc.message}` : ""}
+                    </span>
+                  </span>
+                  <span className="aanlever-actions">
+                    {inc.link && (
+                      <a
+                        className="aanlever-link"
+                        href={inc.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        title="Open in doculoket om te herstellen"
+                      >
+                        ↗
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      className="aanlever-ack"
+                      onClick={() => onAck(inc.doc_id)}
+                      title="Afhandelen / negeren"
+                    >
+                      ✓
+                    </button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount }) {
   const [period, setPeriod] = useState(DEFAULT_PERIOD);
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
@@ -454,7 +550,28 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
   const [certs, setCerts] = useState(null); // null = loading
   const [health, setHealth] = useState(null); // documents at risk (stuck / critical)
   const [outcomes, setOutcomes] = useState(null); // throughput/failures by outcome & pipeline
+  const [aanlever, setAanlever] = useState(null); // delivery rejections (aanleverfouten)
   const [digestMsg, setDigestMsg] = useState("");
+
+  // Aanleverfouten — documents rejected at delivery/intake, grouped by publisher.
+  const loadAanlever = useCallback(() => {
+    getJSON("/dashboard/aanleverfouten", token)
+      .then(setAanlever)
+      .catch(() => setAanlever(null));
+  }, [token]);
+  useEffect(() => { loadAanlever(); }, [loadAanlever]);
+
+  const ackAanlever = useCallback(
+    async (docId) => {
+      try {
+        await fetch(`${BACKEND_URL}/dashboard/aanleverfouten/${encodeURIComponent(docId)}/ack`, {
+          method: "POST", headers: { Authorization: `Bearer ${token}` },
+        });
+        loadAanlever();
+      } catch { /* non-fatal */ }
+    },
+    [token, loadAanlever]
+  );
 
   // Certificate expiry — read from Kibana monitoring data, independent of the metrics.
   useEffect(() => {
@@ -595,6 +712,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           </div>
         </div>
         <div className="header-right">
+          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           {onProviderChange && (
             <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
@@ -724,6 +842,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               </section>
             );
           })()}
+
+          <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />
 
           <CollapsiblePanel
             id="certs"

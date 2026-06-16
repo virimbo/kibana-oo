@@ -9,6 +9,7 @@ import AdminPage from "./Admin";
 import RegressionPage from "./Regression";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
+import AanleverBadge from "./AanleverBadge";
 
 const SUGGESTIONS = [
   {
@@ -320,7 +321,7 @@ function UserMessage({ msg }) {
 function ChatPage({
   token, username, onLogout, isAdmin, onNavigate,
   llmProvider, onProviderChange, aiEnabled = true,
-  autocorrect, showWelcome, showHint, showSuggestions, stuckCount,
+  autocorrect, showWelcome, showHint, showSuggestions, stuckCount, aanleverCount,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -583,6 +584,7 @@ function ChatPage({
             <span className="status-dot" />
             {connected === null ? "Checking" : connected ? "Connected" : "Offline"}
           </span>
+          {isAdmin && <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />}
           {isAdmin && <StuckBadge count={stuckCount} onNavigate={onNavigate} />}
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} disabled={loading} />
           {isAdmin && (
@@ -940,16 +942,22 @@ export default function App() {
   // for admins so it shows in every header, on every tab (the cached endpoint
   // keeps this cheap).
   const [stuckCount, setStuckCount] = useState(0);
+  const [aanleverCount, setAanleverCount] = useState(0);
   useEffect(() => {
     if (!token || !isAdmin) {
       setStuckCount(0);
+      setAanleverCount(0);
       return;
     }
     let active = true;
-    const poll = () =>
+    const poll = () => {
       getJSON("/dashboard/pipeline-health", token)
         .then((d) => active && setStuckCount(d.stuck_count || 0))
         .catch(() => {});
+      getJSON("/dashboard/aanleverfouten", token)
+        .then((d) => active && setAanleverCount(d.count || 0))
+        .catch(() => {});
+    };
     poll();
     const id = setInterval(poll, 60000);
     return () => {
@@ -1009,6 +1017,8 @@ export default function App() {
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
         stuckCount={stuckCount}
+      aanleverCount={aanleverCount}
+        aanleverCount={aanleverCount}
       />
     );
   }
@@ -1024,6 +1034,8 @@ export default function App() {
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
         stuckCount={stuckCount}
+      aanleverCount={aanleverCount}
+        aanleverCount={aanleverCount}
         initialTraceId={pendingTrace}
       />
     );
@@ -1038,6 +1050,8 @@ export default function App() {
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
         stuckCount={stuckCount}
+      aanleverCount={aanleverCount}
+        aanleverCount={aanleverCount}
       />
     );
   }
@@ -1052,6 +1066,8 @@ export default function App() {
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
         stuckCount={stuckCount}
+      aanleverCount={aanleverCount}
+        aanleverCount={aanleverCount}
       />
     );
   }
@@ -1067,6 +1083,8 @@ export default function App() {
         onProviderChange={handleProviderChange}
         settings={settings}
         stuckCount={stuckCount}
+      aanleverCount={aanleverCount}
+        aanleverCount={aanleverCount}
       />
     );
   }
@@ -1086,6 +1104,7 @@ export default function App() {
       showHint={showHint}
       showSuggestions={showSuggestions}
       stuckCount={stuckCount}
+      aanleverCount={aanleverCount}
     />
   );
 }

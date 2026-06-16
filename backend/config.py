@@ -36,13 +36,36 @@ class Settings(BaseSettings):
     cert_audit_interval_hours: float = 24.0
     cert_alert_enabled: bool = True
 
+    # ── Aanleverfouten monitor (documents rejected at delivery/intake) ──
+    # Documents that failed at the doculoket/aanlever stage ("aanleverfout") and
+    # were never published. Detected in the logs, reconciled against the portal
+    # (a published doc = fixed & re-delivered), tracked as durable incidents.
+    # See aanlever.py + docs/aanleverfouten.md.
+    aanlever_enabled: bool = True
+    aanlever_data_view: str = "ds-prod5-koop-plooi*"
+    aanlever_lookback_hours: float = 48.0
+    # Detection — structured-field-first (option D). If the logs carry a status
+    # field, set its dotted name + the values that mean "rejected"; it then takes
+    # precedence. Leave the field empty to use the stage+pattern fallback below.
+    aanlever_status_field: str = ""
+    aanlever_status_values: str = "aanleverfout,afgekeurd,geweigerd,rejected,invalid"
+    # Fallback signal: an ERROR at an intake/aanlever service, OR a message matching
+    # these phrases. Tune to the real ds-prod5-koop-plooi logs.
+    aanlever_services: str = "doculoket,aanlever,aanlevering,gateway,ingest,intake"
+    aanlever_patterns: str = ("aanleverfout,afgekeurd,geweigerd,validatie,validation,"
+                              "schema,herstel,opnieuw aanleveren,rejected,invalid,niet geldig")
+    aanlever_settle_minutes: int = 10     # error must persist this long to count
+    aanlever_alert_enabled: bool = True   # alert (webhook/email) on NEW aanleverfouten
+
     # ── Regression test (post-release health gate for the public portal) ──
     # A robust, data-driven suite run after a prod release to confirm
     # open.overheid.nl still works. See regression.py for the default checks.
     regression_target_url: str = "https://open.overheid.nl"
     # A known, published document (UUID) used by the content-correctness checks.
     regression_known_doc_id: str = "1a7e9fc7-0be6-4815-90a9-e733d79a5f07"
-    regression_db_path: str = "/app/data/regression.db"
+    # Keep at most this many runs; pruning drops oldest PASS first (failures live
+    # longest) and never removes the most recent run.
+    regression_history_cap: int = 1000
     # Set to enable the token-authenticated CI trigger (POST /regression/trigger
     # with header X-Regression-Token). Empty = endpoint disabled.
     regression_trigger_token: str = ""
@@ -122,6 +145,9 @@ class Settings(BaseSettings):
     # — across restarts and beyond the scan window — until they are actually
     # resolved (published or progressed). Put this on a mounted volume.
     incident_db_path: str = "/app/data/incidents.db"
+    # Shared database for feature run/audit logs (regression runs, etc.) — one
+    # file, a table per feature. Put it on the same mounted volume. See db.py.
+    app_db_path: str = "/app/data/kibana_oo.db"
     # Per scan, re-check at most this many open incidents that fell outside the
     # scan window against the public portal to auto-resolve published ones.
     incident_reverify_max: int = 60
@@ -214,6 +240,18 @@ class Settings(BaseSettings):
     @property
     def pipeline_ovs_value_list(self) -> list[str]:
         return self._csv_lower(self.pipeline_ovs_values)
+
+    @property
+    def aanlever_service_list(self) -> list[str]:
+        return self._csv_lower(self.aanlever_services)
+
+    @property
+    def aanlever_pattern_list(self) -> list[str]:
+        return [p.strip() for p in self.aanlever_patterns.split(",") if p.strip()]
+
+    @property
+    def aanlever_status_value_list(self) -> list[str]:
+        return [v.strip() for v in self.aanlever_status_values.split(",") if v.strip()]
 
     @property
     def pipeline_nvs_index_list(self) -> list[str]:

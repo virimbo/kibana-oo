@@ -1,5 +1,6 @@
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
+import AanleverBadge from "./AanleverBadge";
 
 // A reusable on/off switch.
 function Toggle({ checked, onChange, label, hint, disabled = false }) {
@@ -50,7 +51,7 @@ export default function SettingsPage({
   selectedProvider,
   onProviderChange,
   settings,
-  stuckCount,
+  stuckCount, aanleverCount,
 }) {
   const {
     aiEnabled, setAiEnabled,
@@ -71,6 +72,7 @@ export default function SettingsPage({
           </div>
         </div>
         <div className="header-right">
+          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
           <button className="btn btn--ghost" onClick={() => onNavigate("admin")} title="Terug naar Beheer">← Beheer</button>

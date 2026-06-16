@@ -1,5 +1,6 @@
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
+import AanleverBadge from "./AanleverBadge";
 
 // Admin landing hub ("Beheer"). A single entry point that gathers every
 // management surface as a card, so the admin tools have one clear home and the
@@ -41,7 +42,7 @@ export default function AdminPage({
   onNavigate,
   llmProvider,
   onProviderChange,
-  stuckCount,
+  stuckCount, aanleverCount,
 }) {
   return (
     <>
@@ -54,6 +55,7 @@ export default function AdminPage({
           </div>
         </div>
         <div className="header-right">
+          <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
           <button className="btn btn--ghost" onClick={() => onNavigate("chat")}>Chat</button>

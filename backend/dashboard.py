@@ -16,6 +16,7 @@ from config import settings
 from documents import build_document_activity, build_pipeline_health, build_pipeline_outcomes, trace_document
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view
+import aanlever
 import regression
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,7 @@ _documents_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _trace_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _health_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _outcomes_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
+_aanlever_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
 # Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
 ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
@@ -243,12 +245,48 @@ async def regression_runs(limit: int = Query(default=20, ge=1, le=100),
     return {"runs": await regression.list_runs(limit)}
 
 
+@router.get("/regression/reliability")
+async def regression_reliability(limit: int = Query(default=50, ge=1, le=500),
+                                 session: dict = Depends(require_admin)):
+    """Per-check pass/warn/fail counts over the last `limit` runs — flaky-check radar."""
+    return {"checks": await regression.reliability(limit), "window": limit}
+
+
 @router.get("/regression/runs/{run_id}")
 async def regression_run_detail(run_id: str, session: dict = Depends(require_admin)):
     run = await regression.get_run(run_id)
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     return run.model_dump()
+
+
+# ── Aanleverfouten (documents rejected at delivery/intake) ───────────────────
+@router.get("/aanleverfouten")
+async def aanleverfouten(
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_admin),
+):
+    """Documents rejected at the doculoket/aanlever stage, grouped by publisher +
+    error type. Durable (open until published or acknowledged), reconciled against
+    open.overheid.nl. Cached so the badge poll is cheap."""
+    cached = _aanlever_cache.get("view")
+    if cached is not None:
+        return cached
+    try:
+        view = await aanlever.scan(session["sid"], data_view)
+    except Exception as e:
+        logger.error(f"Aanleverfouten scan failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to load aanleverfouten: {e}")
+    _aanlever_cache.set("view", view)
+    return view
+
+
+@router.post("/aanleverfouten/{doc_id}/ack")
+async def aanleverfouten_ack(doc_id: str, session: dict = Depends(require_admin)):
+    """Acknowledge (dismiss) an aanleverfout so it stops showing in the list/badge."""
+    ok = await aanlever.acknowledge(doc_id)
+    _aanlever_cache.clear()  # reflect immediately
+    return {"acknowledged": ok}
 
 
 @router.get("/document-trace")

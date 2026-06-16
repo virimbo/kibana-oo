@@ -563,39 +563,47 @@ function DlqCard({ data }) {
       </section>
     );
   }
-  const nonempty = (data.dlqs || []).filter((d) => d.depth > 0);
-  if (nonempty.length === 0) {
-    return (
-      <section className="panel">
-        <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
-        <p className="pipe-ok">✓ {data.headline}</p>
-      </section>
-    );
-  }
+  const dlqs = data.dlqs || [];
+  const counts = { ok: 0, warn: 0, critical: 0 };
+  dlqs.forEach((d) => { counts[d.severity] = (counts[d.severity] || 0) + 1; });
+  const hasProblem = counts.warn + counts.critical > 0;
+  const ICON = { ok: "✓", warn: "⚠", critical: "⛔" };
+  const shortName = (d) => (d.source || d.name).split("-in.")[0].split("msvc-").pop() || d.name;
+
   return (
-    <section className="panel panel--alert">
-      <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
-      <p className="pipe-alert">{data.headline} — reprocess of herstel de oorzaak.</p>
-      <ul className="dlq-list">
-        {nonempty.map((d) => (
-          <li key={d.name} className={`dlq-row dlq-row--${d.severity}`}>
-            <span className="dlq-depth">{d.depth.toLocaleString("nl-NL")}</span>
-            <span className="dlq-main">
-              <span className="dlq-name">{d.name}</span>
-              <span className="dlq-meta">
-                {d.ready}/{d.unacked} ready/unacked · {d.state || "—"}
-                {d.first_seen ? ` · stuck ${dlqAge(d.first_seen)}` : ""}
-                {d.source_consumers === 0
-                  ? " · ⛔ source has NO consumer"
-                  : d.source_consumers != null
-                  ? ` · source ${d.source_consumers} consumer${d.source_consumers === 1 ? "" : "s"}`
-                  : ""}
-              </span>
-            </span>
-            <span className={`dlq-sev dlq-sev--${d.severity}`}>{d.severity}</span>
-          </li>
+    <section className={`panel${hasProblem ? " panel--alert" : ""}`}>
+      <h3>
+        🐰 Dead-letter queues <InfoTip text={DLQ_INFO} />
+        <span className="dlq-summary">
+          {counts.critical > 0 && <span className="dlq-pill dlq-pill--critical">⛔ {counts.critical} critical</span>}
+          {counts.warn > 0 && <span className="dlq-pill dlq-pill--warn">⚠ {counts.warn} warning</span>}
+          <span className="dlq-pill dlq-pill--ok">✓ {counts.ok}/{dlqs.length} healthy</span>
+        </span>
+      </h3>
+
+      <div className="dlq-grid">
+        {dlqs.map((d) => (
+          <div key={d.name} className={`dlq-tile dlq-tile--${d.severity}`} title={d.name}>
+            <div className="dlq-tile-top">
+              <span className="dlq-tile-icon" aria-hidden="true">{ICON[d.severity]}</span>
+              <span className="dlq-tile-num">{d.depth.toLocaleString("nl-NL")}</span>
+            </div>
+            <div className="dlq-tile-name" title={d.name}>{shortName(d)}</div>
+            <div className="dlq-tile-meta">
+              {d.depth === 0
+                ? "empty"
+                : `${d.depth.toLocaleString("nl-NL")} stuck${d.first_seen ? ` · ${dlqAge(d.first_seen)}` : ""}`}
+            </div>
+            <div className={`dlq-tile-cons${d.source_consumers === 0 ? " dlq-tile-cons--none" : ""}`}>
+              {d.source_consumers === 0
+                ? "⛔ no consumer"
+                : d.source_consumers != null
+                ? `▶ ${d.source_consumers} consumer${d.source_consumers === 1 ? "" : "s"}`
+                : "—"}
+            </div>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }

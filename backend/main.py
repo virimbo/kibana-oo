@@ -27,6 +27,8 @@ from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router, get_cached_snapshot, get_cached_health
 from cert_monitor import run_cert_monitor_loop
+from auth import require_super
+import permissions
 import regression
 
 logging.basicConfig(level=logging.INFO)
@@ -36,6 +38,10 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Start background workers on boot, cancel them on shutdown."""
+    try:
+        permissions.ensure_seeded()  # one-time: grant existing admins all features
+    except Exception as e:  # noqa: BLE001 — must not block startup
+        logger.error(f"Feature-grant seeding failed: {e}")
     cert_task = asyncio.create_task(run_cert_monitor_loop())
     logger.info("Started daily TLS certificate monitor.")
     try:
@@ -152,6 +158,48 @@ async def data_views():
         ],
         "default": _resolve_data_view(None),
     }
+
+
+# ── Authorisation (feature grants) ────────────────────────────────────────────
+class GrantBody(BaseModel):
+    username: str
+    feature: str
+
+
+@app.get("/me/permissions")
+async def my_permissions(session: dict = Depends(require_session)):
+    """What the current user may see/do — the frontend renders from this."""
+    username = session["username"]
+    return {
+        "username": username,
+        "is_super": permissions.is_super(username),
+        "features": permissions.user_features(username),
+        "catalog": permissions.CATALOG,
+    }
+
+
+@app.get("/admin/grants")
+async def list_grants(session: dict = Depends(require_super)):
+    """The full authorisation matrix (super admin only)."""
+    return permissions.matrix()
+
+
+@app.post("/admin/grants")
+async def add_grant(body: GrantBody, session: dict = Depends(require_super)):
+    if not permissions.grant(body.username, body.feature, session["username"]):
+        raise HTTPException(status_code=400, detail="Unknown feature")
+    return {"ok": True}
+
+
+@app.delete("/admin/grants")
+async def remove_grant(body: GrantBody, session: dict = Depends(require_super)):
+    permissions.revoke(body.username, body.feature, session["username"])
+    return {"ok": True}
+
+
+@app.get("/admin/grants/audit")
+async def grants_audit(session: dict = Depends(require_super)):
+    return {"audit": permissions.audit_log(200)}
 
 
 @app.post("/login")

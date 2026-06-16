@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # KIBANA-OO — AI Log Assistant
 
 Ask questions about your Kibana logs in plain language. KIBANA-OO uses LLAMA (AI model running on your computer) to search and summarize your Elasticsearch logs.

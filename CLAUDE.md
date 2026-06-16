@@ -32,6 +32,8 @@ This is the KIBANA-OO project. Update this section with project description as i
   documents rejected at delivery (detect in logs → reconcile → durable incidents).
 - **Time range:** see [docs/time-range.md](docs/time-range.md) — shared presets +
   custom from→to window (additive `from`/`to`; the `period` path is unchanged).
+- **Authorization:** see [docs/authorization.md](docs/authorization.md) — super admin
+  (config) + per-user × per-feature grant matrix; `require_feature` enforces server-side.
 
 _Document further architecture decisions here as the project develops._
 

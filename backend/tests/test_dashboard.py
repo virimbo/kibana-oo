@@ -26,10 +26,14 @@ from session import _sessions
 
 
 @pytest.fixture
-def client(monkeypatch):
+def client(monkeypatch, tmp_path):
     app = FastAPI()
     app.include_router(dashboard.router)
+    # New model: access is by feature grant. Make the admin a SUPER admin (has all
+    # features); the non-admin has no grants in the isolated DB → 403.
+    monkeypatch.setattr(dashboard.settings, "super_admins", "boss@koop.nl")
     monkeypatch.setattr(dashboard.settings, "dashboard_admins", "boss@koop.nl")
+    monkeypatch.setattr(dashboard.settings, "app_db_path", str(tmp_path / "app.db"))
     _sessions.clear()
     _sessions["admin-tok"] = {"username": "boss@koop.nl", "sid": "sid1"}
     _sessions["user-tok"] = {"username": "intern@koop.nl", "sid": "sid2"}

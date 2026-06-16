@@ -19,6 +19,10 @@ class Settings(BaseSettings):
     dashboard_cache_ttl: int = 60          # seconds; summary cache TTL
     dashboard_timezone: str = "Europe/Amsterdam"
     dashboard_admins: str = ""             # comma-separated admin usernames/emails
+    # Super admins (comma-separated emails): the root of trust. They have EVERY
+    # feature implicitly and are the only ones who can manage the authorisation
+    # matrix. Defined here in config so it can never be revoked via the UI.
+    super_admins: str = "anton.partono@koop.overheid.nl"
     # Views treated as a superset of others — excluded from rollup totals to avoid
     # double counting (still shown as their own per-system tile).
     dashboard_superset_views: str = "logs-*"
@@ -302,6 +306,10 @@ class Settings(BaseSettings):
             if name and name not in seen:
                 seen.append(name)
         return seen
+
+    @property
+    def super_admin_list(self) -> list[str]:
+        return [n.strip().lower() for n in self.super_admins.split(",") if n.strip()]
 
     @property
     def rollup_views(self) -> list[str]:

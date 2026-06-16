@@ -44,6 +44,12 @@ cross-run questions — "how often has the document-file check failed in the las
 50 runs?" — with a `GROUP BY check_id`, instead of parsing thousands of JSON
 blobs. The summary columns on the run row keep the history list fast.
 
+**Authorization** (`backend/permissions.py`) — `feature_grants` (one row per
+`username`+`feature`, the access matrix), `feature_grants_audit` (every
+grant/revoke/seed with actor + timestamp), and `feature_grants_meta` (the
+run-once seed flag). Super admins are in config, not here. See
+[authorization.md](authorization.md).
+
 **Aanleverfouten** (`backend/aanlever.py`) — `aanlever_incidents`: one row per
 rejected document (`doc_id` PK), with `publisher`, `error_key`/`error_type`,
 `message`, `link` (doculoket), `title`, `first_detected`/`last_detected`,

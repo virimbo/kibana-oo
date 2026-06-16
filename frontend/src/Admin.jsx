@@ -1,6 +1,7 @@
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import DlqBadge from "./DlqBadge";
 
 // Admin landing hub ("Beheer"). A single entry point that gathers every
 // management surface as a card, so the admin tools have one clear home and the
@@ -53,7 +54,7 @@ export default function AdminPage({
   onProviderChange,
   can = () => true,
   isSuper = false,
-  stuckCount, aanleverCount,
+  stuckCount, aanleverCount, dlqCount,
 }) {
   // Show only the cards this admin may use; super admin also gets Autorisatie.
   const cards = CARDS.filter((c) => can(c.view));
@@ -69,6 +70,7 @@ export default function AdminPage({
           </div>
         </div>
         <div className="header-right">
+          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
           <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />

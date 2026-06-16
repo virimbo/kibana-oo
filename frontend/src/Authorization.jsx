@@ -3,6 +3,7 @@ import { getJSON } from "./api";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import DlqBadge from "./DlqBadge";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
@@ -12,7 +13,7 @@ const fmtWhen = (iso) => (iso ? new Date(iso).toLocaleString("nl-NL") : "");
 // a user access to a card/tool; uncheck to revoke. Add users by email to
 // pre-authorise them before their first login.
 export default function AuthorizationPage({
-  token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount,
+  token, username, onLogout, onNavigate, llmProvider, onProviderChange, stuckCount, aanleverCount, dlqCount,
 }) {
   const [data, setData] = useState(null);     // { catalog, users, super_admins }
   const [extra, setExtra] = useState([]);     // emails added locally, no grants yet
@@ -175,6 +176,7 @@ function Shell({ username, onLogout, onNavigate, llmProvider, onProviderChange, 
           </div>
         </div>
         <div className="header-right">
+          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
           <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />

@@ -61,6 +61,18 @@ class Settings(BaseSettings):
     aanlever_settle_minutes: int = 10     # error must persist this long to count
     aanlever_alert_enabled: bool = True   # alert (webhook/email) on NEW aanleverfouten
 
+    # ── RabbitMQ DLQ monitor ──────────────────────────────────────────────
+    # Read-only Management-API monitoring of dead-letter queues. Inert until the
+    # api_url + user + password are set. See rabbitmq_dlq.py + docs/rabbitmq-dlq.md.
+    rabbitmq_api_url: str = "https://rabbitmq.koop-plooi-prd.prod5.s15m.nl"
+    rabbitmq_user: str = ""
+    rabbitmq_password: str = ""
+    rabbitmq_dlq_suffix: str = ".dlq"     # queues ending in this are dead-letter queues
+    rabbitmq_critical_messages: int = 100  # a DLQ at/above this depth is CRITICAL
+    rabbitmq_poll_interval_minutes: float = 5.0
+    rabbitmq_alert_enabled: bool = True
+    rabbitmq_timeout: float = 10.0
+
     # ── Regression test (post-release health gate for the public portal) ──
     # A robust, data-driven suite run after a prod release to confirm
     # open.overheid.nl still works. See regression.py for the default checks.
@@ -310,6 +322,10 @@ class Settings(BaseSettings):
     @property
     def super_admin_list(self) -> list[str]:
         return [n.strip().lower() for n in self.super_admins.split(",") if n.strip()]
+
+    @property
+    def rabbitmq_configured(self) -> bool:
+        return bool(self.rabbitmq_api_url and self.rabbitmq_user and self.rabbitmq_password)
 
     @property
     def rollup_views(self) -> list[str]:

@@ -17,6 +17,7 @@ from documents import build_document_activity, build_pipeline_health, build_pipe
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view, resolve_window
 import aanlever
+import rabbitmq_dlq
 import regression
 
 logger = logging.getLogger(__name__)
@@ -317,6 +318,17 @@ async def aanleverfouten_ack(doc_id: str, session: dict = Depends(require_featur
     ok = await aanlever.acknowledge(doc_id)
     _aanlever_cache.clear()  # reflect immediately
     return {"acknowledged": ok}
+
+
+@router.get("/dlq")
+async def dlq(session: dict = Depends(require_feature("rabbitmq"))):
+    """RabbitMQ dead-letter queues: each DLQ's depth + its source-queue context,
+    graded. Served from the background poll's latest snapshot."""
+    try:
+        return await rabbitmq_dlq.latest()
+    except Exception as e:
+        logger.error(f"DLQ view failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Failed to load DLQ status: {e}")
 
 
 @router.get("/document-trace")

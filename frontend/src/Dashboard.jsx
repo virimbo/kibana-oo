@@ -5,6 +5,7 @@ import { getJSON } from "./api";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import DlqBadge from "./DlqBadge";
 import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
@@ -527,7 +528,79 @@ function AanleverfoutenCard({ data, onAck, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, stuckCount, aanleverCount }) {
+// ─── RabbitMQ dead-letter queues card ──────────────────────────────────────
+const DLQ_INFO =
+  "RabbitMQ dead-letter queues (*.dlq). A non-empty DLQ means messages failed processing and are stuck. Each is paired with its source queue: if the source has 0 consumers, nothing will drain it (critical). Read-only via the RabbitMQ Management API; polled in the background and alerts when a DLQ fills.";
+
+function dlqAge(iso) {
+  if (!iso) return "";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (isNaN(ms) || ms < 0) return "";
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60);
+  return h < 24 ? `${h}h ${m % 60}m` : `${Math.floor(h / 24)}d ${h % 24}h`;
+}
+
+function DlqCard({ data }) {
+  if (!data || data.configured === false) {
+    return (
+      <section className="panel">
+        <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
+        <p className="muted">
+          {data && data.configured === false
+            ? "Not configured — set RABBITMQ_USER / RABBITMQ_PASSWORD in .env."
+            : "Loading…"}
+        </p>
+      </section>
+    );
+  }
+  if (data.error) {
+    return (
+      <section className="panel panel--alert">
+        <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
+        <p className="pipe-alert">⚠ {data.error}.</p>
+      </section>
+    );
+  }
+  const nonempty = (data.dlqs || []).filter((d) => d.depth > 0);
+  if (nonempty.length === 0) {
+    return (
+      <section className="panel">
+        <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
+        <p className="pipe-ok">✓ {data.headline}</p>
+      </section>
+    );
+  }
+  return (
+    <section className="panel panel--alert">
+      <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
+      <p className="pipe-alert">{data.headline} — reprocess of herstel de oorzaak.</p>
+      <ul className="dlq-list">
+        {nonempty.map((d) => (
+          <li key={d.name} className={`dlq-row dlq-row--${d.severity}`}>
+            <span className="dlq-depth">{d.depth.toLocaleString("nl-NL")}</span>
+            <span className="dlq-main">
+              <span className="dlq-name">{d.name}</span>
+              <span className="dlq-meta">
+                {d.ready}/{d.unacked} ready/unacked · {d.state || "—"}
+                {d.first_seen ? ` · stuck ${dlqAge(d.first_seen)}` : ""}
+                {d.source_consumers === 0
+                  ? " · ⛔ source has NO consumer"
+                  : d.source_consumers != null
+                  ? ` · source ${d.source_consumers} consumer${d.source_consumers === 1 ? "" : "s"}`
+                  : ""}
+              </span>
+            </span>
+            <span className={`dlq-sev dlq-sev--${d.severity}`}>{d.severity}</span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, stuckCount, aanleverCount, dlqCount }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -542,6 +615,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
   const [health, setHealth] = useState(null); // documents at risk (stuck / critical)
   const [outcomes, setOutcomes] = useState(null); // throughput/failures by outcome & pipeline
   const [aanlever, setAanlever] = useState(null); // delivery rejections (aanleverfouten)
+  const [dlq, setDlq] = useState(null);           // RabbitMQ dead-letter queues
   const [digestMsg, setDigestMsg] = useState("");
 
   // Aanleverfouten — documents rejected at delivery/intake, grouped by publisher.
@@ -551,6 +625,14 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
       .catch(() => setAanlever(null));
   }, [token]);
   useEffect(() => { loadAanlever(); }, [loadAanlever]);
+
+  // RabbitMQ dead-letter queues (only if granted).
+  useEffect(() => {
+    if (!can("rabbitmq")) return;
+    let active = true;
+    getJSON("/dashboard/dlq", token).then((d) => active && setDlq(d)).catch(() => active && setDlq(null));
+    return () => { active = false; };
+  }, [token, can]);
 
   const ackAanlever = useCallback(
     async (docId) => {
@@ -703,6 +785,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           </div>
         </div>
         <div className="header-right">
+          <DlqBadge count={dlqCount} onNavigate={onNavigate} />
           <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
           <StuckBadge count={stuckCount} onNavigate={onNavigate} />
           {onProviderChange && (
@@ -823,6 +906,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           })()}
 
           {can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
+
+          {can("rabbitmq") && <DlqCard data={dlq} />}
 
           {can("certificates") && (
           <CollapsiblePanel

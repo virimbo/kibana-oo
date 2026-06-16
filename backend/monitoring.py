@@ -44,8 +44,54 @@ def period_bounds(period_minutes: int, now: datetime | None = None) -> tuple[dat
     return start, end
 
 
+def _parse_window_dt(value, now: datetime) -> datetime | None:
+    """Parse an ISO-8601 string or epoch-ms number into an aware UTC datetime."""
+    if value is None or value == "":
+        return None
+    try:
+        if isinstance(value, (int, float)) or (isinstance(value, str) and value.strip().isdigit()):
+            return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    except (ValueError, OverflowError, OSError):
+        return None
+
+
+def resolve_window(period_minutes: int, frm=None, to=None,
+                   now: datetime | None = None) -> tuple[datetime, datetime, bool]:
+    """The query window. With a valid absolute from/to, use it (validated: end is
+    clamped to now — no future; start < end); otherwise fall back to the rolling
+    [now - period, now]. Returns (start, end, is_custom)."""
+    now = now or datetime.now(timezone.utc)
+    f = _parse_window_dt(frm, now)
+    t = _parse_window_dt(to, now)
+    if f is None and t is None:
+        start, end = period_bounds(period_minutes, now)
+        return start, end, False
+    span = timedelta(minutes=period_minutes or 60)
+    end = min(t or now, now)            # never query into the future
+    start = f if f is not None else end - span
+    if start >= end:                    # bad/empty range → keep a sane span
+        start = end - span
+    return start, end, True
+
+
 def timeseries_interval(period_minutes: int) -> str:
     return _INTERVALS.get(period_minutes, "5m")
+
+
+def interval_for_span(start: datetime, end: datetime, target: int = 60) -> str:
+    """A fixed_interval that yields ~`target` buckets over [start, end] — so a
+    custom/large range never explodes the histogram. Returns an ES interval
+    string (e.g. '5m', '2h', '1d')."""
+    secs = max(60.0, (end - start).total_seconds())
+    step_min = max(1, round(secs / target / 60))
+    if step_min < 60:
+        return f"{step_min}m"
+    step_h = max(1, round(step_min / 60))
+    if step_h < 24:
+        return f"{step_h}h"
+    return f"{max(1, round(step_h / 24))}d"
 
 
 def critical_query(start: datetime, end: datetime) -> dict:
@@ -73,21 +119,23 @@ def critical_query(start: datetime, end: datetime) -> dict:
     }
 
 
-def snapshot_body(start: datetime, end: datetime, interval: str, tz_name: str) -> dict:
-    """size:0 aggregation body for the selected data view's window."""
+def snapshot_body(start: datetime, end: datetime, interval: str | None, tz_name: str) -> dict:
+    """size:0 aggregation body for the selected data view's window. A fixed
+    `interval` is used for preset periods (unchanged); `interval=None` switches to
+    auto_date_histogram, so an arbitrary/very-large custom range always yields a
+    sane number of bars instead of exploding the bucket count."""
+    over_time = (
+        {"auto_date_histogram": {"field": "@timestamp", "buckets": 60, "time_zone": tz_name}}
+        if interval is None
+        else {"date_histogram": {"field": "@timestamp", "fixed_interval": interval,
+                                 "time_zone": tz_name, "min_doc_count": 0}}
+    )
     return {
         "size": 0,
         "track_total_hits": True,
         "query": critical_query(start, end),
         "aggs": {
-            "over_time": {
-                "date_histogram": {
-                    "field": "@timestamp",
-                    "fixed_interval": interval,
-                    "time_zone": tz_name,
-                    "min_doc_count": 0,
-                }
-            },
+            "over_time": over_time,
             "signatures": {
                 "terms": {"field": "error.type", "size": 10, "missing": "(untyped)"},
                 "aggs": {
@@ -391,16 +439,27 @@ async def build_snapshot(
     period_minutes: int,
     data_view: str | None,
     now: datetime | None = None,
+    *,
+    start: datetime | None = None,
+    end: datetime | None = None,
 ) -> DashboardSnapshot:
     """Resolve the window once, fan out concurrent queries, assemble one
     consistent snapshot for the selected data view. Headline numbers come from
     that view; per-system tiles show every whitelisted view for the same window;
-    the delta compares to the immediately preceding equal-length period."""
+    the delta compares to the immediately preceding equal-length period.
+
+    An explicit `start`/`end` (a custom absolute range) overrides the rolling
+    `period_minutes` window and uses an auto-scaled histogram; when omitted the
+    behaviour is exactly as before."""
     tz = settings.dashboard_timezone
     dv = resolve_data_view(data_view)
-    start, end = period_bounds(period_minutes, now)
+    if start is not None and end is not None:
+        period_minutes = max(1, int((end - start).total_seconds() // 60))
+        interval = None  # auto_date_histogram — robust at any range
+    else:
+        start, end = period_bounds(period_minutes, now)
+        interval = timeseries_interval(period_minutes)
     prev_start = start - (end - start)
-    interval = timeseries_interval(period_minutes)
     views = settings.data_view_list
 
     agg_task = _es_search(sid, dv, snapshot_body(start, end, interval, tz))

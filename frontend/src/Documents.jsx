@@ -4,6 +4,7 @@ import { InfoTip } from "./Dashboard";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import TimeRange, { timeParams, loadRange, saveRange } from "./TimeRange";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -297,7 +298,8 @@ function PipelineHealth({ health, onTrace }) {
 }
 
 export default function DocumentsPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount, initialTraceId }) {
-  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const [range, setRange] = useState(loadRange);
+  const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
   const [data, setData] = useState(null);
@@ -369,7 +371,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
     setError("");
     try {
       const d = await getJSON(
-        `/dashboard/documents?period=${period}&data_view=${encodeURIComponent(dataView)}`,
+        `/dashboard/documents?${timeParams(range)}&data_view=${encodeURIComponent(dataView)}`,
         token
       );
       setData(d);
@@ -380,7 +382,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
     } finally {
       setLoading(false);
     }
-  }, [period, dataView, token, onLogout]);
+  }, [timeParams(range), dataView, token, onLogout]);
 
   useEffect(() => {
     load();
@@ -469,18 +471,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
           <div className="dash-controls">
             <label className="control">
               <span className="control-label">Period</span>
-              <select
-                className="control-select"
-                value={period}
-                onChange={(e) => setPeriod(Number(e.target.value))}
-                disabled={loading}
-              >
-                {PERIODS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              <TimeRange value={range} onChange={onRangeChange} disabled={loading} />
             </label>
             <label className="control">
               <span className="control-label">Data view</span>

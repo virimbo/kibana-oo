@@ -2287,3 +2287,18 @@ body {
 .reg-history-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .reg-history-when { font-size: 12.5px; color: var(--text-primary); }
 .reg-history-counts { font-size: 11.5px; margin-left: auto; }
+
+/* ── Shared time-range control (presets + custom from→to) ──── */
+.timerange { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.timerange-custom { display: flex; align-items: flex-end; gap: 8px; flex-wrap: wrap; }
+.timerange-field { display: flex; flex-direction: column; gap: 2px; }
+.timerange-field span { font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.03em; }
+.timerange-field input {
+  font: inherit; font-size: 12.5px; color: var(--text-primary);
+  background: var(--bg-input); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); padding: 5px 8px;
+  color-scheme: dark;
+}
+.timerange-field input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.timerange-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.timerange-err { font-size: 11.5px; color: var(--error); align-self: center; }

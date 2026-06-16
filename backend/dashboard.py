@@ -15,7 +15,7 @@ from certificates import fetch_certificates
 from config import settings
 from documents import build_document_activity, build_pipeline_health, build_pipeline_outcomes, trace_document
 from llm import provider_model
-from monitoring import build_snapshot, resolve_data_view
+from monitoring import build_snapshot, resolve_data_view, resolve_window
 import aanlever
 import regression
 
@@ -31,26 +31,38 @@ _health_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _outcomes_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 _aanlever_cache = TTLCache(ttl=settings.dashboard_cache_ttl)
 
-# Allowed rolling periods (minutes). FastAPI returns 422 for anything else.
-ALLOWED_PERIODS = {15, 30, 60, 360, 1440}
+# Allowed rolling presets (minutes): 15m, 30m, 1h, 6h, 24h, 7d, 30d, 90d, 1y.
+# (Arbitrary windows go through the from/to path, not this preset list.)
+ALLOWED_PERIODS = {15, 30, 60, 360, 1440, 10080, 43200, 129600, 525600}
 
 
 def _period(value: int) -> int:
     return value if value in ALLOWED_PERIODS else 15
 
 
-async def get_cached_snapshot(sid: str, period: int, data_view: str | None) -> dict:
+def _window(period: int, frm: str | None, to: str | None):
+    """(start, end) or (None, None) — the latter means use the rolling period."""
+    start, end, custom = resolve_window(_period(period), frm, to)
+    return (start, end) if custom else (None, None)
+
+
+async def get_cached_snapshot(sid: str, period: int, data_view: str | None,
+                              frm: str | None = None, to: str | None = None) -> dict:
     """Cluster snapshot as a dict, served from the shared dashboard cache. Used by
     BOTH the /summary endpoint and the chat health path, so a health question
     reuses the dashboard's already-computed facts instead of re-running dozens of
-    Elasticsearch queries on every message (which made chat slow / time out)."""
+    Elasticsearch queries on every message (which made chat slow / time out).
+
+    With an absolute from/to it queries that window; otherwise the rolling period
+    (unchanged)."""
     period = _period(period)
     dv = resolve_data_view(data_view)
-    key = f"summary:{dv}:{period}"
+    start, end = _window(period, frm, to)
+    key = f"summary:{dv}:{period}:{start.isoformat() if start else ''}:{end.isoformat() if end else ''}"
     cached = _summary_cache.get(key)
     if cached is not None:
         return cached
-    payload = (await build_snapshot(sid, period, dv)).model_dump()
+    payload = (await build_snapshot(sid, period, dv, start=start, end=end)).model_dump()
     _summary_cache.set(key, payload)
     return payload
 
@@ -72,10 +84,12 @@ async def get_cached_health(sid: str, data_view: str | None) -> dict:
 async def summary(
     period: int = Query(default=15),
     data_view: str | None = Query(default=None),
+    frm: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
     session: dict = Depends(require_admin),
 ):
     try:
-        return await get_cached_snapshot(session["sid"], period, data_view)
+        return await get_cached_snapshot(session["sid"], period, data_view, frm, to)
     except Exception as e:
         logger.error(f"Dashboard summary failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load dashboard: {e}")
@@ -86,17 +100,21 @@ async def briefing(
     period: int = Query(default=15),
     data_view: str | None = Query(default=None),
     regenerate: bool = Query(default=False),
+    frm: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
     session: dict = Depends(require_admin),
 ):
     period = _period(period)
     dv = resolve_data_view(data_view)
-    key = f"briefing:{dv}:{period}"
+    start, end = _window(period, frm, to)
+    wkey = f"{start.isoformat() if start else ''}:{end.isoformat() if end else ''}"
+    key = f"briefing:{dv}:{period}:{wkey}"
     if not regenerate:
         cached = _briefing_cache.get(key)
         if cached is not None:
             return cached
     try:
-        snap = await build_snapshot(session["sid"], period, dv)
+        snap = await build_snapshot(session["sid"], period, dv, start=start, end=end)
         text = await generate_briefing(snap, session=session)
     except Exception as e:
         logger.error(f"Dashboard briefing failed: {e}")
@@ -130,17 +148,21 @@ async def certificates(session: dict = Depends(require_admin)):
 async def documents(
     period: int = Query(default=60),
     data_view: str | None = Query(default=None),
+    frm: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
     session: dict = Depends(require_admin),
 ):
     """Document-flow activity: lifecycle events, types, errors, and a live feed."""
     period = _period(period)
     dv = resolve_data_view(data_view)
-    key = f"documents:{dv}:{period}"
+    start, end = _window(period, frm, to)
+    wkey = f"{start.isoformat() if start else ''}:{end.isoformat() if end else ''}"
+    key = f"documents:{dv}:{period}:{wkey}"
     cached = _documents_cache.get(key)
     if cached is not None:
         return cached
     try:
-        activity = await build_document_activity(session["sid"], period, dv)
+        activity = await build_document_activity(session["sid"], period, dv, start=start, end=end)
     except Exception as e:
         logger.error(f"Document activity failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load document activity: {e}")
@@ -178,19 +200,23 @@ async def pipeline_health(
 async def outcomes(
     period: int = Query(default=60),
     data_view: str | None = Query(default=None),
+    frm: str | None = Query(default=None, alias="from"),
+    to: str | None = Query(default=None),
     session: dict = Depends(require_admin),
 ):
     """Document outcomes for the window, split by pipeline (OVS/NVS): published,
     updated, withdrawn, failed-to-publish, plus success rate, backlog, latency and
-    trend. Cached per (data view, period)."""
+    trend. Cached per (data view, window)."""
     period = _period(period)
     dv = resolve_data_view(data_view)
-    key = f"outcomes:{dv}:{period}"
+    start, end = _window(period, frm, to)
+    wkey = f"{start.isoformat() if start else ''}:{end.isoformat() if end else ''}"
+    key = f"outcomes:{dv}:{period}:{wkey}"
     cached = _outcomes_cache.get(key)
     if cached is not None:
         return cached
     try:
-        result = await build_pipeline_outcomes(session["sid"], period, dv)
+        result = await build_pipeline_outcomes(session["sid"], period, dv, start=start, end=end)
     except Exception as e:
         logger.error(f"Pipeline outcomes failed: {e}")
         raise HTTPException(status_code=502, detail=f"Failed to load pipeline outcomes: {e}")

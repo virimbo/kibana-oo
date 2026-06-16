@@ -1,5 +1,13 @@
 # KIBANA-OO Project
 
+## ⛔ READ FIRST — [RULES.md](RULES.md)
+
+**Before changing ANY existing/working code, read [RULES.md](RULES.md) and ask
+permission first.** Do not modify existing working code without an explicit "yes"
+— **especially the certificate / TLS code** (`backend/certificates.py`,
+`backend/cert_monitor.py`), which is FROZEN. New files/features are fine; editing
+existing working code is not, without asking.
+
 ## Overview
 
 This is the KIBANA-OO project. Update this section with project description as it evolves.

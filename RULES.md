@@ -32,6 +32,15 @@
   (e.g. "fix X", "change Y") — that request *is* the permission, for X/Y only.
 - Reading, analysing, testing, running — anything non-mutating.
 
+## Gotchas that have bitten us (check these)
+
+- **New top-level backend API route ⇒ add it to `frontend/nginx.conf`.** nginx only
+  proxies an explicit list of paths; a new route under a *new* prefix (e.g. `/me/`,
+  `/admin/`, `/llm-provider`) is NOT proxied by default, so in the browser it 404s/
+  405s while working fine on `:8000` directly. New routes under `/dashboard/` are
+  already covered. When adding `/<newprefix>/...`, add a `location /<newprefix>/`
+  block to nginx.conf and redeploy the frontend.
+
 ## Reminder for the assistant
 
 At the start of work: **read RULES.md**, and if the task implies editing existing

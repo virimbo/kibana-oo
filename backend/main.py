@@ -83,6 +83,7 @@ DATA_VIEW_LABELS = {
     "logs-*": "All logs",
     "ds-prod5-koop-plooi*": "KOOP Plooi (prod5)",
     "ds-prod5-koop-sp": "KOOP SP (prod5)",
+    "apm-*": "APM",
 }
 
 

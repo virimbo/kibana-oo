@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     # Data views the user can choose to query (comma-separated ES index patterns).
     # Acts as a whitelist — only these patterns may be searched.
-    data_views: str = "logs-*,ds-prod5-koop-plooi*,ds-prod5-koop-sp"
+    data_views: str = "logs-*,ds-prod5-koop-plooi*,ds-prod5-koop-sp,apm-*"
     default_data_view: str = "logs-*"
 
     # Dashboard

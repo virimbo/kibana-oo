@@ -5,19 +5,10 @@ import { getJSON } from "./api";
 import ProviderSwitcher from "./ProviderSwitcher";
 import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
+import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
-const PERIODS = [
-  { value: 15, label: "Last 15 min" },
-  { value: 30, label: "Last 30 min" },
-  { value: 60, label: "Last 1 hour" },
-  { value: 360, label: "Last 6 hours" },
-  { value: 1440, label: "Last 24 hours" },
-];
-
-// Defaults requested by the operator.
-const DEFAULT_PERIOD = 15;
 const DEFAULT_DATA_VIEW = "logs-*";
 
 const FALLBACK_DATA_VIEWS = [
@@ -26,8 +17,6 @@ const FALLBACK_DATA_VIEWS = [
   { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
   { id: "apm-*", label: "APM" },
 ];
-
-const periodLabel = (v) => PERIODS.find((p) => p.value === v)?.label || `${v} min`;
 
 const fmtDate = (iso) =>
   new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short", year: "numeric" }).format(
@@ -539,7 +528,8 @@ function AanleverfoutenCard({ data, onAck, onNavigate }) {
 }
 
 export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, stuckCount, aanleverCount }) {
-  const [period, setPeriod] = useState(DEFAULT_PERIOD);
+  const [range, setRange] = useState(loadRange);
+  const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
   const [dataViews, setDataViews] = useState(FALLBACK_DATA_VIEWS);
   const [snap, setSnap] = useState(null);
@@ -602,7 +592,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
     let active = true;
     setOutcomes(null);
     getJSON(
-      `/dashboard/outcomes?period=${period}&data_view=${encodeURIComponent(dataView)}`,
+      `/dashboard/outcomes?${timeParams(range)}&data_view=${encodeURIComponent(dataView)}`,
       token
     )
       .then((d) => active && setOutcomes(d))
@@ -610,7 +600,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
     return () => {
       active = false;
     };
-  }, [period, dataView, token]);
+  }, [timeParams(range), dataView, token]);
 
   // Load the data-view list for the dropdown (single source of truth).
   useEffect(() => {
@@ -633,7 +623,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
     setError("");
     try {
       const data = await getJSON(
-        `/dashboard/summary?period=${period}&data_view=${encodeURIComponent(dataView)}`,
+        `/dashboard/summary?${timeParams(range)}&data_view=${encodeURIComponent(dataView)}`,
         token
       );
       setSnap(data);
@@ -644,7 +634,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
     } finally {
       setLoading(false);
     }
-  }, [period, dataView, token, onLogout]);
+  }, [timeParams(range), dataView, token, onLogout]);
 
   useEffect(() => {
     load();
@@ -655,7 +645,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
       setBriefingState("loading");
       try {
         const data = await getJSON(
-          `/dashboard/briefing?period=${period}&data_view=${encodeURIComponent(dataView)}${
+          `/dashboard/briefing?${timeParams(range)}&data_view=${encodeURIComponent(dataView)}${
             regenerate ? "&regenerate=true" : ""
           }`,
           token
@@ -666,7 +656,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
         setBriefingState("error");
       }
     },
-    [period, dataView, token]
+    [timeParams(range), dataView, token]
   );
 
   // Auto-load the briefing once the numbers for this window are in — but only
@@ -708,7 +698,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           <div className="brand-text">
             <span className="brand-name">Monitoring</span>
             <span className="brand-sub">
-              Critical issues · {periodLabel(period)} · {dataView}
+              Critical issues · {rangeLabel(range)} · {dataView}
             </span>
           </div>
         </div>
@@ -739,21 +729,9 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           <div className="dash-controls">
             <label className="control">
               <span className="control-label">
-                Period <InfoTip text="How far back to analyze — a rolling window ending now (e.g. the last 15 minutes)." />
+                Period <InfoTip text="A quick preset (rolling window ending now) or a custom from→to range — pick any dates, including very old data." />
               </span>
-              <select
-                className="control-select"
-                value={period}
-                onChange={(e) => setPeriod(Number(e.target.value))}
-                disabled={loading}
-                title="Rolling time window to analyze"
-              >
-                {PERIODS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              <TimeRange value={range} onChange={onRangeChange} disabled={loading} />
             </label>
 
             <label className="control">
@@ -922,7 +900,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     {snap.total} <Delta pct={snap.delta.pct_vs_previous} />
                   </span>
                   <span className="kpi-label">
-                    criticals · {periodLabel(period).toLowerCase()}
+                    criticals · {rangeLabel(range).toLowerCase()}
                     <InfoTip text="Error-level logs, server errors (HTTP 5xx) and APM errors in the selected window. The arrow compares to the period just before it." />
                   </span>
                 </div>

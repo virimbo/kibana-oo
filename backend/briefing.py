@@ -22,6 +22,8 @@ def build_facts(snap: DashboardSnapshot) -> str:
     """Serialize the deterministic snapshot into the JSON facts the LLM narrates."""
     facts = {
         "period_minutes": snap.period_minutes,
+        "window_start": snap.window_start,
+        "window_end": snap.window_end,
         "data_view": snap.data_view,
         "total_criticals": snap.total,
         "status": snap.status_level,

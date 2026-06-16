@@ -30,6 +30,8 @@ This is the KIBANA-OO project. Update this section with project description as i
   post-release health gate for open.overheid.nl (Beheer → Regressietest).
 - **Aanleverfouten:** see [docs/aanleverfouten.md](docs/aanleverfouten.md) — monitors
   documents rejected at delivery (detect in logs → reconcile → durable incidents).
+- **Time range:** see [docs/time-range.md](docs/time-range.md) — shared presets +
+  custom from→to window (additive `from`/`to`; the `period` path is unchanged).
 
 _Document further architecture decisions here as the project develops._
 

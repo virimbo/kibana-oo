@@ -12,7 +12,7 @@ async def test_get_cached_snapshot_computes_once_then_serves_cache(monkeypatch):
         def model_dump(self):
             return {"total": 1, "data_view": "logs-*"}
 
-    async def fake_build(sid, period, dv):
+    async def fake_build(sid, period, dv, *, start=None, end=None):
         calls["n"] += 1
         return _Snap()
 
@@ -43,7 +43,7 @@ async def test_get_cached_health_computes_once_then_serves_cache(monkeypatch):
 
 async def test_get_cached_snapshot_normalizes_bad_period(monkeypatch):
     """An odd period is normalized (so the cache key is stable and valid)."""
-    async def fake_build(sid, period, dv):
+    async def fake_build(sid, period, dv, *, start=None, end=None):
         assert period in dashboard.ALLOWED_PERIODS  # normalized before use
         class _S:
             def model_dump(self_inner):

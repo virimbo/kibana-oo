@@ -13,7 +13,7 @@ import incidents
 import pipeline
 from elastic import _es_search, extract_doc_ids
 from config import settings
-from monitoring import _flatten, _first_field, period_bounds, timeseries_interval, summarize_doc, resolve_data_view
+from monitoring import _flatten, _first_field, period_bounds, timeseries_interval, interval_for_span, summarize_doc, resolve_data_view
 from portal import fetch_document_meta
 
 _ERROR_LEVELS = ["error", "ERROR", "fatal", "FATAL", "critical", "CRITICAL"]
@@ -353,11 +353,17 @@ class DocumentActivity(BaseModel):
     events: list[dict]
 
 
-async def build_document_activity(sid: str, period_minutes: int, data_view: str | None) -> DocumentActivity:
+async def build_document_activity(sid: str, period_minutes: int, data_view: str | None,
+                                  *, start: datetime | None = None,
+                                  end: datetime | None = None) -> DocumentActivity:
     dv = resolve_data_view(data_view)
-    start, end = period_bounds(period_minutes)
+    if start is not None and end is not None:
+        period_minutes = max(1, int((end - start).total_seconds() // 60))
+        interval = interval_for_span(start, end)
+    else:
+        start, end = period_bounds(period_minutes)
+        interval = timeseries_interval(period_minutes)
     prev_start = start - (end - start)
-    interval = timeseries_interval(period_minutes)
 
     ts_res, feed_res, failed_res, prior_res, issues_res = await asyncio.gather(
         _es_search(sid, dv, _timeseries_body(start, end, interval)),
@@ -914,7 +920,8 @@ def _classify_window(groups: dict[str, list[dict]], settle_seconds: float, now: 
 
 
 async def build_pipeline_outcomes(
-    sid: str, period_minutes: int, data_view: str | None = None, now: datetime | None = None
+    sid: str, period_minutes: int, data_view: str | None = None, now: datetime | None = None,
+    *, start: datetime | None = None, end: datetime | None = None,
 ) -> dict:
     """Document OUTCOMES for the selected window, split by pipeline (OVS/NVS):
     how many were published / updated / withdrawn, how many FAILED to publish from
@@ -926,7 +933,10 @@ async def build_pipeline_outcomes(
     views = settings.data_view_list
     settle_seconds = settings.incident_settle_minutes * 60
     size = settings.pipeline_health_scan_size
-    start, end = period_bounds(period_minutes, now)
+    if start is not None and end is not None:
+        period_minutes = max(1, int((end - start).total_seconds() // 60))
+    else:
+        start, end = period_bounds(period_minutes, now)
     prev_start = start - (end - start)
 
     cur_events, prev_events = await asyncio.gather(

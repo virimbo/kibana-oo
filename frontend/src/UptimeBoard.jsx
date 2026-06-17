@@ -98,14 +98,19 @@ export default function UptimeBoard({ token }) {
         <span className={`up-rollup up-rollup--${headCls}`}>{headText}</span>
       </h2>
 
-      {(data.groups || []).map((g) => (
-        <div key={g.env} className="up-group">
-          <div className="up-group-label">{g.env}</div>
-          <div className="up-grid">
-            {g.sites.map((s) => <SiteCard key={s.name} s={s} />)}
+      <div className="env-columns">
+        {(data.groups || []).map((g) => (
+          <div key={g.env} className={`env-col env-col--${g.env.toLowerCase()}`}>
+            <div className="env-col-head">
+              {g.env}
+              <span className="env-col-count">{g.sites.length}</span>
+            </div>
+            <div className="env-col-body">
+              {g.sites.map((s) => <SiteCard key={s.name} s={s} />)}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </section>
   );
 }

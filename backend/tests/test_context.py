@@ -140,3 +140,69 @@ def test_card_ai_endpoint_ai_off(monkeypatch):
     monkeypatch.setattr(settings, "llm_provider", "none")
     out = asyncio.run(api.card_ai("card:dlq", None, None, session={}))
     assert out == {"enabled": False}
+
+
+# ── runbook actions ("WAT TE DOEN NU") ───────────────────────────────────────
+import datetime as _dt  # noqa: E402
+
+
+def _runbook(_vault, body="## Bij DOWN\n- PROD: bel iedereen\n- ACC: bel Firas\n- TST: bel Anton\n"
+             "## Bij certificaat bijna verlopen\n- PROD: vernieuw cert\n", updated="2026-06-17"):
+    _vault.joinpath("runbook.md").write_text(
+        f"---\ntitle: RB\ncomponent: runbook-actions\nbijgewerkt: {updated}\n---\n{body}",
+        encoding="utf-8")
+    engine._index_cache.clear()
+
+
+def test_parse_runbook_conditions_and_env_normalisation(_vault):
+    _runbook(_vault)
+    rb = engine.parse_runbook()
+    assert rb["conditions"]["down"] == {"PROD": "bel iedereen", "ACC": "bel Firas", "TEST": "bel Anton"}
+    assert rb["conditions"]["cert"] == {"PROD": "vernieuw cert"}
+    assert rb["updated"] == "2026-06-17"
+
+
+def test_runbook_action_lookup_and_missing(_vault):
+    _runbook(_vault)
+    assert engine.runbook_action("down", "TST") == "bel Anton"   # TST → TEST
+    assert engine.runbook_action("down", "acc") == "bel Firas"   # case-insensitive
+    assert engine.runbook_action("cert", "ACC") is None          # not defined
+
+
+def test_runbook_stale_flag():
+    assert engine._runbook_stale("2020-01-01", today=_dt.date(2026, 6, 17)) is True
+    assert engine._runbook_stale("2026-06-01", today=_dt.date(2026, 6, 17)) is False
+    assert engine._runbook_stale(None) is False
+    assert engine._runbook_stale("not-a-date") is False
+
+
+def test_derive_condition():
+    assert engine._derive_condition("uptime:x", "down") == ("down", True)
+    assert engine._derive_condition("uptime:x", "degraded") == ("down", False)
+    assert engine._derive_condition("uptime:x", "unreachable") == ("down", False)
+    assert engine._derive_condition("uptime:x", "up") == (None, False)
+    assert engine._derive_condition("cert:x", "critical") == ("cert", True)
+    assert engine._derive_condition("cert:x", "warning") == ("cert", False)
+    assert engine._derive_condition("cert:x", "ok") == (None, False)
+
+
+def test_assemble_includes_action_when_down(_vault, monkeypatch):
+    _runbook(_vault)
+    monkeypatch.setitem(engine.REGISTRY, "uptime:acc-site", "availability")
+    info = engine.assemble("uptime:acc-site", label="open-acc", status="down", env="ACC")
+    a = info["action"]
+    assert a and a["text"] == "bel Firas" and a["urgent"] is True and a["missing"] is False
+    assert a["condition"] == "down" and a["env"] == "ACC"
+
+
+def test_assemble_action_missing_when_no_rule(_vault):
+    _runbook(_vault)
+    info = engine.assemble("cert:open-acc.overheid.nl", label="open-acc", status="critical", env="ACC")
+    a = info["action"]
+    assert a and a["condition"] == "cert" and a["missing"] is True and a["text"] is None
+
+
+def test_assemble_no_action_when_healthy(_vault):
+    _runbook(_vault)
+    info = engine.assemble("cert:open.overheid.nl", label="open", status="ok", env="PROD")
+    assert info["action"] is None

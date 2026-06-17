@@ -48,6 +48,7 @@ export default function useCardContext(isKnown) {
         id,
         label: el.getAttribute("data-smartlabel") || null,
         status: el.getAttribute("data-smartstatus") || null,
+        env: el.getAttribute("data-smartenv") || null,
       };
     },
     [isKnown]
@@ -57,9 +58,10 @@ export default function useCardContext(isKnown) {
     clearTimers();
     const apply = () =>
       setActive((prev) =>
-        prev && prev.id === card.id && prev.label === card.label && prev.status === card.status
+        prev && prev.id === card.id && prev.label === card.label &&
+        prev.status === card.status && prev.env === card.env
           ? prev
-          : { id: card.id, label: card.label, status: card.status }
+          : { id: card.id, label: card.label, status: card.status, env: card.env }
       );
     if (immediate) apply();
     else openTimer.current = setTimeout(apply, OPEN_DELAY);

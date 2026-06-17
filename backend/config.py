@@ -251,6 +251,9 @@ class Settings(BaseSettings):
     # auto-discover docs/KIBANA-OO relative to the code (local dev). In a
     # container, mount the vault and set SMART_CONTEXT_VAULT_PATH.
     smart_context_vault_path: str = ""
+    # Runbook ("WAT TE DOEN NU"): warn that the runbook note is possibly outdated
+    # when its `bijgewerkt:` date is older than this many days.
+    smart_context_runbook_stale_days: int = 180
 
     # ── Uptime / availability monitor (Beschikbaarheid) ───────────────────────
     # Background HTTP probe of a configured list of sites (PROD/ACC/TEST), shown

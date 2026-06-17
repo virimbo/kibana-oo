@@ -36,7 +36,7 @@ function StatusSpark({ history }) {
   );
 }
 
-function SiteCard({ s }) {
+function SiteCard({ s, env }) {
   const meta = STATE_META[s.state] || STATE_META.unreachable;
   return (
     <div
@@ -44,6 +44,7 @@ function SiteCard({ s }) {
       data-smartcard={`uptime:${s.name}`}
       data-smartlabel={s.name}
       data-smartstatus={s.state}
+      data-smartenv={env}
       title={s.url}
     >
       <div className="up-tile-top">
@@ -106,7 +107,7 @@ export default function UptimeBoard({ token }) {
               <span className="env-col-count">{g.sites.length}</span>
             </div>
             <div className="env-col-body">
-              {g.sites.map((s) => <SiteCard key={s.name} s={s} />)}
+              {g.sites.map((s) => <SiteCard key={s.name} s={s} env={g.env} />)}
             </div>
           </div>
         ))}

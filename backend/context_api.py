@@ -41,6 +41,7 @@ def card(
     card_id: str,
     label: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    env: str | None = Query(default=None),
     session: dict = Depends(require_feature("smart_context")),
 ):
     if not settings.smart_context_enabled:
@@ -48,7 +49,7 @@ def card(
     if not engine.is_known_card(card_id):
         raise HTTPException(status_code=404, detail="Unknown card")
     try:
-        return engine.assemble(card_id, label=_sanitize(label), status=_sanitize(status))
+        return engine.assemble(card_id, label=_sanitize(label), status=_sanitize(status), env=_sanitize(env))
     except Exception as e:  # noqa: BLE001 — degrade rather than 500 the panel
         logger.warning("SmartContext card assembly failed for %s: %s", card_id, e)
         raise HTTPException(status_code=502, detail="Context unavailable") from e

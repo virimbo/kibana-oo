@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import date
 from pathlib import Path
 
 from cache import TTLCache
@@ -69,9 +70,9 @@ REGISTRY: dict[str, str] = {
     "uptime:doculoket-acc.overheid.nl": "availability",
     "uptime:gateway-zoek (test)": "availability",
 }
-# Any card id starting with this prefix maps to the availability component, so
-# renaming a target in UPTIME_TARGETS still resolves without a code change.
-_PREFIX_FALLBACK = {"uptime:": "availability"}
+# Any card id starting with this prefix maps to the given component, so renaming a
+# target (uptime) or host (cert) still resolves without a code change.
+_PREFIX_FALLBACK = {"uptime:": "availability", "cert:": "certificates"}
 
 # Risk → a coarse health hint when the card supplies no live status.
 _RISK_RANK = {"low": "ok", "medium": "warn", "high": "crit", "critical": "crit"}
@@ -99,6 +100,7 @@ def vault_root() -> Path:
 _SCALAR_FIELDS = {
     "title", "component", "purpose-business", "purpose-technical",
     "risk", "owner", "health", "last-incident",
+    "bijgewerkt", "eigenaar",  # runbook note: last-reviewed date + owner
 }
 _LIST_FIELDS = {"dependencies", "related", "component"}
 _TODO_RE = re.compile(r"^\s*[-*]\s+\[([ xX])\]\s+(.+?)\s*$")
@@ -222,9 +224,10 @@ def registry_map() -> dict[str, str]:
     return dict(REGISTRY)
 
 
-def assemble(card_id: str, label: str | None = None, status: str | None = None) -> dict:
-    """Build the panel's fast (non-AI) payload for a card. `label`/`status` are
-    display-only values the card already shows (sanitised by the API layer)."""
+def assemble(card_id: str, label: str | None = None, status: str | None = None,
+             env: str | None = None) -> dict:
+    """Build the panel's fast (non-AI) payload for a card. `label`/`status`/`env`
+    are display-only values the card already shows (sanitised by the API layer)."""
     component_id = _resolve_component(card_id)
     if component_id is None:
         raise KeyError(card_id)  # caller returns 404
@@ -256,6 +259,108 @@ def assemble(card_id: str, label: str | None = None, status: str | None = None) 
         "todos": entry["todos"] if entry else [],
         "doc": doc,
         "documented": entry is not None,
+        "action": _build_action(card_id, status, env),
+    }
+
+
+# ── Runbook actions ("WAT TE DOEN NU") ───────────────────────────────────────
+_RUNBOOK_COMPONENT = "runbook-actions"
+_ENV_ALIASES = {
+    "PROD": "PROD", "PRODUCTIE": "PROD", "PRODUCTION": "PROD",
+    "ACC": "ACC", "ACCEPTATIE": "ACC", "ACCEPTANCE": "ACC",
+    "TEST": "TEST", "TST": "TEST",
+}
+_CONDITION_LABEL = {"down": "Bij DOWN", "cert": "Bij certificaat bijna verlopen"}
+
+
+def _normalize_env(env: str | None) -> str | None:
+    if not env:
+        return None
+    key = env.strip().upper()
+    return _ENV_ALIASES.get(key, key)
+
+
+def _condition_from_heading(text: str) -> str | None:
+    t = text.lower()
+    if "down" in t:
+        return "down"
+    if "cert" in t:  # "certificaat" / "certificate"
+        return "cert"
+    return None
+
+
+def parse_runbook() -> dict:
+    """Parse the runbook note → {conditions: {cond: {ENV: action}}, updated, owner,
+    note}. Headings are conditions; '- ENV: action' bullets are per-env actions."""
+    entry = _get_index().get(_RUNBOOK_COMPONENT)
+    if not entry:
+        return {"conditions": {}, "updated": None, "owner": None, "note": None}
+    conditions: dict[str, dict[str, str]] = {}
+    current: str | None = None
+    for raw in entry["body"].splitlines():
+        line = raw.strip()
+        if line.startswith("#"):
+            current = _condition_from_heading(line.lstrip("#").strip())
+            if current:
+                conditions.setdefault(current, {})
+            continue
+        if current and (line.startswith("-") or line.startswith("*")):
+            item = line[1:].strip()
+            if ":" in item:
+                env, _, action = item.partition(":")
+                env_n = _normalize_env(env)
+                action = action.strip()
+                if env_n and action:
+                    conditions[current][env_n] = action
+    meta = entry["meta"]
+    return {"conditions": conditions, "updated": meta.get("bijgewerkt"),
+            "owner": meta.get("eigenaar"), "note": entry["file"]}
+
+
+def runbook_action(condition: str, env: str | None) -> str | None:
+    """The action string for a (condition, env), or None if not defined."""
+    return parse_runbook()["conditions"].get(condition, {}).get(_normalize_env(env) or "")
+
+
+def _runbook_stale(updated: str | None, today: date | None = None) -> bool:
+    if not updated:
+        return False
+    try:
+        d = date.fromisoformat(str(updated).strip())
+    except ValueError:
+        return False
+    ref = today or date.today()
+    return (ref - d).days > settings.smart_context_runbook_stale_days
+
+
+def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, bool]:
+    """(condition, urgent) from the card type + its live status, else (None, False)."""
+    s = (status or "").strip().lower()
+    if card_id.startswith("uptime:") and s in ("down", "degraded", "unreachable"):
+        return "down", s == "down"
+    if card_id.startswith("cert:") and s in ("warning", "critical", "expired"):
+        return "cert", s in ("critical", "expired")
+    return None, False
+
+
+def _build_action(card_id: str, status: str | None, env: str | None) -> dict | None:
+    """The 'WAT TE DOEN NU' payload, or None when the card is healthy."""
+    condition, urgent = _derive_condition(card_id, status)
+    if not condition:
+        return None
+    rb = parse_runbook()
+    norm_env = _normalize_env(env)
+    text = rb["conditions"].get(condition, {}).get(norm_env or "")
+    return {
+        "text": text or None,
+        "label": _CONDITION_LABEL.get(condition, condition),
+        "condition": condition,
+        "env": norm_env,
+        "urgent": urgent,
+        "missing": not text,
+        "runbook_updated": rb["updated"],
+        "runbook_stale": _runbook_stale(rb["updated"]),
+        "note": rb["note"],
     }
 
 

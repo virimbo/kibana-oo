@@ -15,6 +15,8 @@ const STRINGS = {
     none: "Geen", loading: "Laden…", aiThinking: "AI analyseert…",
     aiOff: "AI-analyse niet beschikbaar.", noDoc: "Nog niet gedocumenteerd in de vault.",
     pin: "Vastgezet — Esc om te sluiten", close: "Sluiten",
+    actionNow: "WAT TE DOEN NU", actionMissing: "Geen actie vastgelegd — vul de runbook aan.",
+    runbookUpdated: "runbook bijgewerkt", runbookStale: "⚠ runbook mogelijk verouderd — controleer",
   },
   en: {
     title: "Context", info: "Card information", purposeB: "Business purpose",
@@ -24,6 +26,8 @@ const STRINGS = {
     none: "None", loading: "Loading…", aiThinking: "AI is analysing…",
     aiOff: "AI analysis unavailable.", noDoc: "Not yet documented in the vault.",
     pin: "Pinned — press Esc to close", close: "Close",
+    actionNow: "WHAT TO DO NOW", actionMissing: "No action defined — please update the runbook.",
+    runbookUpdated: "runbook updated", runbookStale: "⚠ runbook may be outdated — review",
   },
 };
 
@@ -64,6 +68,7 @@ export default function SmartContextPanel({ token, aiEnabled = true, lang = "nl"
     const p = new URLSearchParams();
     if (active.label) p.set("label", active.label);
     if (active.status) p.set("status", active.status);
+    if (active.env) p.set("env", active.env);
     const s = p.toString();
     return s ? `?${s}` : "";
   }, [active]);
@@ -123,6 +128,25 @@ export default function SmartContextPanel({ token, aiEnabled = true, lang = "nl"
 
         {info && (
           <>
+            {info.action && (
+              <section className={`scp-action ${info.action.urgent ? "scp-action--urgent" : "scp-action--warn"}`}>
+                <div className="scp-action-head">⚠ {t.actionNow}</div>
+                {info.action.text ? (
+                  <div className="scp-action-text">{info.action.text}</div>
+                ) : (
+                  <div className="scp-action-missing">{t.actionMissing}</div>
+                )}
+                <div className="scp-action-meta">
+                  <span className="scp-action-tag">{[info.action.env, info.action.label].filter(Boolean).join(" · ")}</span>
+                  {info.action.runbook_stale ? (
+                    <span className="scp-action-stale">{t.runbookStale}</span>
+                  ) : info.action.runbook_updated ? (
+                    <span className="scp-action-upd">{t.runbookUpdated}: {info.action.runbook_updated}</span>
+                  ) : null}
+                </div>
+              </section>
+            )}
+
             {info.purpose_business && <Field label={t.purposeB} value={info.purpose_business} />}
             {info.purpose_technical && <Field label={t.purposeT} value={info.purpose_technical} />}
             {info.dependencies?.length > 0 && <Chips label={t.deps} items={info.dependencies} />}

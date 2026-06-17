@@ -32,7 +32,9 @@ class Settings(BaseSettings):
     # Public hosts whose TLS certificate we ACTIVELY probe (independent of Kibana),
     # so the expiry countdown and any trust/chain/hostname issues are always
     # visible. Comma-separated host[:port]. Read-only outbound TLS.
-    cert_probe_hosts: str = "open.overheid.nl,doculoket.overheid.nl"
+    cert_probe_hosts: str = ("open.overheid.nl,doculoket.overheid.nl,"
+                             "open-acc.overheid.nl,doculoket-acc.overheid.nl,"
+                             "gateway-zoek.koop-plooi-tst.test5.s15m.nl")
     cert_probe_timeout: float = 6.0        # seconds; keep short so it never stalls the card
     cert_check_revocation: bool = True     # best-effort OCSP revocation check per cert
     # Daily proactive TLS audit: re-checks every host on this interval and alerts

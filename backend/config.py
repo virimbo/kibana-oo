@@ -249,6 +249,30 @@ class Settings(BaseSettings):
     # container, mount the vault and set SMART_CONTEXT_VAULT_PATH.
     smart_context_vault_path: str = ""
 
+    # ── Uptime / availability monitor (Beschikbaarheid) ───────────────────────
+    # Background HTTP probe of a configured list of sites (PROD/ACC/TEST), shown
+    # as a prominent top-of-dashboard board. Additive & off by default. See
+    # uptime.py + uptime_api.py + docs/KIBANA-OO/Beschikbaarheid (uptime).md.
+    uptime_enabled: bool = False
+    # One target per line: `name | env | url | expected | internal?`
+    #   expected = acceptable status tokens (2xx,3xx,4xx,5xx) or codes (200,302)
+    #   internal = VPN-only host → a connect failure is "unreachable" (grey),
+    #              not "down" (red); public hosts treat a failure as "down".
+    uptime_targets: str = (
+        "open.overheid.nl | PROD | https://open.overheid.nl | 2xx,3xx\n"
+        "doculoket.overheid.nl | PROD | https://doculoket.overheid.nl | 2xx,3xx\n"
+        "admin (login) | PROD | http://admin-main-admin.koop-plooi-prd.prod5.s15m.nl/login | 2xx,3xx | internal\n"
+        "open-acc.overheid.nl | ACC | https://open-acc.overheid.nl | 2xx,3xx\n"
+        "doculoket-acc.overheid.nl | ACC | https://doculoket-acc.overheid.nl | 2xx,3xx\n"
+        "gateway-zoek (test) | TEST | https://gateway-zoek.koop-plooi-tst.test5.s15m.nl/ | 2xx,3xx,401,404 | internal"
+    )
+    uptime_interval: int = 60            # seconds between full probe cycles
+    uptime_timeout: float = 8.0          # per-request timeout (seconds)
+    uptime_degraded_ms: int = 2000       # slower than this (but up) = DEGRADED
+    uptime_settle_minutes: float = 2.0   # DOWN must persist this long before alerting
+    uptime_alert_enabled: bool = True    # alert (webhook/email) when a site goes DOWN
+    uptime_history: int = 30             # rolling samples kept per site (sparkline/uptime%)
+
     # Backend
     backend_port: int = 8000
     frontend_origin: str = "http://localhost:3000"

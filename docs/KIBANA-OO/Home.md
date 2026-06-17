@@ -40,6 +40,8 @@ flowchart TD
 - [[Document tracer]] — trace one document's journey + AI explain
 - [[Document lifecycle (pipeline)]] — the canonical pipeline: how far a doc got, is it healthy, is it stuck (1-1 with the dashboard)
 - [[Monitoring dashboard]] — daily critical-issue dashboard
+- [[Dashboard - statusoverzicht]] — 🇳🇱 de overzichtsrij (statustegels) + inklapbare zones, voor beheerders
+- [[Navigatie]] — 🇳🇱 de gedeelde menubalk: actieve pagina, Beheer-subpagina's, rechten
 - [[LLM providers]] — Ollama vs Mistral, the switcher, installing a key
 - [[KOOP Plooi log schema]] — the real (non-ECS) field names
 - [[open.overheid.nl API]] — resolving a document's official title/metadata

@@ -57,6 +57,31 @@ nothing. This is what caused the misleading "No matching data".
 "The AI model returned an empty response… try again, or switch the AI model."
 → **Workaround:** flip the [[LLM providers|header switcher]] to **Ollama** and retry.
 
+### 4. (Opgelost) Chat bleef hangen op "Analyzing logs…" — CRLF/SSE
+
+> [!success] Opgelost in juni 2026 — uitleg voor de beheerder (NL)
+> **Symptoom:** de chat bleef láng hangen op *"Analyzing logs…"* en toonde daarna
+> *"The connection ended before an answer arrived"* — bij **elke vraag** en bij
+> **beide AI-modellen** (Mistral én Ollama). In de backend-logs gaf Mistral netjes
+> `200 OK`, dus het model antwoordde wél.
+>
+> **Oorzaak:** het antwoord wordt "stukje voor stukje" gestuurd via **SSE**
+> (Server-Sent Events). De server (`sse-starlette`) scheidt die stukjes met
+> **CRLF** (`\r\n\r\n`), maar de browser-code zocht naar `\n\n`. Die kwamen nooit
+> overeen, dus de browser kon geen enkel stukje herkennen: tijdens het genereren
+> bleef het scherm leeg, en aan het eind werd alles als één "klaar"-signaal gelezen
+> → leeg antwoord. De lange wachttijd was simpelweg de tijd die het model nodig had
+> om het hele antwoord te maken.
+>
+> **Oplossing:** de browser normaliseert nu `\r\n` → `\n` vóór het opsplitsen.
+> Het antwoord verschijnt weer **woord voor woord, direct en snel**.
+>
+> **Wat te doen als het ooit terugkomt:** controleer of `sse-starlette` is
+> bijgewerkt naar een versie die het SSE-formaat verandert, en of de
+> stream-parser in `frontend/src/App.jsx` (`consumeSSE`) nog steeds CRLF
+> normaliseert. Test met een gewone vraag: het antwoord hoort binnen 1–2 seconden
+> te beginnen te stromen.
+
 ## Quick checks (operator)
 
 ```bash

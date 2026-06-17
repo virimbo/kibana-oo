@@ -44,6 +44,7 @@ flowchart TD
 - [[Smart context paneel]] — 🇳🇱 hover een kaart → rechts paneel met uitleg, status, AI-analyse en TO DO's uit de vault
 - [[Beschikbaarheid (uptime)]] — 🇳🇱 bovenaan het dashboard: is elke site (PROD/ACC/TEST) up? Met kleuren, uptime% en alerts
 - [[Grafana en infrastructuur]] — 🇳🇱 één-klik-links naar de Grafana-infradashboards (o.a. CloudNativePG)
+- [[Backlog - TODO Anton]] — 🇳🇱 persoonlijke actielijst (o.a. Grafana live-metrics: wacht op read-only token)
 - [[Navigatie]] — 🇳🇱 de gedeelde menubalk: actieve pagina, Beheer-subpagina's, rechten
 - [[LLM providers]] — Ollama vs Mistral, the switcher, installing a key
 - [[KOOP Plooi log schema]] — the real (non-ECS) field names

@@ -13,7 +13,12 @@ owner: KOOP Beheer
 
 # Grafana en infrastructuur 🛠
 
-Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]].
+Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Backlog - TODO Anton]].
+
+## TO DO
+- [ ] Live CloudNativePG-metrics als kaarten tonen (Health/Overview/Storage) — **geblokkeerd**: read-only Grafana service-account token nodig (zie [[Backlog - TODO Anton]]).
+- [ ] Token in `.env` zetten (`GRAFANA_TOKEN`) + Prometheus datasource-UID bevestigen.
+- [ ] Eventueel extra PROD Grafana-dashboards toevoegen aan `GRAFANA_LINKS`.
 
 > [!info] Wat is dit?
 > Een kaart op het **Dashboard** met **één-klik-links** naar de Grafana-dashboards

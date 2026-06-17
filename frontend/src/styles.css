@@ -2517,3 +2517,10 @@ body {
   color: var(--text-secondary); opacity: 0.8;
 }
 .hero-stat .hero-spark { margin-top: auto; }   /* keep the trend line bottom-aligned */
+
+/* ── Panel subtitle (visible one-line explainer under a card title) ── */
+.panel-subtitle {
+  margin: -2px 0 12px; padding: 0;
+  font-size: 12.5px; line-height: 1.45; font-weight: 400;
+  color: var(--text-secondary); opacity: 0.82; max-width: 78ch;
+}

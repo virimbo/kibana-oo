@@ -31,6 +31,9 @@ services:
       # Durable store for open document incidents — survives restarts so genuine
       # problems stay listed for days until they are actually solved.
       - backend_data:/app/data
+      # SmartContextPanel reads component notes/TODOs from the Obsidian vault.
+      # Read-only — the panel never writes. Set SMART_CONTEXT_VAULT_PATH=/app/vault.
+      - ./docs/KIBANA-OO:/app/vault:ro
     depends_on:
       - ollama
     restart: unless-stopped

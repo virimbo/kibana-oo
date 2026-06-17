@@ -1,6 +1,6 @@
 ---
 title: Runbook — wat te doen
-tags: [runbook, beheer, acties, nl]
+tags: [runbook, beheer, acties, procedures, nl]
 aliases: [Wat te doen, Runbook acties, What to do]
 component: runbook-actions
 bijgewerkt: 2026-06-17
@@ -11,25 +11,25 @@ eigenaar: KOOP Beheer
 
 Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en TLS]].
 
-> [!info] Waarvoor is dit?
-> Dit is de **actielijst**: *wie moet wat doen* als er iets misgaat. Het Smart
-> context paneel leest deze runbook **live** en toont onder **"WAT TE DOEN NU"**
-> de juiste actie bij de juiste omgeving zodra een site **DOWN** is of een
-> **certificaat bijna verloopt**. Houd deze lijst actueel — pas de regels hieronder
-> aan en werk `bijgewerkt:` in de frontmatter bij.
+> [!info] Wat is dit?
+> De **actielijst + procedures**: *wie doet wat* als er iets misgaat. Het Smart
+> context paneel leest dit bestand **live (on-demand)** — wijzig hieronder een regel
+> in Obsidian, sla op, en de volgende keer dat je over een kaart hovert zie je de
+> nieuwe tekst onder **"WAT TE DOEN NU"**. Geen herstart nodig.
 
-## Hoe het werkt (conventie)
+> [!tip] Hoe het paneel deze runbook leest (de conventie)
+> - Een **`##`-kopje** is een **situatie**: `## Bij DOWN`, `## Bij certificaat bijna verlopen`.
+> - Eronder **één regel per omgeving**: `- PROD: …` / `- ACC: …` / `- TEST: …`
+>   (de `-` mag weg; `TST` telt als `TEST`; hoofdletters/spaties maken niet uit).
+> - Alleen regels die met **PROD/ACC/TEST** beginnen worden als actie getoond — alle
+>   andere tekst (procedures, stappen, tabellen) is puur ter info en wordt genegeerd.
+> - Ontbreekt een omgeving? Dan toont het paneel "geen actie vastgelegd".
 
-- Eén **kopje per situatie**: `## Bij DOWN`, `## Bij certificaat bijna verlopen`.
-- Eronder **één regel per omgeving**: `- PROD: <actie>` / `- ACC: <actie>` /
-  `- TEST: <actie>`.
-- `TST` wordt automatisch als `TEST` herkend; hoofdletters/spaties maken niet uit.
-- Staat er geen regel voor een omgeving? Dan toont het paneel "geen actie
-  vastgelegd — vul de runbook aan".
+---
 
 ## Bij DOWN
 - PROD: Bel direct de 24/7 storingslijn (iedereen) en open een incident.
-- ACC: Bel Firas.
+- ACC: Bel Firas en dev
 - TEST: Bel Anton.
 
 ## Bij certificaat bijna verlopen
@@ -37,8 +37,69 @@ Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en
 - ACC: Bel Firas om het ACC-certificaat te vernieuwen.
 - TEST: Bel Anton om het TEST-certificaat te vernieuwen.
 
-## Onderhoud
+---
 
-- Werk `bijgewerkt:` bij elke wijziging bij. Het paneel toont de datum en
-  waarschuwt ("⚠ runbook mogelijk verouderd") als deze ouder is dan ~180 dagen.
-- Voeg een nieuwe situatie toe door simpelweg een nieuw `## Bij …`-kopje te maken.
+# Procedures (stap voor stap)
+
+> Naslag — pas aan naar de praktijk. Deze procedures worden **niet** in het paneel
+> getoond (alleen de PROD/ACC/TEST-regels hierboven); je opent ze via de
+> **Documentatie**-link in het paneel.
+
+## Procedure — website DOWN
+1. **Bevestig** de storing: open de kaart, check HTTP-status/responstijd en of het
+   over meerdere omgevingen speelt. Eén omgeving = lokaal; alle = keten/infra.
+2. **Classificeer**: PROD = P1 (gebruikers geraakt), ACC = P2, TEST = P3.
+3. **Escaleer** volgens "Bij DOWN" hierboven (bel de juiste persoon/lijn).
+4. **Communiceer**: melding in #plooi-incidenten en, bij PROD, op de statuspagina.
+5. **Diagnose** (snelste eerst): bereikbaarheid/DNS → load balancer → applicatie-pods
+   → afhankelijkheden ([[Verwerkingsstraat queues]], DB, [[Certificaten en TLS]]).
+6. **Herstel** en **verifieer** dat de kaart weer 🟢 UP is (HTTP 200) en blijft.
+7. **Leg vast**: tijdlijn, oorzaak, fix → maak zo nodig een RCA-notitie aan.
+
+## Procedure — traag / degraded
+1. Controleer of de responstijd structureel boven de drempel zit of een piek is.
+2. Bekijk [[Monitoring dashboard]] (5xx, APM-fouten) in hetzelfde venster.
+3. Schaal/herstart de dienst indien nodig; informeer bij aanhoudende traagheid.
+
+## Procedure — onbereikbaar (grijs)
+1. Een **interne** host (admin/gateway) grijs = waarschijnlijk **geen VPN-route**
+   vanaf de monitor, niet per se down.
+2. Verifieer handmatig via VPN of de site echt bereikbaar is.
+3. Is hij écht onbereikbaar voor gebruikers? Behandel als **DOWN** (zie boven).
+
+## Procedure — certificaat bijna verlopen / verlopen
+1. Bepaal de urgentie via de kaart: < 30 dagen = oranje, < 14 dagen = rood/spoed.
+2. Vraag/genereer een nieuw certificaat bij de CA (zie [[Certificaten en TLS]]).
+3. Installeer en herlaad; controleer keten + hostname via "Full chain & TLS audit".
+4. Verifieer dat de kaart weer **GRADE OK** toont met een nieuwe vervaldatum.
+
+## Procedure — dead-letter queue vol (template)
+1. Open [[Verwerkingsstraat queues]]; welke `*.dlq` vult en is er een consumer?
+2. Geen consumer = kritiek: herstart/los de verwerker op.
+3. Analyseer een voorbeeldbericht, herstel de oorzaak, re-queue of ruim op.
+
+## Procedure — aanleverfouten (template)
+1. Open [[Aanleverfouten]]; groepeer per uitgever.
+2. Neem contact op met de uitgever om correct opnieuw aan te leveren.
+3. De melding verdwijnt automatisch zodra het document gepubliceerd is.
+
+---
+
+## Escalatie & contacten (voorbeeld — vul de echte gegevens in)
+
+| Niveau   | Wie               | Bereikbaar      | Voor      |
+| -------- | ----------------- | --------------- | --------- |
+| 1e lijn  | 24/7-storingslijn | +31 70 000 0000 | PROD P1   |
+| ACC      | Firas (+ dev)     | +31 6 0000 0001 | ACC       |
+| TEST     | Anton             | +31 6 0000 0002 | TEST      |
+| Eigenaar | KOOP Beheer       | woo@logius.nl   | escalatie |
+
+---
+
+## Een nieuwe procedure / situatie toevoegen
+- **Actie aanpassen:** wijzig de PROD/ACC/TEST-regel onder `## Bij DOWN` of
+  `## Bij certificaat bijna verlopen` en werk `bijgewerkt:` bovenin bij.
+- **Nieuwe procedure:** voeg een `## Procedure — <naam>` blok met genummerde stappen toe.
+- **Nieuwe situatie in het paneel:** vereist een kleine code-aanpassing (een nieuwe
+  conditie aan een kaartstatus koppelen) — laat het weten.
+- Houd `bijgewerkt:` actueel; het paneel waarschuwt "verouderd" na ~180 dagen.

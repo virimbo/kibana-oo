@@ -270,6 +270,7 @@ _ENV_ALIASES = {
     "ACC": "ACC", "ACCEPTATIE": "ACC", "ACCEPTANCE": "ACC",
     "TEST": "TEST", "TST": "TEST",
 }
+_KNOWN_ENVS = {"PROD", "ACC", "TEST"}  # only these are treated as action lines
 _CONDITION_LABEL = {"down": "Bij DOWN", "cert": "Bij certificaat bijna verlopen"}
 
 
@@ -281,40 +282,75 @@ def _normalize_env(env: str | None) -> str | None:
 
 
 def _condition_from_heading(text: str) -> str | None:
+    """Map a heading to a card condition. Robust to natural phrasing/typos."""
     t = text.lower()
-    if "down" in t:
-        return "down"
-    if "cert" in t:  # "certificaat" / "certificate"
+    if "cert" in t:  # certificaat / certificate(s)
         return "cert"
+    if any(k in t for k in ("down", "environment", "environtmant", "omgeving",
+                            "status", "beschikbaar", "uptime")):
+        return "down"
+    return None
+
+
+def _find_runbook_path() -> Path | None:
+    """Locate the note declaring `component: runbook-actions`, scanning fresh so a
+    moved/renamed note is still found."""
+    root = vault_root()
+    if not root or not root.is_dir():
+        return None
+    for path in sorted(root.rglob("*.md")):
+        try:
+            resolved = path.resolve()
+            resolved.relative_to(root)
+        except (ValueError, OSError):
+            continue
+        try:
+            text = resolved.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        meta, _ = parse_note(text)
+        if _RUNBOOK_COMPONENT in _component_ids(meta):
+            return resolved
     return None
 
 
 def parse_runbook() -> dict:
-    """Parse the runbook note → {conditions: {cond: {ENV: action}}, updated, owner,
-    note}. Headings are conditions; '- ENV: action' bullets are per-env actions."""
-    entry = _get_index().get(_RUNBOOK_COMPONENT)
-    if not entry:
-        return {"conditions": {}, "updated": None, "owner": None, "note": None}
+    """Read the runbook note FRESH from disk on every call (on-demand) — an edit in
+    Obsidian shows on the next panel open, no cache and no restart.
+
+    Returns {conditions: {cond: {ENV: action}}, updated, owner, note}. A heading is
+    a condition; lines `ENV: action` (bullet optional) where ENV is a known env
+    (PROD/ACC/TEST, aliases) are per-env actions — prose/steps are ignored."""
+    empty = {"conditions": {}, "updated": None, "owner": None, "note": None}
+    path = _find_runbook_path()
+    if not path:
+        return empty
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return empty
+    meta, body = parse_note(text)
     conditions: dict[str, dict[str, str]] = {}
     current: str | None = None
-    for raw in entry["body"].splitlines():
+    for raw in body.splitlines():
         line = raw.strip()
+        if not line:
+            continue
         if line.startswith("#"):
             current = _condition_from_heading(line.lstrip("#").strip())
             if current:
                 conditions.setdefault(current, {})
             continue
-        if current and (line.startswith("-") or line.startswith("*")):
-            item = line[1:].strip()
-            if ":" in item:
-                env, _, action = item.partition(":")
-                env_n = _normalize_env(env)
-                action = action.strip()
-                if env_n and action:
-                    conditions[current][env_n] = action
-    meta = entry["meta"]
+        if not current or ":" not in line:
+            continue
+        item = line.lstrip("-*").strip()  # bullet optional
+        env, _, action = item.partition(":")
+        env_n = _normalize_env(env)
+        action = action.strip()
+        if env_n in _KNOWN_ENVS and action:
+            conditions[current][env_n] = action
     return {"conditions": conditions, "updated": meta.get("bijgewerkt"),
-            "owner": meta.get("eigenaar"), "note": entry["file"]}
+            "owner": meta.get("eigenaar"), "note": path.stem}
 
 
 def runbook_action(condition: str, env: str | None) -> str | None:

@@ -206,3 +206,26 @@ def test_assemble_no_action_when_healthy(_vault):
     _runbook(_vault)
     info = engine.assemble("cert:open.overheid.nl", label="open", status="ok", env="PROD")
     assert info["action"] is None
+
+
+def test_runbook_on_demand_reflects_edits_without_cache(_vault):
+    _runbook(_vault, body="## Bij DOWN\n- ACC: oude tekst\n")
+    assert engine.runbook_action("down", "ACC") == "oude tekst"
+    # Edit the SAME note and do NOT clear any cache — on-demand must pick it up.
+    _vault.joinpath("runbook.md").write_text(
+        "---\ntitle: RB\ncomponent: runbook-actions\n---\n## Bij DOWN\n- ACC: nieuwe tekst\n",
+        encoding="utf-8")
+    assert engine.runbook_action("down", "ACC") == "nieuwe tekst"
+
+
+def test_runbook_ignores_non_env_lines(_vault):
+    _runbook(_vault, body="## Bij DOWN\n- PROD: bel\n- Stap 1: herstart\n- random: tekst\n")
+    assert engine.parse_runbook()["conditions"]["down"] == {"PROD": "bel"}
+
+
+def test_runbook_robust_headings_and_plain_lines(_vault):
+    _runbook(_vault, body="## ENVIRONMENT STATUS\nPROD : bel iedereen\nACC : bel firas\n"
+                          "## CERTIFICATES\nTST : bel anton\n")
+    rb = engine.parse_runbook()
+    assert rb["conditions"]["down"] == {"PROD": "bel iedereen", "ACC": "bel firas"}
+    assert rb["conditions"]["cert"] == {"TEST": "bel anton"}

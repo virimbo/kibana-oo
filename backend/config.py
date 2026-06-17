@@ -211,6 +211,15 @@ class Settings(BaseSettings):
     mistral_base_url: str = "https://api.mistral.ai/v1"
     mistral_model: str = "mistral-large-latest"
 
+    # LLM robustness timeouts (apply to both providers). These guarantee the chat
+    # can never hang: a short connect timeout means an unreachable provider fails
+    # in seconds (not minutes), and the first-token deadline means a provider that
+    # accepts the connection but then stalls is abandoned so the recovery path
+    # (non-streaming retry → local model → deterministic summary) takes over.
+    llm_connect_timeout: float = 8.0        # seconds to establish the connection
+    llm_read_timeout: float = 600.0         # seconds between bytes once flowing (long answers OK)
+    llm_first_token_timeout: float = 30.0   # seconds to wait for the FIRST streamed token
+
     # LLM Provider selection: "ollama" or "mistral"
     llm_provider: str = "ollama"
 

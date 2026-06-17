@@ -1,10 +1,23 @@
 """LLM client for generating answers from context. Supports Ollama and Mistral."""
 
+import asyncio
 from collections.abc import AsyncIterator
 
 import httpx
 
 from config import settings
+
+
+def _http_timeout() -> httpx.Timeout:
+    """Per-phase HTTP timeout for every LLM call. A SHORT connect timeout means an
+    unreachable provider fails in seconds instead of hanging for minutes; the read
+    timeout stays long so a legitimately slow-but-flowing generation is not cut."""
+    return httpx.Timeout(
+        connect=settings.llm_connect_timeout,
+        read=settings.llm_read_timeout,
+        write=settings.llm_connect_timeout,
+        pool=settings.llm_connect_timeout,
+    )
 
 SYSTEM_PROMPT = """\
 You are KIBANA-OO, an AI assistant that answers questions about infrastructure \
@@ -176,7 +189,7 @@ async def generate_answer(question: str, context: str, system: str | None = None
 
 async def _generate_ollama_answer(messages: list[dict], stream: bool = False) -> str:
     """Generate answer using Ollama API."""
-    async with httpx.AsyncClient(timeout=600.0) as client:
+    async with httpx.AsyncClient(timeout=_http_timeout()) as client:
         response = await client.post(
             f"{settings.ollama_base_url}/api/chat",
             json={
@@ -192,7 +205,7 @@ async def _generate_ollama_answer(messages: list[dict], stream: bool = False) ->
 
 async def _generate_mistral_answer(messages: list[dict]) -> str:
     """Generate answer using Mistral OpenAI-compatible API."""
-    async with httpx.AsyncClient(timeout=600.0) as client:
+    async with httpx.AsyncClient(timeout=_http_timeout()) as client:
         response = await client.post(
             f"{settings.mistral_base_url}/chat/completions",
             headers={"Authorization": f"Bearer {settings.mistral_api_key}"},
@@ -215,20 +228,40 @@ async def generate_answer_stream(
     if provider == DISABLED_PROVIDER:
         return  # AI off — yield nothing; caller emits the deterministic summary.
     messages = _build_prompt(question, context, system=system)
+    source = (
+        _generate_mistral_answer_stream(messages)
+        if provider == "mistral"
+        else _generate_ollama_answer_stream(messages)
+    )
     try:
-        if provider == "mistral":
-            async for chunk in _generate_mistral_answer_stream(messages):
-                yield chunk
-        else:
-            async for chunk in _generate_ollama_answer_stream(messages):
-                yield chunk
+        # First-token deadline: if the provider accepts the connection but then
+        # stalls, abandon it instead of hanging the chat. Once the first token is
+        # in, the stream flows freely (a long answer is fine). On timeout the
+        # caller's recovery path (non-streaming retry → local model → summary) runs.
+        it = source.__aiter__()
+        try:
+            first = await asyncio.wait_for(
+                it.__anext__(), timeout=settings.llm_first_token_timeout
+            )
+        except StopAsyncIteration:
+            return  # provider produced nothing at all
+        except asyncio.TimeoutError as e:
+            raise RuntimeError(
+                f"The {provider} AI provider did not start responding within "
+                f"{settings.llm_first_token_timeout:.0f}s."
+            ) from e
+        yield first
+        async for chunk in it:
+            yield chunk
     except (httpx.HTTPStatusError, httpx.RequestError) as e:
         raise RuntimeError(_llm_error_message(e, provider)) from e
+    finally:
+        await source.aclose()  # ensure the httpx stream is closed on timeout/abort
 
 
 async def _generate_ollama_answer_stream(messages: list[dict]) -> AsyncIterator[str]:
     """Generate streaming answer using Ollama API."""
-    async with httpx.AsyncClient(timeout=600.0) as client:
+    async with httpx.AsyncClient(timeout=_http_timeout()) as client:
         async with client.stream(
             "POST",
             f"{settings.ollama_base_url}/api/chat",
@@ -251,7 +284,7 @@ async def _generate_ollama_answer_stream(messages: list[dict]) -> AsyncIterator[
 
 async def _generate_mistral_answer_stream(messages: list[dict]) -> AsyncIterator[str]:
     """Generate streaming answer using Mistral OpenAI-compatible API."""
-    async with httpx.AsyncClient(timeout=600.0) as client:
+    async with httpx.AsyncClient(timeout=_http_timeout()) as client:
         async with client.stream(
             "POST",
             f"{settings.mistral_base_url}/chat/completions",

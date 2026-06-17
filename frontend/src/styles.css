@@ -2650,3 +2650,52 @@ body {
 .up-spark-bar--warn { background: var(--warn); }
 .up-spark-bar--down { background: var(--error); }
 .up-spark-bar--unk  { background: var(--text-faint); }
+
+/* ─── Shared environment columns (PROD / ACC / TEST) — uptime + certificates ── */
+.env-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: 14px;
+  align-items: start;
+  margin-top: 10px;
+}
+.env-col {
+  --env-accent: var(--text-faint);
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--env-accent);
+  border-radius: var(--radius);
+  padding: 12px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.env-col-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--env-accent);
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--border);
+}
+.env-col-head::before {
+  content: "";
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--env-accent);
+  box-shadow: 0 0 8px var(--env-accent);
+}
+.env-col-count { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: .04em; color: var(--text-faint); }
+.env-col-body { display: flex; flex-direction: column; gap: 10px; }
+/* The cards stretch to the column width when stacked. */
+.env-col-body > .up-tile,
+.env-col-body > .cert-card { width: auto; }
+
+/* Classy, restrained per-environment accents. */
+.env-col--prod { --env-accent: #5b8def; }   /* production — calm blue */
+.env-col--acc  { --env-accent: #e0a93b; }   /* acceptance — warm amber */
+.env-col--test { --env-accent: #2dd4bf; }   /* test — cool teal */
+.env-col--other { --env-accent: #8a94a6; }  /* anything else — neutral */

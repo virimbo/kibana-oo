@@ -334,6 +334,17 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
 // ─── Certificate card with full chain & TLS audit ─────────────────────────
 const FINDING_MARK = { ok: "✓", note: "ℹ", warn: "!", bad: "✗" };
 
+// Derive the environment (PROD/ACC/TEST) from a cert host, so the cards can be
+// grouped into the same env columns as the uptime board. Display-only; the cert
+// data + CertCard rendering are unchanged.
+const CERT_ENV_ORDER = ["PROD", "ACC", "TEST"];
+function certEnv(host) {
+  const h = (host || "").toLowerCase();
+  if (/-acc\.|\bacc\./.test(h)) return "ACC";
+  if (/tst|test\d|\.test\./.test(h)) return "TEST";
+  return "PROD";
+}
+
 // Urgency class for a days-remaining countdown: 🔴 < 14d, 🟠 < 30d, 🟢 otherwise.
 function certDaysClass(days, expired) {
   if (expired || days == null || days < 0) return "expired";
@@ -1041,10 +1052,22 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                         {problems.map((c) => c.host).join(", ")}.
                       </div>
                     )}
-                    <div className="cert-cards">
-                      {certs.map((c) => (
-                        <CertCard key={c.host} c={c} />
-                      ))}
+                    <div className="env-columns">
+                      {CERT_ENV_ORDER.map((env) => {
+                        const list = certs.filter((c) => certEnv(c.host) === env);
+                        if (!list.length) return null;
+                        return (
+                          <div key={env} className={`env-col env-col--${env.toLowerCase()}`}>
+                            <div className="env-col-head">
+                              {env}
+                              <span className="env-col-count">{list.length}</span>
+                            </div>
+                            <div className="env-col-body">
+                              {list.map((c) => <CertCard key={c.host} c={c} />)}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </>
                 );

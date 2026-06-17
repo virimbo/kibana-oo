@@ -82,6 +82,30 @@ nothing. This is what caused the misleading "No matching data".
 > normaliseert. Test met een gewone vraag: het antwoord hoort binnen 1–2 seconden
 > te beginnen te stromen.
 
+### 5. Robuustheid — de chat kan niet meer "blijven hangen" (NL)
+
+> [!success] Beheerder-uitleg — timeouts + automatische terugval
+> **Wat is er geregeld?** Als het gekozen AI-model traag of onbereikbaar is, mag
+> de chat **nooit minutenlang blijven hangen**. Daarvoor zijn er drie grenzen:
+>
+> | Grens (`.env`) | Standaard | Wat het doet |
+> |---|---|---|
+> | `llm_connect_timeout` | **8 s** | Verbinding maken met het model. Onbereikbaar? Dan faalt het in **seconden**, niet minuten. |
+> | `llm_first_token_timeout` | **30 s** | Wachten op het **eerste woord** van het antwoord. Komt dat niet → model wordt losgelaten. |
+> | `llm_read_timeout` | **600 s** | Tijd tússen woorden zodra het antwoord stroomt (een lang antwoord mag dus gewoon doorlopen). |
+>
+> **Wat gebeurt er bij een probleem?** De backend valt automatisch terug, in deze
+> volgorde, zodat de gebruiker **altijd** iets nuttigs krijgt:
+> 1. opnieuw proberen (niet-streamend) met hetzelfde model;
+> 2. **terugval naar het lokale model** (Ollama) — met de melding *"Mistral was
+>    unavailable — answered with the local model."*;
+> 3. als ook dat niet lukt: een **feitelijke samenvatting** uit de gevonden logs.
+>
+> **Voorbeeld:** Mistral (cloud) ligt er even uit. De gebruiker stelt een vraag;
+> na ~30 s zonder eerste woord laat de backend Mistral los en beantwoordt de vraag
+> met het lokale model. De gebruiker ziet binnen een halve minuut een antwoord met
+> de notitie dat het lokale model is gebruikt — **geen oneindige "Analyzing logs…"**.
+
 ## Quick checks (operator)
 
 ```bash

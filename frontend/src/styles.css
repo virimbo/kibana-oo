@@ -2552,7 +2552,7 @@ body {
   padding: 14px 14px 10px; border-bottom: 1px solid var(--border);
 }
 .scp-eyebrow { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
-.scp-title { font-size: 16px; margin: 2px 0 0; color: var(--text-primary); line-height: 1.25; }
+.scp-title { font-size: 16px; margin: 2px 0 0; color: var(--text-primary); line-height: 1.25; text-transform: capitalize; }
 .scp-head-badges { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .scp-close {
   background: none; border: none; color: var(--text-faint); font-size: 20px;

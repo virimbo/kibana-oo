@@ -1063,7 +1063,17 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                               <span className="env-col-count">{list.length}</span>
                             </div>
                             <div className="env-col-body">
-                              {list.map((c) => <CertCard key={c.host} c={c} />)}
+                              {list.map((c) => (
+                                <div
+                                  key={c.host}
+                                  data-smartcard={`cert:${c.host}`}
+                                  data-smartlabel={c.host}
+                                  data-smartstatus={c.status}
+                                  data-smartenv={env}
+                                >
+                                  <CertCard c={c} />
+                                </div>
+                              ))}
                             </div>
                           </div>
                         );

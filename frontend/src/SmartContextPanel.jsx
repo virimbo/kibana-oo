@@ -68,26 +68,28 @@ export default function SmartContextPanel({ token, aiEnabled = true, lang = "nl"
     return s ? `?${s}` : "";
   }, [active]);
 
-  // Fast section.
+  // Fast section. Aborts on leave so sweeping across cards never holds a
+  // connection (otherwise slow AI requests would saturate the browser pool).
   useEffect(() => {
     if (!active) { setInfo(null); setInfoState("idle"); return; }
-    let on = true;
+    const ctrl = new AbortController();
     setInfoState("loading");
-    getJSON(`/dashboard/context/card/${encodeURIComponent(active.id)}${query}`, token)
-      .then((d) => { if (!on) return; setInfo(d.enabled ? d : null); setInfoState("ready"); })
-      .catch(() => { if (on) setInfoState("error"); });
-    return () => { on = false; };
+    getJSON(`/dashboard/context/card/${encodeURIComponent(active.id)}${query}`, token, ctrl.signal)
+      .then((d) => { setInfo(d.enabled ? d : null); setInfoState("ready"); })
+      .catch((e) => { if (e.name !== "AbortError") setInfoState("error"); });
+    return () => ctrl.abort();
   }, [active, query, token]);
 
-  // Lazy AI section — only when the panel is open and AI is on.
+  // Lazy AI section — only when the panel is open and AI is on. Also aborts on
+  // leave: the previous card's slow Ollama call is cancelled, not left hanging.
   useEffect(() => {
     if (!active || !aiEnabled) { setAi(null); setAiState("off"); return; }
-    let on = true;
+    const ctrl = new AbortController();
     setAi(null); setAiState("loading");
-    getJSON(`/dashboard/context/card/${encodeURIComponent(active.id)}/ai${query}`, token)
-      .then((d) => { if (!on) return; if (d.enabled) { setAi(d); setAiState("ready"); } else setAiState("off"); })
-      .catch(() => { if (on) setAiState("off"); });
-    return () => { on = false; };
+    getJSON(`/dashboard/context/card/${encodeURIComponent(active.id)}/ai${query}`, token, ctrl.signal)
+      .then((d) => { if (d.enabled) { setAi(d); setAiState("ready"); } else setAiState("off"); })
+      .catch((e) => { if (e.name !== "AbortError") setAiState("off"); });
+    return () => ctrl.abort();
   }, [active, query, token, aiEnabled]);
 
   if (!registry || Object.keys(registry).length === 0) return null; // disabled / no perms

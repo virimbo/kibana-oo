@@ -31,6 +31,7 @@ from cert_monitor import run_cert_monitor_loop
 from rabbitmq_dlq import run_dlq_monitor_loop
 from uptime import run_uptime_monitor_loop
 from uptime_api import router as uptime_router
+from infra_api import router as infra_router
 from auth import require_super
 import permissions
 import regression
@@ -78,6 +79,7 @@ app.add_middleware(
 app.include_router(dashboard_router)
 app.include_router(context_router)
 app.include_router(uptime_router)
+app.include_router(infra_router)
 
 class LoginRequest(BaseModel):
     username: str

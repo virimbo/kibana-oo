@@ -61,6 +61,7 @@ REGISTRY: dict[str, str] = {
     "card:http5xx": "criticals",
     "card:pipeline-health": "documents-pipeline",
     "card:aitriage": "criticals",
+    "card:grafana": "grafana",
     # Uptime / availability board — every site tile resolves to the shared
     # availability component (the card supplies its own per-site label + state).
     "uptime:open.overheid.nl": "availability",

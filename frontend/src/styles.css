@@ -29,6 +29,15 @@
   --warn: #e3b341;
   --warn-soft: rgba(227, 179, 65, 0.12);
 
+  /* Environment accents (PROD / ACC / TEST) — one source of truth, reused by the
+     uptime board and the certificate cards so the two stay perfectly consistent.
+     PROD reuses the app accent (blue) and ACC the warn gold, so the env palette
+     is harmonious with the rest of the UI; TEST adds a refined teal. */
+  --env-prod: #4d9fff;  --env-prod-soft: rgba(77, 159, 255, 0.10);
+  --env-acc:  #e3b341;  --env-acc-soft:  rgba(227, 179, 65, 0.10);
+  --env-test: #2db6a6;  --env-test-soft: rgba(45, 182, 166, 0.12);
+  --env-col-min: 300px;       /* min column width before the grid wraps */
+
   /* Active AI-model accent — defaults to Ollama (emerald). Overridden per
      provider on :root[data-provider=...] so every header is themed to match. */
   --provider-accent: #10b981;
@@ -2609,16 +2618,6 @@ body {
 .up-rollup--warn { background: var(--warn-soft); color: var(--warn); }
 .up-rollup--down { background: var(--error-soft); color: var(--error); }
 
-.up-group { margin-top: 10px; }
-.up-group-label {
-  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
-  color: var(--text-faint); margin: 6px 2px 6px; font-weight: 700;
-}
-.up-grid {
-  display: grid; gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-}
-
 .up-tile {
   background: var(--bg-panel); border: 1px solid var(--border);
   border-left-width: 4px; border-radius: var(--radius-sm);
@@ -2651,51 +2650,64 @@ body {
 .up-spark-bar--down { background: var(--error); }
 .up-spark-bar--unk  { background: var(--text-faint); }
 
-/* ─── Shared environment columns (PROD / ACC / TEST) — uptime + certificates ── */
+/* ─── Shared environment columns (PROD / ACC / TEST) — uptime + certificates ──
+   One layout, token-driven, so the uptime board and the certificate cards are
+   pixel-consistent. Columns are equal-width and wrap responsively. */
 .env-columns {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(var(--env-col-min), 1fr));
+  gap: 16px;
   align-items: start;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 .env-col {
   --env-accent: var(--text-faint);
-  background: rgba(255, 255, 255, 0.015);
+  --env-soft: rgba(107, 118, 136, 0.10);
+  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-top: 2px solid var(--env-accent);
   border-radius: var(--radius);
-  padding: 12px 12px 14px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .env-col-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   font-size: 11px;
-  font-weight: 800;
-  letter-spacing: .16em;
+  font-weight: 700;
+  letter-spacing: .15em;
   text-transform: uppercase;
   color: var(--env-accent);
-  padding-bottom: 9px;
-  border-bottom: 1px solid var(--border);
+  background: var(--env-soft);
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
 }
 .env-col-head::before {
   content: "";
-  width: 8px; height: 8px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%;
   background: var(--env-accent);
-  box-shadow: 0 0 8px var(--env-accent);
+  box-shadow: 0 0 7px var(--env-accent);
+  flex-shrink: 0;
 }
-.env-col-count { margin-left: auto; font-size: 10px; font-weight: 600; letter-spacing: .04em; color: var(--text-faint); }
-.env-col-body { display: flex; flex-direction: column; gap: 10px; }
+.env-col-count {
+  margin-left: auto;
+  min-width: 20px; height: 18px; padding: 0 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; letter-spacing: .02em;
+  color: var(--env-accent);
+  background: var(--bg-app);
+  border-radius: 999px;
+}
+.env-col-body { display: flex; flex-direction: column; gap: 12px; }
 /* The cards stretch to the column width when stacked. */
 .env-col-body > .up-tile,
 .env-col-body > .cert-card { width: auto; }
 
-/* Classy, restrained per-environment accents. */
-.env-col--prod { --env-accent: #5b8def; }   /* production — calm blue */
-.env-col--acc  { --env-accent: #e0a93b; }   /* acceptance — warm amber */
-.env-col--test { --env-accent: #2dd4bf; }   /* test — cool teal */
-.env-col--other { --env-accent: #8a94a6; }  /* anything else — neutral */
+/* Per-environment accents — driven by the :root env tokens (single source). */
+.env-col--prod  { --env-accent: var(--env-prod); --env-soft: var(--env-prod-soft); }
+.env-col--acc   { --env-accent: var(--env-acc);  --env-soft: var(--env-acc-soft); }
+.env-col--test  { --env-accent: var(--env-test); --env-soft: var(--env-test-soft); }
+.env-col--other { --env-accent: var(--text-faint); }

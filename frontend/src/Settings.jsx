@@ -59,6 +59,7 @@ export default function SettingsPage({
     showWelcome, setShowWelcome,
     showHint, setShowHint,
     showSuggestions, setShowSuggestions,
+    showCardDetails, setShowCardDetails,
   } = settings;
 
   return (
@@ -162,6 +163,21 @@ export default function SettingsPage({
               onChange={setShowHint}
               label="Show composer hint"
               hint="The 'Querying logs-* …' line under the message box."
+            />
+          </section>
+
+          {/* ── Dashboard experience ────────────────────────────── */}
+          <section className="panel set-panel">
+            <h3>Dashboard experience</h3>
+            <p className="muted set-intro">
+              Toggle dashboard features on or off. Changes apply immediately and are remembered for this session.
+            </p>
+
+            <Toggle
+              checked={showCardDetails}
+              onChange={setShowCardDetails}
+              label="Show card detail panel (hover)"
+              hint="The right-side panel that appears when you hover a dashboard card — component info, runbook 'WAT TE DOEN NU', vault TODOs and AI analysis. Off = no hover panel."
             />
           </section>
         </div>

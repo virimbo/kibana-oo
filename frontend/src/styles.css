@@ -2755,3 +2755,11 @@ body {
 }
 .infra-env--acc  { color: var(--env-acc);  background: var(--env-acc-soft); }
 .infra-env--test { color: var(--env-test); background: var(--env-test-soft); }
+
+/* Settings: sub-heading inside a panel (e.g. "Sections — show or hide…") */
+.set-subhead {
+  margin: 16px 0 4px;
+  font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: 12px; border-top: 1px solid var(--border);
+}

@@ -60,7 +60,18 @@ export default function SettingsPage({
     showHint, setShowHint,
     showSuggestions, setShowSuggestions,
     showCardDetails, setShowCardDetails,
+    dashSections = {}, setDashSection = () => {},
   } = settings;
+
+  // Dashboard blocks the admin can show/hide (all default on).
+  const DASH_SECTIONS = [
+    { key: "uptime", label: "Beschikbaarheid (environment status)", hint: "The PROD/ACC/TEST up/down board at the top." },
+    { key: "infra", label: "Infrastructuur (Grafana)", hint: "The Grafana deep-link card(s)." },
+    { key: "hero", label: "Overzichtstegels (hero)", hint: "The big stat tiles: Critical, Criticals, Docs at risk, Aanleverfouten, DLQ." },
+    { key: "certs", label: "Certificaten & TLS", hint: "The certificate-expiry / TLS-health cards." },
+    { key: "dlq", label: "Dead-letter queues", hint: "The RabbitMQ DLQ queue cards." },
+    { key: "aanlever", label: "Aanleverfouten", hint: "The delivery-rejection card." },
+  ];
 
   return (
     <>
@@ -179,6 +190,17 @@ export default function SettingsPage({
               label="Show card detail panel (hover)"
               hint="The right-side panel that appears when you hover a dashboard card — component info, runbook 'WAT TE DOEN NU', vault TODOs and AI analysis. Off = no hover panel."
             />
+
+            <div className="set-subhead">Sections — show or hide whole blocks</div>
+            {DASH_SECTIONS.map((s) => (
+              <Toggle
+                key={s.key}
+                checked={dashSections[s.key] !== false}
+                onChange={(v) => setDashSection(s.key, v)}
+                label={s.label}
+                hint={s.hint}
+              />
+            ))}
           </section>
         </div>
       </div>

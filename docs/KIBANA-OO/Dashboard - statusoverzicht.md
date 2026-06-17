@@ -125,6 +125,18 @@ herladen), zodat ervaren beheerders alleen tonen wat ze volgen:
 - **Dead-letter queues niet zichtbaar?** Die tegel verschijnt alleen als de
   RabbitMQ-monitoring is geconfigureerd én je het recht `rabbitmq` hebt.
 
+## Zelf zones tonen/verbergen (per gebruiker)
+
+In **Beheer → Instellingen → Dashboard experience** kun je hele blokken aan/uit
+zetten met schakelaars (los van autorisatie; per sessie onthouden):
+
+- **Beschikbaarheid** (uptime-bord), **Infrastructuur** (Grafana-links),
+  **Overzichtstegels** (hero), **Certificaten & TLS**, **Dead-letter queues**,
+  **Aanleverfouten**.
+- **Standaard staat alles AAN** — zet uit wat je niet wilt zien. Een blok is pas
+  zichtbaar als je er óók recht op hebt (autorisatie blijft leidend).
+- Daar staat ook **"Show card detail panel (hover)"** (het [[Smart context paneel]]).
+
 ## Gerelateerd
 
 - [[Navigatie]] · [[Monitoring dashboard]] · [[Document tracer]] · [[Document lifecycle (pipeline)]]

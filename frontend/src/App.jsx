@@ -57,6 +57,12 @@ const SHOW_WELCOME_KEY = "kibana_oo_show_welcome";
 const SHOW_HINT_KEY = "kibana_oo_show_hint";
 const SHOW_SUGGESTIONS_KEY = "kibana_oo_show_suggestions";
 const SHOW_CARD_DETAILS_KEY = "kibana_oo_show_card_details";
+const DASH_SECTIONS_KEY = "kibana_oo_dash_sections";
+// Dashboard sections that can be shown/hidden from Settings. All default ON, so
+// nothing disappears unexpectedly; uptime/certs/dlq are core monitoring.
+const DASH_SECTION_DEFAULTS = {
+  uptime: true, infra: true, hero: true, certs: true, dlq: true, aanlever: true,
+};
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -930,6 +936,17 @@ export default function App() {
   useEffect(() => sessionStorage.setItem(SHOW_SUGGESTIONS_KEY, showSuggestions ? "on" : "off"), [showSuggestions]);
   useEffect(() => sessionStorage.setItem(SHOW_CARD_DETAILS_KEY, showCardDetails ? "on" : "off"), [showCardDetails]);
 
+  // Dashboard section visibility (show/hide whole blocks) — one object, default all on.
+  const [dashSections, setDashSections] = useState(() => {
+    try {
+      return { ...DASH_SECTION_DEFAULTS, ...JSON.parse(sessionStorage.getItem(DASH_SECTIONS_KEY) || "{}") };
+    } catch {
+      return { ...DASH_SECTION_DEFAULTS };
+    }
+  });
+  useEffect(() => sessionStorage.setItem(DASH_SECTIONS_KEY, JSON.stringify(dashSections)), [dashSections]);
+  const setDashSection = useCallback((key, val) => setDashSections((s) => ({ ...s, [key]: val })), []);
+
   const settings = {
     aiEnabled, setAiEnabled,
     autocorrect, setAutocorrect,
@@ -937,6 +954,7 @@ export default function App() {
     showHint, setShowHint,
     showSuggestions, setShowSuggestions,
     showCardDetails, setShowCardDetails,
+    dashSections, setDashSection,
   };
 
   // Global proactive alert: how many documents are stuck in the pipeline. Polled
@@ -1023,6 +1041,7 @@ export default function App() {
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
         showCardDetails={showCardDetails}
+        dashSections={dashSections}
         can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}

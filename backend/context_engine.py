@@ -60,7 +60,18 @@ REGISTRY: dict[str, str] = {
     "card:http5xx": "criticals",
     "card:pipeline-health": "documents-pipeline",
     "card:aitriage": "criticals",
+    # Uptime / availability board — every site tile resolves to the shared
+    # availability component (the card supplies its own per-site label + state).
+    "uptime:open.overheid.nl": "availability",
+    "uptime:doculoket.overheid.nl": "availability",
+    "uptime:admin (login)": "availability",
+    "uptime:open-acc.overheid.nl": "availability",
+    "uptime:doculoket-acc.overheid.nl": "availability",
+    "uptime:gateway-zoek (test)": "availability",
 }
+# Any card id starting with this prefix maps to the availability component, so
+# renaming a target in UPTIME_TARGETS still resolves without a code change.
+_PREFIX_FALLBACK = {"uptime:": "availability"}
 
 # Risk → a coarse health hint when the card supplies no live status.
 _RISK_RANK = {"low": "ok", "medium": "warn", "high": "crit", "critical": "crit"}
@@ -193,8 +204,18 @@ def _get_index() -> dict[str, dict]:
 
 
 # ── Public: card info assembly ───────────────────────────────────────────────
+def _resolve_component(card_id: str) -> str | None:
+    """Card id → component id, via the explicit registry then prefix fallback."""
+    if card_id in REGISTRY:
+        return REGISTRY[card_id]
+    for prefix, component in _PREFIX_FALLBACK.items():
+        if card_id.startswith(prefix):
+            return component
+    return None
+
+
 def is_known_card(card_id: str) -> bool:
-    return card_id in REGISTRY
+    return _resolve_component(card_id) is not None
 
 
 def registry_map() -> dict[str, str]:
@@ -204,7 +225,9 @@ def registry_map() -> dict[str, str]:
 def assemble(card_id: str, label: str | None = None, status: str | None = None) -> dict:
     """Build the panel's fast (non-AI) payload for a card. `label`/`status` are
     display-only values the card already shows (sanitised by the API layer)."""
-    component_id = REGISTRY[card_id]  # KeyError → caller returns 404
+    component_id = _resolve_component(card_id)
+    if component_id is None:
+        raise KeyError(card_id)  # caller returns 404
     entry = _get_index().get(component_id)
     meta = entry["meta"] if entry else {}
 

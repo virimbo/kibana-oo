@@ -5,6 +5,7 @@ import { getJSON } from "./api";
 import TopNav from "./Nav";
 import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
 import SmartContextPanel from "./SmartContextPanel";
+import UptimeBoard from "./UptimeBoard";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -983,6 +984,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           </div>
 
           {error && <div className="alert alert--error">{error}</div>}
+
+          {can("uptime") && <UptimeBoard token={token} />}
 
           <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
 

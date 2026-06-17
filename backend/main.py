@@ -29,6 +29,8 @@ from dashboard import router as dashboard_router, get_cached_snapshot, get_cache
 from context_api import router as context_router
 from cert_monitor import run_cert_monitor_loop
 from rabbitmq_dlq import run_dlq_monitor_loop
+from uptime import run_uptime_monitor_loop
+from uptime_api import router as uptime_router
 from auth import require_super
 import permissions
 import regression
@@ -46,11 +48,12 @@ async def lifespan(app: FastAPI):
         logger.error(f"Feature-grant seeding failed: {e}")
     cert_task = asyncio.create_task(run_cert_monitor_loop())
     dlq_task = asyncio.create_task(run_dlq_monitor_loop())
-    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ).")
+    uptime_task = asyncio.create_task(run_uptime_monitor_loop())
+    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime).")
     try:
         yield
     finally:
-        for t in (cert_task, dlq_task):
+        for t in (cert_task, dlq_task, uptime_task):
             t.cancel()
             try:
                 await t
@@ -74,6 +77,7 @@ app.add_middleware(
 
 app.include_router(dashboard_router)
 app.include_router(context_router)
+app.include_router(uptime_router)
 
 class LoginRequest(BaseModel):
     username: str

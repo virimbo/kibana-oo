@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import { getJSON } from "./api";
 import TopNav from "./Nav";
 import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
+import SmartContextPanel from "./SmartContextPanel";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -44,6 +45,9 @@ export function CollapsiblePanel({
   alert = false,
   className = "",
   headerExtra,
+  cardId,        // SmartContextPanel: when set, marks this panel as "smart"
+  cardLabel,
+  cardStatus,
   children,
 }) {
   const key = `dash.collapse.${id}`;
@@ -68,6 +72,9 @@ export function CollapsiblePanel({
       className={`panel panel--collapsible${alert ? " panel--alert" : ""}${
         className ? ` ${className}` : ""
       }${collapsed ? " is-collapsed" : ""}`}
+      {...(cardId
+        ? { "data-smartcard": cardId, "data-smartlabel": cardLabel || title, "data-smartstatus": cardStatus }
+        : {})}
     >
       <h3 className="panel-toggle">
         <button
@@ -162,6 +169,7 @@ function OutcomesCard({ data, onNavigate }) {
       title="Pipeline outcomes"
       icon="📊"
       info={OUTCOMES_INFO}
+      cardId="card:outcomes"
       subtitle="How many documents were published, updated, withdrawn or failed in this window — and the publish success rate."
       summary={summary}
     >
@@ -273,7 +281,7 @@ const isNewAction = (a) => /new|create|aanmaak|nieuw|insert/i.test(a || "");
 
 function Pipelines({ nvs, nvsDocs, onNavigate }) {
   return (
-    <section className="panel">
+    <section className="panel" data-smartcard="card:nvs" data-smartlabel="Verwerkingsstraat — NVS">
       <h3>
         Verwerkingsstraat — NVS (new pipeline)
         <InfoTip text="Documents processed via the new pipeline (NVS, nieuwe verwerkingsstraat) in this window. The old pipeline (OVS) is not present in this monitoring data. Open the Documents tab for the full per-document flow." />
@@ -448,14 +456,14 @@ function AanleverfoutenCard({ data, onAck, onNavigate }) {
   }
   if (!data.count) {
     return (
-      <section className="panel">
+      <section className="panel" data-smartcard="card:aanleverfouten" data-smartlabel="Aanleverfouten" data-smartstatus="ok">
         <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
         <p className="pipe-ok">✓ Geen openstaande aanleverfouten — alles is correct aangeleverd.</p>
       </section>
     );
   }
   return (
-    <section className="panel panel--alert">
+    <section className="panel panel--alert" data-smartcard="card:aanleverfouten" data-smartlabel="Aanleverfouten" data-smartstatus="warn">
       <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
       <p className="pipe-alert">{data.headline} — herstel en lever opnieuw aan.</p>
 
@@ -571,7 +579,8 @@ function DlqCard({ data }) {
   const shortName = (d) => (d.source || d.name).split("-in.")[0].split("msvc-").pop() || d.name;
 
   return (
-    <section className={`panel${hasProblem ? " panel--alert" : ""}`}>
+    <section className={`panel${hasProblem ? " panel--alert" : ""}`}
+             data-smartcard="card:dlq" data-smartlabel="Dead-letter queues">
       <h3>
         🐰 Dead-letter queues <InfoTip text={DLQ_INFO} />
         <span className="dlq-summary">
@@ -583,7 +592,10 @@ function DlqCard({ data }) {
 
       <div className="dlq-grid">
         {dlqs.map((d) => (
-          <div key={d.name} className={`dlq-tile dlq-tile--${d.severity}`} title={d.name}>
+          <div key={d.name} className={`dlq-tile dlq-tile--${d.severity}`} title={d.name}
+               data-smartcard={`queue:${shortName(d).toLowerCase().replace(/\s+/g, "-")}`}
+               data-smartlabel={shortName(d)}
+               data-smartstatus={d.severity}>
             <div className="dlq-tile-top">
               <span className="dlq-tile-icon" aria-hidden="true">{ICON[d.severity]}</span>
               <span className="dlq-tile-num">{d.depth.toLocaleString("nl-NL")}</span>
@@ -669,11 +681,12 @@ function Sparkline({ points }) {
 }
 
 // ─── Hero: system health at a glance (control-tower row) ───────────────────
-function HeroStat({ tone, value, label, desc, hint, onClick, skeleton, spark }) {
+function HeroStat({ tone, value, label, desc, hint, onClick, skeleton, spark, cardId }) {
   const Tag = onClick ? "button" : "div";
   return (
     <Tag className={`hero-stat hero-stat--${tone}${onClick ? " hero-stat--clickable" : ""}`}
-         onClick={onClick} title={hint}>
+         onClick={onClick} title={hint}
+         {...(cardId ? { "data-smartcard": cardId, "data-smartlabel": label, "data-smartstatus": tone } : {})}>
       <span className="hero-stat-value">
         {skeleton ? <span className="skel skel--value" /> : value}
       </span>
@@ -694,11 +707,11 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
   if (can("dashboard")) {
     const lvl = snap?.status_level;
     const tone = lvl === "ok" ? "ok" : lvl === "degraded" ? "warn" : lvl ? "crit" : "muted";
-    stats.push({ key: "status", tone, skeleton: !snap,
+    stats.push({ key: "status", cardId: "hero:status", tone, skeleton: !snap,
       value: lvl === "ok" ? "All clear" : lvl === "degraded" ? "Degraded" : lvl ? "Critical" : "—",
       label: "System status", desc: "Overall health, this window",
       hint: "The headline verdict for the selected period: All clear, Degraded, or Critical — based on the number of critical issues found." });
-    stats.push({ key: "crit", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok", skeleton: !snap,
+    stats.push({ key: "crit", cardId: "hero:criticals", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok", skeleton: !snap,
       value: snap ? snap.total : "—", label: "Criticals", desc: "Error logs, 5xx & APM errors",
       hint: "Total error-level log entries, HTTP 5xx server errors and APM errors in the selected window. The mini-graph shows the trend over the period.",
       spark: (snap?.timeseries || []).map((b) => b.count) });
@@ -711,7 +724,7 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
     const list = health?.stuck || [];
     const problems = list.filter((d) => d.verdict === "problem").length;
     const pending = health?.stuck_count || 0;
-    stats.push({ key: "risk", tone: problems > 0 ? "crit" : "ok",
+    stats.push({ key: "risk", cardId: "hero:risk", tone: problems > 0 ? "crit" : "ok",
       value: health ? problems : "—", skeleton: health === null,
       label: "Docs at risk",
       desc: pending > 0 ? `of ${pending.toLocaleString("en-US")} still processing` : "all published",
@@ -720,13 +733,13 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
   }
   if (can("aanleverfouten")) {
     const n = aanlever?.count;
-    stats.push({ key: "aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—", skeleton: aanlever === null,
+    stats.push({ key: "aanlever", cardId: "hero:aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—", skeleton: aanlever === null,
       label: "Aanleverfouten", desc: "Rejected at delivery",
       hint: "Documents rejected at delivery/intake (aanlevering) by a publisher — they never entered the pipeline and need to be re-delivered." });
   }
   if (can("rabbitmq") && dlq && dlq.configured !== false) {
     const n = dlq.count || 0;
-    stats.push({ key: "dlq", tone: n > 0 ? "warn" : "ok", value: n,
+    stats.push({ key: "dlq", cardId: "hero:dlq", tone: n > 0 ? "warn" : "ok", value: n,
       label: "Dead-letter queues", desc: "Stuck RabbitMQ messages",
       hint: "RabbitMQ dead-letter queues that currently hold messages — work that failed processing and is waiting, nothing is draining it." });
   }
@@ -982,6 +995,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           {can("certificates") && (
           <CollapsiblePanel
             id="certs"
+            cardId="card:certificates"
             title="Certificate & TLS health"
             info="Security (TLS) certificate status for the key sites. The app actively checks open.overheid.nl and doculoket.overheid.nl directly — expiry countdown plus any trust, chain, hostname or expiry problems — and also shows anything Kibana monitors. Green: >30 days & trusted; amber: under 30 days or a warning; red: under 14 days, expired, or not trusted."
             summary={(() => {
@@ -1085,6 +1099,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
               <CollapsiblePanel
                 id="notfound"
+                cardId="card:notfound"
                 title="Documents not found (404)"
                 alert={snap.not_found_total > 0}
                 subtitle="Pages users opened that returned “not found” — usually broken links or removed content. High numbers hurt the user experience."
@@ -1140,6 +1155,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
               <CollapsiblePanel
                 id="overtime"
+                cardId="card:overtime"
                 title="Criticals over time"
                 info="When issues happened — each bar is a time bucket; taller means more criticals then. A single tall bar = a spike."
               >
@@ -1157,6 +1173,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
               <CollapsiblePanel
                 id="bysystem"
+                cardId="card:bysystem"
                 title="By system"
                 info="Critical issues per data view (system). The highlighted tile is the one you're currently viewing; “unavailable” means that system couldn't be reached this load."
               >
@@ -1179,6 +1196,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
               <CollapsiblePanel
                 id="signatures"
+                cardId="card:signatures"
                 title="Top error signatures"
                 info="The most frequent error types, with when each was first and last seen. A burst between two close times often points to one root cause."
                 summary={
@@ -1211,6 +1229,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
               <CollapsiblePanel
                 id="services"
+                cardId="card:services"
                 title="Affected services"
                 info="The services (applications) emitting the most critical issues in this window — where to look first."
                 summary={
@@ -1236,6 +1255,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
               <CollapsiblePanel
                 id="http5xx"
+                cardId="card:http5xx"
                 title="HTTP 5xx"
                 alert={snap.status_codes.length > 0}
                 subtitle="Server errors (status 500–599): the site itself failed to respond, with the URLs that broke. More serious than a 404 — this is the server, not a missing page."
@@ -1279,7 +1299,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 const atRisk = health.stuck || [];
                 const critical = atRisk.filter((d) => d.verdict === "problem").length;
                 return atRisk.length > 0 ? (
-                  <section className="panel panel--alert">
+                  <section className="panel panel--alert" data-smartcard="card:pipeline-health" data-smartlabel="Documents needing attention" data-smartstatus="crit">
                     <h3>
                       🚨 Documents needing attention
                       <InfoTip text="Documents that are NOT yet live on open.overheid.nl — errored (cannot be published) or stuck/hanging in a service. Surfaced proactively so you act before users report it. Click a document to trace exactly where it failed." />
@@ -1322,7 +1342,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     )}
                   </section>
                 ) : (
-                  <section className="panel">
+                  <section className="panel" data-smartcard="card:pipeline-health" data-smartlabel="Documents pipeline" data-smartstatus="ok">
                     <h3>
                       🚦 Documents pipeline
                       <InfoTip text="Proactive check: are any documents failing to reach open.overheid.nl? Updates automatically." />
@@ -1338,6 +1358,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               <DashZone id="ai" title="AI insights">
               <CollapsiblePanel
                 id="aitriage"
+                cardId="card:aitriage"
                 title="AI daily triage"
                 className="panel--ai"
                 info="An AI-written summary of the facts shown above (counts, signatures, services). It only describes those numbers — it can still phrase things wrong, so verify anything important in Kibana."
@@ -1371,6 +1392,10 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           )}
         </div>
       </div>
+
+      {can("smart_context") && (
+        <SmartContextPanel token={token} aiEnabled={aiEnabled} lang="nl" />
+      )}
     </>
   );
 }

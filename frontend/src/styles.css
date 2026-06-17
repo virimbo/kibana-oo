@@ -2524,3 +2524,78 @@ body {
   font-size: 12.5px; line-height: 1.45; font-weight: 400;
   color: var(--text-secondary); opacity: 0.82; max-width: 78ch;
 }
+
+/* ─── SmartContextPanel (hover → right-side card intelligence) ─────────────── */
+.scp {
+  position: fixed;
+  top: 72px;
+  right: 16px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 96px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  z-index: 60;
+  overflow: hidden;
+  animation: scp-in 140ms ease-out;
+}
+.scp--pinned { border-color: var(--accent); }
+@keyframes scp-in { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .scp { animation: none; } }
+
+.scp-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 8px;
+  padding: 14px 14px 10px; border-bottom: 1px solid var(--border);
+}
+.scp-eyebrow { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); }
+.scp-title { font-size: 16px; margin: 2px 0 0; color: var(--text-primary); line-height: 1.25; }
+.scp-head-badges { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.scp-close {
+  background: none; border: none; color: var(--text-faint); font-size: 20px;
+  line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.scp-close:hover { color: var(--text-primary); }
+
+.scp-badge { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 999px; text-transform: capitalize; }
+.scp-badge--ok { background: rgba(70,201,122,.14); color: var(--success); }
+.scp-badge--warn { background: var(--warn-soft); color: var(--warn); }
+.scp-badge--crit { background: var(--error-soft); color: var(--error); }
+.scp-badge--muted { background: var(--bg-input); color: var(--text-faint); }
+
+.scp-body { padding: 12px 14px; overflow-y: auto; }
+.scp-muted { color: var(--text-faint); font-size: 13px; }
+.scp-pulse { animation: scp-pulse 1.3s ease-in-out infinite; }
+@keyframes scp-pulse { 0%,100% { opacity: .5; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .scp-pulse { animation: none; } }
+
+.scp-field { margin-bottom: 10px; }
+.scp-field-label { display: block; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin-bottom: 2px; }
+.scp-field-value { font-size: 13px; color: var(--text-secondary); }
+
+.scp-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.scp-chip { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-secondary); }
+
+.scp-section { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.scp-section--ai .scp-md { font-size: 13px; color: var(--text-secondary); }
+.scp-h4 { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-primary); margin: 0 0 8px; }
+
+.scp-todos { list-style: none; margin: 0; padding: 0; }
+.scp-todo { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; color: var(--text-secondary); padding: 4px 0; }
+.scp-box { color: var(--accent); flex-shrink: 0; }
+.scp-todo--done { color: var(--text-faint); text-decoration: line-through; }
+.scp-todo--done .scp-box { color: var(--success); }
+
+.scp-doclink { color: var(--accent); font-size: 13px; text-decoration: none; }
+.scp-doclink:hover { color: var(--accent-hover); text-decoration: underline; }
+.scp-ai-by { font-size: 10px; color: var(--text-faint); margin: 6px 0 0; }
+
+.scp-foot { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-faint); background: var(--bg-panel); }
+
+/* Narrow screens: full-height slide-over drawer instead of a floating rail. */
+@media (max-width: 720px) {
+  .scp { top: 0; right: 0; bottom: 0; width: 88vw; max-height: 100vh; border-radius: 0; }
+}

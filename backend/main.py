@@ -26,6 +26,7 @@ from ocr import image_to_text
 from portal import fetch_document_meta
 from session import create_session, drop_session, require_session, set_llm_provider, VALID_PROVIDERS
 from dashboard import router as dashboard_router, get_cached_snapshot, get_cached_health
+from context_api import router as context_router
 from cert_monitor import run_cert_monitor_loop
 from rabbitmq_dlq import run_dlq_monitor_loop
 from auth import require_super
@@ -72,6 +73,7 @@ app.add_middleware(
 )
 
 app.include_router(dashboard_router)
+app.include_router(context_router)
 
 class LoginRequest(BaseModel):
     username: str

@@ -666,7 +666,7 @@ function Sparkline({ points }) {
 }
 
 // ─── Hero: system health at a glance (control-tower row) ───────────────────
-function HeroStat({ tone, value, label, hint, onClick, skeleton, spark }) {
+function HeroStat({ tone, value, label, desc, hint, onClick, skeleton, spark }) {
   const Tag = onClick ? "button" : "div";
   return (
     <Tag className={`hero-stat hero-stat--${tone}${onClick ? " hero-stat--clickable" : ""}`}
@@ -675,12 +675,17 @@ function HeroStat({ tone, value, label, hint, onClick, skeleton, spark }) {
         {skeleton ? <span className="skel skel--value" /> : value}
       </span>
       <span className="hero-stat-label">{label}</span>
+      {desc && <span className="hero-stat-desc">{desc}</span>}
       {!skeleton && spark && <Sparkline points={spark} />}
     </Tag>
   );
 }
 
-function HeroStrip({ snap, health, certs, aanlever, dlq, can, onNavigate }) {
+// Plain-language stat tiles so an admin reads the whole system in one glance.
+// Each tile: a coloured value, a short label, and a one-line "what is this".
+// (TLS certificate health is intentionally NOT here — it has its own detailed
+// card lower down, so duplicating it would only add noise.)
+function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
   const stats = [];
 
   if (can("dashboard")) {
@@ -688,34 +693,31 @@ function HeroStrip({ snap, health, certs, aanlever, dlq, can, onNavigate }) {
     const tone = lvl === "ok" ? "ok" : lvl === "degraded" ? "warn" : lvl ? "crit" : "muted";
     stats.push({ key: "status", tone, skeleton: !snap,
       value: lvl === "ok" ? "All clear" : lvl === "degraded" ? "Degraded" : lvl ? "Critical" : "—",
-      label: "System status", hint: "Overall status for the selected window" });
+      label: "System status", desc: "Overall health, this window",
+      hint: "The headline verdict for the selected period: All clear, Degraded, or Critical — based on the number of critical issues found." });
     stats.push({ key: "crit", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok", skeleton: !snap,
-      value: snap ? snap.total : "—", label: "Criticals", hint: "Error-level logs, 5xx and APM errors in this window",
+      value: snap ? snap.total : "—", label: "Criticals", desc: "Error logs, 5xx & APM errors",
+      hint: "Total error-level log entries, HTTP 5xx server errors and APM errors in the selected window. The mini-graph shows the trend over the period.",
       spark: (snap?.timeseries || []).map((b) => b.count) });
   }
   if (can("pipeline_health")) {
     const n = (health?.stuck || []).length;
     stats.push({ key: "risk", tone: n > 0 ? "crit" : "ok", value: health ? n : "—", skeleton: health === null,
-      label: "Docs at risk", hint: "Documents not yet live — stuck or errored",
+      label: "Docs at risk", desc: "Not yet live — stuck or errored",
+      hint: "Documents that are not yet published on open.overheid.nl because they are stuck or errored in the pipeline. Click to trace them.",
       onClick: n > 0 ? () => onNavigate("documents") : undefined });
   }
   if (can("aanleverfouten")) {
     const n = aanlever?.count;
     stats.push({ key: "aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—", skeleton: aanlever === null,
-      label: "Aanleverfouten", hint: "Documents rejected at delivery" });
+      label: "Aanleverfouten", desc: "Rejected at delivery",
+      hint: "Documents rejected at delivery/intake (aanlevering) by a publisher — they never entered the pipeline and need to be re-delivered." });
   }
   if (can("rabbitmq") && dlq && dlq.configured !== false) {
     const n = dlq.count || 0;
-    stats.push({ key: "dlq", tone: n > 0 ? "warn" : "ok", value: n, label: "DLQs with msgs",
-      hint: "RabbitMQ dead-letter queues holding messages" });
-  }
-  if (can("certificates") && certs && certs.length) {
-    const probs = certs.filter((c) => (c.issues && c.issues.length) || c.status === "critical" || c.status === "expired");
-    const minDays = certs.filter((c) => c.reachable && c.days_remaining != null)
-      .reduce((m, c) => Math.min(m, c.days_remaining), Infinity);
-    stats.push({ key: "certs", tone: probs.length ? "crit" : minDays < 30 ? "warn" : "ok",
-      value: probs.length ? "⚠" : Number.isFinite(minDays) ? `${minDays}d` : "OK",
-      label: "TLS certs", hint: "Soonest certificate expiry / issues" });
+    stats.push({ key: "dlq", tone: n > 0 ? "warn" : "ok", value: n,
+      label: "Dead-letter queues", desc: "Stuck RabbitMQ messages",
+      hint: "RabbitMQ dead-letter queues that currently hold messages — work that failed processing and is waiting, nothing is draining it." });
   }
 
   if (!stats.length) return null;
@@ -958,7 +960,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           {error && <div className="alert alert--error">{error}</div>}
 
-          <HeroStrip snap={snap} health={health} certs={certs} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
+          <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
 
           <DashZone id="attention" title="Needs attention" alert>
 

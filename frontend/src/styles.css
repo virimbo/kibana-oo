@@ -2508,3 +2508,12 @@ body {
   .user-name { display: none; }
   .user-chip { padding: 4px; }
 }
+
+/* ── Hero tile description (plain-language one-liner) ──────── */
+.hero-stat { min-height: 104px; }
+.hero-stat-desc {
+  font-size: 11.5px; line-height: 1.35; font-weight: 400;
+  text-transform: none; letter-spacing: 0;
+  color: var(--text-secondary); opacity: 0.8;
+}
+.hero-stat .hero-spark { margin-top: auto; }   /* keep the trend line bottom-aligned */

@@ -43,6 +43,7 @@ flowchart TD
 - [[Dashboard - statusoverzicht]] — 🇳🇱 de overzichtsrij (statustegels) + inklapbare zones, voor beheerders
 - [[Smart context paneel]] — 🇳🇱 hover een kaart → rechts paneel met uitleg, status, AI-analyse en TO DO's uit de vault
 - [[Beschikbaarheid (uptime)]] — 🇳🇱 bovenaan het dashboard: is elke site (PROD/ACC/TEST) up? Met kleuren, uptime% en alerts
+- [[Grafana en infrastructuur]] — 🇳🇱 één-klik-links naar de Grafana-infradashboards (o.a. CloudNativePG)
 - [[Navigatie]] — 🇳🇱 de gedeelde menubalk: actieve pagina, Beheer-subpagina's, rechten
 - [[LLM providers]] — Ollama vs Mistral, the switcher, installing a key
 - [[KOOP Plooi log schema]] — the real (non-ECS) field names

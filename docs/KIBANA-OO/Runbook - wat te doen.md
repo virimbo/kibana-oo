@@ -29,7 +29,7 @@ Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en
 
 ## Bij DOWN
 - PROD: Bel direct de 24/7 storingslijn (iedereen) en open een incident.
-- ACC: Bel Firas en dev
+- ACC: Bel Firas en dev en andere boys
 - TEST: Bel Anton.
 
 ## Bij certificaat bijna verlopen

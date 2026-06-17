@@ -6,6 +6,7 @@ import TopNav from "./Nav";
 import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
 import SmartContextPanel from "./SmartContextPanel";
 import UptimeBoard from "./UptimeBoard";
+import InfraLinks from "./InfraLinks";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -997,6 +998,12 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           {error && <div className="alert alert--error">{error}</div>}
 
           {can("uptime") && <UptimeBoard token={token} />}
+
+          {can("grafana") && (
+            <DashZone id="infra" title="Infrastructuur">
+              <InfraLinks token={token} />
+            </DashZone>
+          )}
 
           <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
 

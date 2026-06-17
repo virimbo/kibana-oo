@@ -280,6 +280,18 @@ class Settings(BaseSettings):
     uptime_alert_enabled: bool = True    # alert (webhook/email) when a site goes DOWN
     uptime_history: int = 30             # rolling samples kept per site (sparkline/uptime%)
 
+    # ── Infra / Grafana deep-links ────────────────────────────────────────────
+    # One per line: `name | url | env?`. Shown as one-click cards that open the
+    # external dashboard in a new tab (admin uses their own Grafana SSO; we store
+    # no credentials). See infra_api.py + docs/KIBANA-OO/Grafana en infrastructuur.md.
+    grafana_links: str = (
+        "CloudNativePG (cnpg-cluster-v5) | "
+        "https://grafana-prod.cicd.s15m.nl/d/cloudnative-pg/cloudnativepg?orgId=49"
+        "&from=now-7d&to=now&timezone=browser&var-DS_PROMETHEUS=koop-plooi-proxy"
+        "&var-operatorNamespace=&var-namespace=koop-plooi-prd&var-cluster=cnpg-cluster-v5"
+        "&var-instances=$__all&refresh=30s | PROD"
+    )
+
     # Backend
     backend_port: int = 8000
     frontend_origin: str = "http://localhost:3000"

@@ -112,6 +112,11 @@ velden worden netjes overgeslagen.
 ## Configuratie & randgevallen
 
 - **Aanzetten:** zet `SMART_CONTEXT_ENABLED=true` in `.env` en herstart de backend.
+- **Snel aan/uit per gebruiker:** in **Beheer → Instellingen → Dashboard experience**
+  staat de schakelaar **"Show card detail panel (hover)"**. Uit = geen hover-paneel
+  meer (handig als je even rustig wilt lezen); de keuze wordt per sessie onthouden.
+  Dit staat los van de `SMART_CONTEXT_ENABLED`-vlag (die bepaalt of de functie
+  überhaupt beschikbaar is).
 - **Vault-locatie:** leeg laten = automatisch `docs/KIBANA-OO` naast de code
   (lokaal). In een container: mount de vault en zet `SMART_CONTEXT_VAULT_PATH`.
 - **Autorisatie:** ook als de vlag aanstaat, ziet een gebruiker het paneel alleen

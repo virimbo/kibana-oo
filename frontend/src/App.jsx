@@ -56,6 +56,7 @@ const AUTOCORRECT_KEY = "kibana_oo_autocorrect";
 const SHOW_WELCOME_KEY = "kibana_oo_show_welcome";
 const SHOW_HINT_KEY = "kibana_oo_show_hint";
 const SHOW_SUGGESTIONS_KEY = "kibana_oo_show_suggestions";
+const SHOW_CARD_DETAILS_KEY = "kibana_oo_show_card_details";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
@@ -919,10 +920,15 @@ export default function App() {
   const [showSuggestions, setShowSuggestions] = useState(
     () => sessionStorage.getItem(SHOW_SUGGESTIONS_KEY) !== "off"
   );
+  // Dashboard: the hover "card detail" panel (SmartContextPanel) — ON by default.
+  const [showCardDetails, setShowCardDetails] = useState(
+    () => sessionStorage.getItem(SHOW_CARD_DETAILS_KEY) !== "off"
+  );
   useEffect(() => sessionStorage.setItem(AUTOCORRECT_KEY, autocorrect ? "on" : "off"), [autocorrect]);
   useEffect(() => sessionStorage.setItem(SHOW_WELCOME_KEY, showWelcome ? "on" : "off"), [showWelcome]);
   useEffect(() => sessionStorage.setItem(SHOW_HINT_KEY, showHint ? "on" : "off"), [showHint]);
   useEffect(() => sessionStorage.setItem(SHOW_SUGGESTIONS_KEY, showSuggestions ? "on" : "off"), [showSuggestions]);
+  useEffect(() => sessionStorage.setItem(SHOW_CARD_DETAILS_KEY, showCardDetails ? "on" : "off"), [showCardDetails]);
 
   const settings = {
     aiEnabled, setAiEnabled,
@@ -930,6 +936,7 @@ export default function App() {
     showWelcome, setShowWelcome,
     showHint, setShowHint,
     showSuggestions, setShowSuggestions,
+    showCardDetails, setShowCardDetails,
   };
 
   // Global proactive alert: how many documents are stuck in the pipeline. Polled
@@ -1015,6 +1022,7 @@ export default function App() {
         llmProvider={effectiveProvider}
         onProviderChange={handleProviderChange}
         aiEnabled={aiEnabled}
+        showCardDetails={showCardDetails}
         can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}

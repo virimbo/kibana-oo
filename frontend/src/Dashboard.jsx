@@ -765,7 +765,7 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, showCardDetails = true, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -1436,7 +1436,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
         </div>
       </div>
 
-      {can("smart_context") && (
+      {showCardDetails && can("smart_context") && (
         <SmartContextPanel token={token} aiEnabled={aiEnabled} lang="nl" />
       )}
     </>

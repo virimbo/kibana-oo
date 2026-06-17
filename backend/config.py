@@ -34,7 +34,8 @@ class Settings(BaseSettings):
     # visible. Comma-separated host[:port]. Read-only outbound TLS.
     cert_probe_hosts: str = ("open.overheid.nl,doculoket.overheid.nl,"
                              "open-acc.overheid.nl,doculoket-acc.overheid.nl,"
-                             "gateway-zoek.koop-plooi-tst.test5.s15m.nl")
+                             "gateway-zoek.koop-plooi-tst.test5.s15m.nl,"
+                             "gateway-service.koop-plooi-tst.test5.s15m.nl")
     cert_probe_timeout: float = 6.0        # seconds; keep short so it never stalls the card
     cert_check_revocation: bool = True     # best-effort OCSP revocation check per cert
     # Daily proactive TLS audit: re-checks every host on this interval and alerts
@@ -266,7 +267,8 @@ class Settings(BaseSettings):
         "admin (login) | PROD | http://admin-main-admin.koop-plooi-prd.prod5.s15m.nl/login | 2xx,3xx | internal\n"
         "open-acc.overheid.nl | ACC | https://open-acc.overheid.nl | 2xx,3xx\n"
         "doculoket-acc.overheid.nl | ACC | https://doculoket-acc.overheid.nl | 2xx,3xx\n"
-        "gateway-zoek (test) | TEST | https://gateway-zoek.koop-plooi-tst.test5.s15m.nl/ | 2xx,3xx,401,404 | internal"
+        "gateway-zoek (test) | TEST | https://gateway-zoek.koop-plooi-tst.test5.s15m.nl/ | 2xx,3xx,401,404 | internal\n"
+        "gateway-service (test) | TEST | https://gateway-service.koop-plooi-tst.test5.s15m.nl/ | 2xx,3xx,401,404 | internal"
     )
     uptime_interval: int = 60            # seconds between full probe cycles
     uptime_timeout: float = 8.0          # per-request timeout (seconds)

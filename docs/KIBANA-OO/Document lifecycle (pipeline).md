@@ -2,6 +2,13 @@
 title: Document lifecycle — the canonical pipeline
 tags: [architecture, pipeline, spec, reference]
 aliases: [Lifecycle, Canonical pipeline, Pipeline stages]
+component: documents-pipeline
+purpose-business: Bewaakt of publicatiedocumenten daadwerkelijk live komen op open.overheid.nl.
+purpose-technical: Volgt elk document door de verwerkingsstraat (NVS/OVS) en classificeert de gezondheid per fase.
+dependencies: [Aanleverloket, RabbitMQ, Documentopslag, Indexatie, open.overheid.nl]
+related: [Verwerkingsstraat queues, Aanleverfouten]
+risk: medium
+owner: KOOP Beheer
 ---
 
 # 🧭 Document lifecycle — the canonical pipeline

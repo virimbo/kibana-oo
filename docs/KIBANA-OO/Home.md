@@ -41,6 +41,7 @@ flowchart TD
 - [[Document lifecycle (pipeline)]] — the canonical pipeline: how far a doc got, is it healthy, is it stuck (1-1 with the dashboard)
 - [[Monitoring dashboard]] — daily critical-issue dashboard
 - [[Dashboard - statusoverzicht]] — 🇳🇱 de overzichtsrij (statustegels) + inklapbare zones, voor beheerders
+- [[Smart context paneel]] — 🇳🇱 hover een kaart → rechts paneel met uitleg, status, AI-analyse en TO DO's uit de vault
 - [[Navigatie]] — 🇳🇱 de gedeelde menubalk: actieve pagina, Beheer-subpagina's, rechten
 - [[LLM providers]] — Ollama vs Mistral, the switcher, installing a key
 - [[KOOP Plooi log schema]] — the real (non-ECS) field names

@@ -1,6 +1,13 @@
 ---
 title: Dashboard — statusoverzicht (overzichtsrij)
 tags: [dashboard, monitoring, beheer, nl]
+component: criticals
+purpose-business: Geeft de beheerder in één oogopslag de algehele gezondheid van het platform.
+purpose-technical: Telt error-logs, HTTP 5xx en APM-fouten in het venster, met trend t.o.v. de vorige periode.
+dependencies: [Elasticsearch, Kibana, APM]
+related: [Monitoring dashboard, Document lifecycle (pipeline)]
+risk: medium
+owner: KOOP Beheer
 ---
 
 # Dashboard — statusoverzicht 🟢🟠🔴

@@ -238,6 +238,17 @@ class Settings(BaseSettings):
     digest_kibana_user: str = ""
     digest_kibana_password: str = ""
 
+    # ── SmartContextPanel (hover → right-side card intelligence) ──────────────
+    # Additive, off by default. When true, hovering/focusing a dashboard card
+    # opens a right-side panel with component info + vault TODOs + optional AI.
+    # Flip to false (or leave default) to roll back instantly. See
+    # context_engine.py + context_api.py + docs/KIBANA-OO/Smart context paneel.md.
+    smart_context_enabled: bool = False
+    # Path to the Obsidian vault to read component notes/TODOs from. Empty =
+    # auto-discover docs/KIBANA-OO relative to the code (local dev). In a
+    # container, mount the vault and set SMART_CONTEXT_VAULT_PATH.
+    smart_context_vault_path: str = ""
+
     # Backend
     backend_port: int = 8000
     frontend_origin: str = "http://localhost:3000"

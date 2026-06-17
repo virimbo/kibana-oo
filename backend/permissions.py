@@ -28,6 +28,7 @@ CATALOG = [
     {"key": "aanleverfouten", "label": "Aanleverfouten", "group": "Dashboard"},
     {"key": "documents", "label": "Documents (trace & search)", "group": "Documents"},
     {"key": "rabbitmq", "label": "Dead-letter queues (RabbitMQ)", "group": "Dashboard"},
+    {"key": "smart_context", "label": "Smart context panel (hover-intelligentie)", "group": "Dashboard"},
     {"key": "regression", "label": "Regressietest", "group": "Beheer"},
     {"key": "settings", "label": "Settings (AI & toggles)", "group": "Beheer"},
 ]

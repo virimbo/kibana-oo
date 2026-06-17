@@ -37,7 +37,7 @@ direct onder de balk met **Periode** en **Data view**. De getallen gelden voor d
 |---|---|---|
 | **System status** | Het eindoordeel voor de gekozen periode: **All clear**, **Degraded** of **Critical**. Een samenvatting van alle andere tegels. | groen = gezond · oranje = verminderd · rood = kritiek |
 | **Criticals** | Aantal **error-logs + HTTP 5xx serverfouten + APM-fouten** in deze periode. Het mini-grafiekje toont het **verloop** over de periode (pieken = uitbarstingen van fouten). | rood zodra > 0 |
-| **Docs at risk** | Documenten die **nog niet live** staan op open.overheid.nl omdat ze **vastzitten of een fout hebben** in de verwerkingsstraat. **Klik** erop om ze te traceren. | rood zodra > 0 |
+| **Docs at risk** | Het grote getal = documenten met een **echt probleem** (kúnnen niet gepubliceerd worden) — hierop moet je actie ondernemen. De regel eronder ("… still processing") toont hoeveel er nog **in behandeling** zijn: normale doorstroom, die publiceren meestal gewoon. **Klik** om te traceren. | rood zodra er een probleem is; anders groen |
 | **Aanleverfouten** | Documenten die een bronhouder probeerde aan te leveren maar die **bij aanlevering geweigerd** zijn — ze kwamen de pipeline nooit in en moeten opnieuw aangeleverd worden. | oranje zodra > 0 |
 | **Dead-letter queues** | RabbitMQ-wachtrijen met **vastgelopen berichten** (werk dat mislukte en blijft staan, niets verwerkt het). | oranje zodra > 0 |
 
@@ -60,7 +60,7 @@ en **Data view = logs-* — All logs**, en ziet:
 
 - **System status: Critical** (rood)
 - **Criticals: 115** (rood) — met een grafiekje dat halverwege het uur een piek laat zien
-- **Docs at risk: 50** (rood)
+- **Docs at risk: 3** (rood) — *of 3.589 still processing*
 - **Aanleverfouten: 0** (groen)
 - **Dead-letter queues: 0** (groen)
 
@@ -69,18 +69,21 @@ en **Data view = logs-* — All logs**, en ziet:
 2. *Criticals: 115* met een piek halverwege → rond dat tijdstip is er een uitbarsting
    van fouten geweest. Klap de zone **Overview & diagnostics** open en bekijk
    **HTTP 5xx** en **Foutsignaturen** om te zien wélke fouten.
-3. *Docs at risk: 50* → **klik de tegel**; je springt naar **Documents** waar je
-   per document ziet wáár het vastloopt (bijv. document `ronl-abc123…` blijft hangen
-   in stap *indexering*).
+3. *Docs at risk: 3* (rood) → er zijn **3 documenten met een echt probleem**; de
+   **3.589** eronder zijn gewoon **in behandeling** (normale doorstroom). **Klik de
+   tegel** → je springt naar **Documents** en ziet per probleemdocument wáár het
+   misgaat (bijv. `ronl-abc123…` faalt in stap *indexering*).
 4. *Aanleverfouten 0* en *Dead-letter queues 0* → de aanlevering en de
    berichtenverwerking zijn op dit moment in orde; de oorzaak zit dus in de
    pipeline/zoekkant, niet in de aanlevering.
 
-> [!tip] Tegel vs. badge in de menubalk
-> De tegel **Docs at risk** toont de **actuele** situatie voor deze data view. De
-> badge **"3589 stuck"** in de menubalk is de **duurzame** telling (alles wat nog
-> niet is opgelost, over de tijd heen). De menubalk = de totale werkvoorraad; de
-> tegel = de momentopname.
+> [!important] Niet schrikken van een groot "in behandeling"-getal
+> Het getal **"still processing"** (bijv. 3.589) zijn documenten die **nog door de
+> pipeline lopen** — dat is normale doorstroom, géén storing. Alleen het grote
+> getal op de tegel (**Docs at risk**, de documenten met een **echt probleem**) is
+> de actie-knop. Daarom staat dit **rustig op het Dashboard** en is de oude,
+> alarmerende **"… stuck"-knop uit de menubalk verwijderd** — "stuck" suggereerde
+> ten onrechte dat alles kapot was.
 
 ## Inklapbare zones
 

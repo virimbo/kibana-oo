@@ -701,11 +701,19 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
       spark: (snap?.timeseries || []).map((b) => b.count) });
   }
   if (can("pipeline_health")) {
-    const n = (health?.stuck || []).length;
-    stats.push({ key: "risk", tone: n > 0 ? "crit" : "ok", value: health ? n : "—", skeleton: health === null,
-      label: "Docs at risk", desc: "Not yet live — stuck or errored",
-      hint: "Documents that are not yet published on open.overheid.nl because they are stuck or errored in the pipeline. Click to trace them.",
-      onClick: n > 0 ? () => onNavigate("documents") : undefined });
+    // Distinguish genuinely at-risk (verdict "problem" — cannot publish) from the
+    // large "still being processed" backlog. Only the former is alarming; the
+    // pending total is shown as calm context so management isn't scared by a big
+    // number that is mostly normal throughput.
+    const list = health?.stuck || [];
+    const problems = list.filter((d) => d.verdict === "problem").length;
+    const pending = health?.stuck_count || 0;
+    stats.push({ key: "risk", tone: problems > 0 ? "crit" : "ok",
+      value: health ? problems : "—", skeleton: health === null,
+      label: "Docs at risk",
+      desc: pending > 0 ? `of ${pending.toLocaleString("en-US")} still processing` : "all published",
+      hint: "Documents with a real problem (cannot be published) — these need action. The 'still processing' total are documents normally moving through the pipeline; most publish fine. Click to trace.",
+      onClick: (problems > 0 || pending > 0) ? () => onNavigate("documents") : undefined });
   }
   if (can("aanleverfouten")) {
     const n = aanlever?.count;

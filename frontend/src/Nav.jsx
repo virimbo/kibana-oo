@@ -1,5 +1,4 @@
 import ProviderSwitcher from "./ProviderSwitcher";
-import StuckBadge from "./StuckBadge";
 import AanleverBadge from "./AanleverBadge";
 import DlqBadge from "./DlqBadge";
 
@@ -75,7 +74,6 @@ export default function TopNav({
   onNavigate,
   llmProvider,
   onProviderChange,
-  stuckCount,
   aanleverCount,
   dlqCount,
   status, // optional { tone, label } — used by Chat for the connection pill
@@ -128,7 +126,6 @@ export default function TopNav({
         )}
         <DlqBadge count={dlqCount} onNavigate={onNavigate} />
         <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-        <StuckBadge count={stuckCount} onNavigate={onNavigate} />
         {onProviderChange && (
           <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
         )}

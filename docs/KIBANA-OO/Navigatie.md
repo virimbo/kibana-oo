@@ -52,7 +52,10 @@ Je ziet alleen de kaarten waar je recht op hebt.
 - **Badges** (verschijnen alleen als er iets is, en als je beheerder bent):
   - 🐰 **DLQ** — aantal dead-letter queues met vastgelopen berichten.
   - **Aanleverfouten** — aantal bij aanlevering geweigerde documenten.
-  - **stuck** — aantal vastgelopen documenten (duurzame telling). Klikbaar → naar de details.
+  - *(De oude **"… stuck"-badge is bewust verwijderd** uit de menubalk: dat grote
+    getal joeg onnodig schrik aan terwijl het meestal normale doorstroom is. De
+    documenten **in behandeling** en de echte **probleemdocumenten** staan nu
+    rustig en juist gekaderd op het [[Dashboard - statusoverzicht|Dashboard]].)*
 - **AI-modelkiezer** — wissel tussen **Ollama** en **Mistral**, of zet AI uit (zie [[LLM providers]]).
 - **Gebruikerschip** — een rond plaatje met je **initialen** plus je gebruikersnaam.
 - **Afmelden** — beëindigt je sessie.

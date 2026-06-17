@@ -102,6 +102,10 @@ herladen), zodat ervaren beheerders alleen tonen wat ze volgen:
 - **Skeleton-laadbalkjes**: terwijl de cijfers laden zie je een zacht "shimmer"-balkje
   in plaats van een leeg streepje, zodat duidelijk is dat er nog data binnenkomt.
 - **Tooltip**: houd de muis op een tegel voor een uitgebreidere uitleg.
+- **Uitleg-regel onder de kaarten**: de diagnose-kaarten (*Pipeline outcomes*,
+  *Documents not found (404)*, *HTTP 5xx*) tonen direct onder de titel één regel
+  in gewone taal wat de kaart betekent — zo hoef je niet eerst te hoveren. De
+  "i"-knop blijft voor de uitgebreide uitleg.
 
 ## Configuratie & randgevallen
 

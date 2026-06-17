@@ -38,6 +38,7 @@ export function CollapsiblePanel({
   title,
   icon,
   info,
+  subtitle,
   summary,
   defaultCollapsed = false,
   alert = false,
@@ -84,6 +85,7 @@ export function CollapsiblePanel({
         {collapsed && summary && <span className="panel-collapsed-summary">{summary}</span>}
         {!collapsed && headerExtra}
       </h3>
+      {!collapsed && subtitle && <p className="panel-subtitle">{subtitle}</p>}
       {!collapsed && children}
     </section>
   );
@@ -160,6 +162,7 @@ function OutcomesCard({ data, onNavigate }) {
       title="Pipeline outcomes"
       icon="📊"
       info={OUTCOMES_INFO}
+      subtitle="How many documents were published, updated, withdrawn or failed in this window — and the publish success rate."
       summary={summary}
     >
       <div className="oc-headline">
@@ -1084,6 +1087,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 id="notfound"
                 title="Documents not found (404)"
                 alert={snap.not_found_total > 0}
+                subtitle="Pages users opened that returned “not found” — usually broken links or removed content. High numbers hurt the user experience."
                 info="Pages or documents a user requested but that returned “file not found”. High counts usually mean broken links or removed/missing content on the site."
                 summary={
                   <span
@@ -1234,6 +1238,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 id="http5xx"
                 title="HTTP 5xx"
                 alert={snap.status_codes.length > 0}
+                subtitle="Server errors (status 500–599): the site itself failed to respond, with the URLs that broke. More serious than a 404 — this is the server, not a missing page."
                 info="Server errors — the site failed to respond properly (status 500–599). Listed with the URLs that failed. Different from 404, which means the page wasn't found."
                 summary={
                   <span

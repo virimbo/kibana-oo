@@ -765,7 +765,9 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, showCardDetails = true, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, showCardDetails = true, dashSections = {}, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
+  // A dashboard section is visible unless explicitly switched off in Settings.
+  const showSec = (key) => dashSections[key] !== false;
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -997,23 +999,25 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           {error && <div className="alert alert--error">{error}</div>}
 
-          {can("uptime") && <UptimeBoard token={token} />}
+          {showSec("uptime") && can("uptime") && <UptimeBoard token={token} />}
 
-          {can("grafana") && (
+          {showSec("infra") && can("grafana") && (
             <DashZone id="infra" title="Infrastructuur">
               <InfraLinks token={token} />
             </DashZone>
           )}
 
-          <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
+          {showSec("hero") && (
+            <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
+          )}
 
           <DashZone id="attention" title="Needs attention" alert>
 
-          {can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
+          {showSec("aanlever") && can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
-          {can("rabbitmq") && <DlqCard data={dlq} />}
+          {showSec("dlq") && can("rabbitmq") && <DlqCard data={dlq} />}
 
-          {can("certificates") && (
+          {showSec("certs") && can("certificates") && (
           <CollapsiblePanel
             id="certs"
             cardId="card:certificates"

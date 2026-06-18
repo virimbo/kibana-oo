@@ -45,6 +45,7 @@ flowchart TD
 - [[Beschikbaarheid (uptime)]] — 🇳🇱 bovenaan het dashboard: is elke site (PROD/ACC/TEST) up? Met kleuren, uptime% en alerts
 - [[Grafana en infrastructuur]] — 🇳🇱 één-klik-links naar de Grafana-infradashboards (o.a. CloudNativePG)
 - [[Alerting (meldingen)]] — 🇳🇱 e-mailmeldingen bij RED-status (omgevingen, DLQ, certificaten): aan/uit per kaart, ontvangers, cooldown, herstelmeldingen en geschiedenis
+- [[DLQ intelligentie]] — 🇳🇱 waarom staan er berichten vast in een dead-letter queue? Oorzaak, leeftijd, trend, aanbevolen actie (alleen-lezen peek)
 - [[Backlog - TODO Anton]] — 🇳🇱 persoonlijke actielijst (o.a. Grafana live-metrics: wacht op read-only token)
 - [[Navigatie]] — 🇳🇱 de gedeelde menubalk: actieve pagina, Beheer-subpagina's, rechten
 - [[LLM providers]] — Ollama vs Mistral, the switcher, installing a key

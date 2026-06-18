@@ -134,3 +134,31 @@ def test_eligible_respects_threshold_and_hierarchy(store):
     # disabling the category suppresses even a critical
     store.set_toggle("category", "dlq", False, actor="a")
     assert alerts._eligible(crit, threshold="critical") is False
+
+
+import alerts_email
+
+
+def test_render_email_contains_required_fields():
+    item = alerts._item("environment", "ACC", "open-acc.overheid.nl", "critical",
+                        status="HTTP 404 / DOWN")
+    subject, html, text = alerts_email.render(item, kind="new", prev_severity="ok",
+                                              dashboard_url="https://dash.example/")
+    assert "[ACC]" in subject and "open-acc.overheid.nl" in subject
+    for needle in ["CRITICAL", "ACC", "open-acc.overheid.nl", "HTTP 404 / DOWN",
+                   "ok", "New alert", "https://dash.example/"]:
+        assert needle in text
+    # HTML escapes the status (no raw injection)
+    evil = alerts._item("dlq", "PROD", "x", "critical", status="<script>")
+    _, ehtml, _ = alerts_email.render(evil, kind="new", prev_severity="ok",
+                                      dashboard_url="https://d/")
+    assert "<script>" not in ehtml and "&lt;script&gt;" in ehtml
+
+
+def test_render_recovery_kind():
+    item = alerts._item("certificate", "PROD", "open.overheid.nl", "ok",
+                        status="grade OK")
+    subject, _, text = alerts_email.render(item, kind="recovery", prev_severity="critical",
+                                           dashboard_url="https://d/")
+    assert "recovery" in text.lower() or "hersteld" in text.lower()
+    assert "✅" in subject or "recovery" in subject.lower()

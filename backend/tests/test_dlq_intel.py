@@ -169,3 +169,12 @@ def test_scan_builds_enriched_view(monkeypatch, store):
     assert q["export.dlq"]["reasons"][0]["reason"] == "max-retries"
     assert q["antivirus.dlq"]["severity"] == "ok"
     assert view["verdict"] in ("CRITICAL", "WARN", "OK")
+
+
+def test_api_disabled_returns_flag(monkeypatch):
+    import dlq_intel_api
+    from config import settings
+    monkeypatch.setattr(settings, "dlq_intel_enabled", False)
+    import asyncio
+    out = asyncio.run(dlq_intel_api.intel(session={"username": "x"}))
+    assert out == {"enabled": False}

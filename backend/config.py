@@ -285,6 +285,21 @@ class Settings(BaseSettings):
     uptime_alert_enabled: bool = True    # alert (webhook/email) when a site goes DOWN
     uptime_history: int = 30             # rolling samples kept per site (sparkline/uptime%)
 
+    # ── Unified alerting (admin-managed RED-state email alerts) ───────────────
+    # Additive & OFF by default. When true, a background engine reads the existing
+    # monitors (uptime/dlq/cert) read-only and sends admin-configured email alerts
+    # with per-scope toggles, cooldown, and recovery. When the engine owns alerting
+    # the three legacy inline alerters should be turned OFF (set *_ALERT_ENABLED=
+    # false) to avoid duplicate mail. Roll back instantly with ALERTS_ENABLED=false.
+    # See alerts.py + alerts_api.py + docs/KIBANA-OO/Alerting (meldingen).md.
+    alerts_enabled: bool = False
+    alerts_interval: int = 60               # seconds between evaluation passes
+    alerts_cooldown_minutes: int = 60       # default per-card anti-spam cooldown
+    alerts_default_threshold: str = "critical"  # "critical" or "warn" — min severity to alert
+    # Comma-separated emails used to SEED the admin-editable recipient list on first
+    # run. Empty → seed from digest_recipients. Admin edits live in kibana_oo.db.
+    alerts_recipient_seed: str = ""
+
     # ── Infra / Grafana deep-links ────────────────────────────────────────────
     # One per line: `name | url | env?`. Shown as one-click cards that open the
     # external dashboard in a new tab (admin uses their own Grafana SSO; we store
@@ -377,6 +392,12 @@ class Settings(BaseSettings):
     @property
     def digest_recipient_list(self) -> list[str]:
         return [e.strip() for e in self.digest_recipients.split(",") if e.strip()]
+
+    @property
+    def alerts_recipient_seed_list(self) -> list[str]:
+        """Seed recipients for first run: explicit seed, else the digest list."""
+        raw = self.alerts_recipient_seed or self.digest_recipients
+        return [e.strip() for e in raw.split(",") if e.strip()]
 
     @property
     def admin_list(self) -> list[str]:

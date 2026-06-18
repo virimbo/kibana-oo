@@ -6,6 +6,11 @@ services:
     container_name: kibana-oo-ollama
     ports:
       - "11434:11434"
+    environment:
+      # Keep the model resident so chats don't pay a ~2-min reload each time
+      # (the host is RAM-tight and was evicting it between requests). -1 = never
+      # unload. Ollama-only setting; does not affect Mistral.
+      - OLLAMA_KEEP_ALIVE=-1
     volumes:
       - ollama_data:/root/.ollama
     # Uncomment below if you have an NVIDIA GPU (makes LLAMA faster):

@@ -194,7 +194,12 @@ class Settings(BaseSettings):
 
     # Ollama
     ollama_base_url: str = "http://ollama:11434"
-    ollama_model: str = "llama3.1:8b"
+    # CPU-only host: the 8B model timed out here (no GPU, ~160 MiB free RAM), so the
+    # local default is the smaller llama3.2:3b — it actually responds on CPU. The
+    # bigger win is keeping it resident (OLLAMA_KEEP_ALIVE=-1 on the ollama
+    # container, see docker-compose.yml) so chats don't pay a ~2-min reload each
+    # time. Switch back to llama3.1:8b only on a GPU host. (Mistral is unaffected.)
+    ollama_model: str = "llama3.2:3b"
     # Robustness: Ollama's default context window is only 2048 tokens. A prompt
     # that exceeds it is SILENTLY truncated from the front (cutting off the real
     # question), after which the model often returns an EMPTY answer. We set the

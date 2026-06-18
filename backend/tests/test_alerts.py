@@ -162,3 +162,53 @@ def test_render_recovery_kind():
                                            dashboard_url="https://d/")
     assert "recovery" in text.lower() or "hersteld" in text.lower()
     assert "✅" in subject or "recovery" in subject.lower()
+
+
+def test_decide_new_then_cooldown_then_repeat():
+    now = datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
+    crit = alerts._item("dlq", "PROD", "export.dlq", "critical")
+    # No prior state, red → NEW
+    kind, nxt = alerts._decide(crit, prev=None, cooldown_min=60, now=now)
+    assert kind == "new" and nxt["severity"] == "critical" and nxt["red_since"]
+
+    # 30 min later, same severity, within cooldown → suppressed
+    prev = nxt
+    kind2, _ = alerts._decide(crit, prev=prev, cooldown_min=60,
+                              now=now + timedelta(minutes=30))
+    assert kind2 is None
+
+    # 61 min after last send, still red → REPEATED
+    kind3, _ = alerts._decide(crit, prev=prev, cooldown_min=60,
+                              now=now + timedelta(minutes=61))
+    assert kind3 == "repeated"
+
+
+def test_decide_escalation_bypasses_cooldown():
+    now = datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
+    warn = alerts._item("dlq", "PROD", "export.dlq", "warn")
+    _, prev = alerts._decide(warn, prev=None, cooldown_min=60, now=now)
+    crit = alerts._item("dlq", "PROD", "export.dlq", "critical")
+    kind, _ = alerts._decide(crit, prev=prev, cooldown_min=60,
+                             now=now + timedelta(minutes=1))
+    assert kind == "escalation"
+
+
+def test_decide_recovery_and_rearm():
+    now = datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
+    crit = alerts._item("environment", "ACC", "x", "critical")
+    _, prev = alerts._decide(crit, prev=None, cooldown_min=60, now=now)
+    ok = alerts._item("environment", "ACC", "x", "ok")
+    kind, nxt = alerts._decide(ok, prev=prev, cooldown_min=60,
+                               now=now + timedelta(minutes=5))
+    assert kind == "recovery" and nxt["red_since"] is None and nxt["severity"] == "ok"
+    # After recovery, a new red fires NEW again
+    kind2, _ = alerts._decide(crit, prev=nxt, cooldown_min=60,
+                              now=now + timedelta(minutes=10))
+    assert kind2 == "new"
+
+
+def test_decide_ok_with_no_prior_is_silent():
+    now = datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
+    ok = alerts._item("dlq", "PROD", "x", "ok")
+    kind, nxt = alerts._decide(ok, prev=None, cooldown_min=60, now=now)
+    assert kind is None and nxt is None

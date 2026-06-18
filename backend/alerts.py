@@ -11,6 +11,7 @@ cert_monitor.latest).
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 import alerts_store
 
@@ -110,3 +111,48 @@ def _meets_threshold(severity: str, threshold: str) -> bool:
 
 def _eligible(item: dict, threshold: str) -> bool:
     return _meets_threshold(item["severity"], threshold) and _toggles_allow(item)
+
+
+# ── decision machine (new / repeated / escalation / recovery + cooldown) ──────
+def _is_red(severity: str) -> bool:
+    return SEV_RANK.get(severity, 0) >= 1  # warn or critical
+
+
+def _decide(item: dict, prev: dict | None, cooldown_min: int, now: datetime):
+    """Pure decision. Returns (kind|None, next_state|None).
+
+    next_state is None only when nothing changed and nothing was sent (a green card
+    with no prior state) — the caller persists next_state when it is not None.
+    """
+    sev = item["severity"]
+    prev_sev = (prev or {}).get("severity", "ok")
+    red, was_red = _is_red(sev), _is_red(prev_sev)
+    now_iso = now.isoformat()
+
+    # Recovery: was red, now green → send once, clear red_since.
+    if was_red and not red:
+        return "recovery", {"severity": sev, "last_sent_at": now_iso,
+                            "last_kind": "recovery", "red_since": None}
+
+    if not red:
+        return None, None  # green, stays green → nothing
+
+    # From here the item is red.
+    if not was_red:
+        return "new", {"severity": sev, "last_sent_at": now_iso,
+                       "last_kind": "new", "red_since": now_iso}
+
+    # Still red. Escalation (severity rank increased) bypasses cooldown.
+    if SEV_RANK[sev] > SEV_RANK[prev_sev]:
+        return "escalation", {"severity": sev, "last_sent_at": now_iso,
+                              "last_kind": "escalation",
+                              "red_since": prev.get("red_since") or now_iso}
+
+    # Same/lower severity and still red → repeat only after cooldown.
+    last_sent = (prev or {}).get("last_sent_at")
+    if last_sent:
+        elapsed_min = (now - datetime.fromisoformat(last_sent)).total_seconds() / 60
+        if elapsed_min >= cooldown_min:
+            return "repeated", {"severity": sev, "last_sent_at": now_iso,
+                                "last_kind": "repeated", "red_since": prev.get("red_since")}
+    return None, {**prev, "severity": sev}  # within cooldown: update sev, no send

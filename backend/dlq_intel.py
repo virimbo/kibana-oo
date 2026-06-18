@@ -12,6 +12,9 @@ from __future__ import annotations
 import logging
 from contextlib import closing
 from datetime import datetime, timezone
+from urllib.parse import quote
+
+import httpx
 
 import db
 from config import settings
@@ -155,3 +158,31 @@ def _verdict(depth, source_consumers, trend, oldest_age, reasons, source) -> dic
     headline = f"{icon} {label} — {state} · {' · '.join(bits)} · {reason_txt}"
     return {"severity": severity, "headline": headline,
             "action": _ACTION.get(dominant, _ACTION["onbekend"]), "trend": trend}
+
+
+# ── read-only peek ────────────────────────────────────────────────────────────
+async def _peek(vhost: str, name: str) -> tuple[list[dict], list[dict]]:
+    """Read-only peek: get messages with ackmode=reject_requeue_true (requeued
+    untouched). Returns (sample failures, reason groups). Best-effort → ([],[]) on
+    error so a single bad queue never breaks the pass."""
+    base = settings.rabbitmq_api_url.rstrip("/")
+    url = f"{base}/api/queues/{quote(vhost, safe='')}/{name}/get"
+    body = {"count": settings.dlq_intel_peek_max,
+            "ackmode": "reject_requeue_true", "encoding": "auto", "truncate": 5000}
+    try:
+        async with httpx.AsyncClient(timeout=settings.rabbitmq_timeout) as client:
+            r = await client.post(url, json=body,
+                                  auth=(settings.rabbitmq_user, settings.rabbitmq_password),
+                                  headers={"Accept": "application/json"})
+            r.raise_for_status()
+            messages = r.json()
+    except Exception as e:  # noqa: BLE001
+        logger.error("dlq_intel: peek %s failed: %s", name, e)
+        return [], []
+    sample = [_parse_failure(m) for m in (messages or [])]
+    counts: dict[str, int] = {}
+    for s in sample:
+        counts[s["reason"]] = counts.get(s["reason"], 0) + 1
+    reasons = sorted(({"reason": k, "count": v} for k, v in counts.items()),
+                     key=lambda d: -d["count"])
+    return sample, reasons

@@ -89,3 +89,52 @@ def test_verdict_empty_is_ok(store):
     v = dlq_intel._verdict(depth=0, source_consumers=2, trend="stable",
                            oldest_age=None, reasons=[], source="x")
     assert v["severity"] == "ok"
+
+
+import httpx
+
+
+def test_peek_uses_reject_requeue_true_and_groups(monkeypatch, store):
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self): pass
+        def json(self):
+            return [_msg("rejected"), _msg("delivery_limit"), _msg("delivery_limit")]
+
+    class FakeClient:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, url, json=None, auth=None, headers=None):
+            captured["url"] = url
+            captured["body"] = json
+            return FakeResp()
+
+    monkeypatch.setattr(dlq_intel.httpx, "AsyncClient", FakeClient)
+    monkeypatch.setattr(store, "rabbitmq_api_url", "https://rmq.example")
+    monkeypatch.setattr(store, "rabbitmq_user", "u")
+    monkeypatch.setattr(store, "rabbitmq_password", "p")
+
+    import asyncio
+    sample, reasons = asyncio.run(dlq_intel._peek("/", "export.dlq"))
+    assert captured["body"]["ackmode"] == "reject_requeue_true"
+    assert captured["body"]["count"] == store.dlq_intel_peek_max
+    assert "/api/queues/%2F/export.dlq/get" in captured["url"]
+    assert reasons[0] == {"reason": "max-retries", "count": 2}
+    assert len(sample) == 3
+
+
+def test_peek_failure_returns_empty(monkeypatch, store):
+    class BoomClient:
+        def __init__(self, *a, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def post(self, *a, **k): raise httpx.HTTPError("boom")
+    monkeypatch.setattr(dlq_intel.httpx, "AsyncClient", BoomClient)
+    monkeypatch.setattr(store, "rabbitmq_api_url", "https://rmq.example")
+    monkeypatch.setattr(store, "rabbitmq_user", "u")
+    monkeypatch.setattr(store, "rabbitmq_password", "p")
+    import asyncio
+    sample, reasons = asyncio.run(dlq_intel._peek("/", "export.dlq"))
+    assert sample == [] and reasons == []

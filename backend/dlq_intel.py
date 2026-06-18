@@ -9,6 +9,7 @@ consumes a message; never touches FROZEN code.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from contextlib import closing
 from datetime import datetime, timezone
@@ -17,6 +18,7 @@ from urllib.parse import quote
 import httpx
 
 import db
+import rabbitmq_dlq
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -186,3 +188,75 @@ async def _peek(vhost: str, name: str) -> tuple[list[dict], list[dict]]:
     reasons = sorted(({"reason": k, "count": v} for k, v in counts.items()),
                      key=lambda d: -d["count"])
     return sample, reasons
+
+
+# ── scan orchestration ────────────────────────────────────────────────────────
+_latest: dict | None = None
+
+
+def is_configured() -> bool:
+    return settings.dlq_intel_enabled and settings.rabbitmq_configured
+
+
+async def scan(now: datetime | None = None) -> dict:
+    """One intelligence pass. Reuses rabbitmq_dlq for the base list, peeks each
+    non-empty DLQ, records trend, builds smart verdicts. Never raises."""
+    global _latest
+    if not is_configured():
+        _latest = {"configured": False}
+        return _latest
+    try:
+        base = await rabbitmq_dlq.latest()
+    except Exception as e:  # noqa: BLE001
+        logger.error("dlq_intel: base fetch failed: %s", e)
+        return _latest or {"configured": True, "queues": [], "verdict": "OK",
+                           "error": "rabbitmq unreachable"}
+    dlqs = base.get("dlqs", []) if base.get("configured") is not False else []
+    queues: list[dict] = []
+    for d in dlqs:
+        depth = int(d.get("depth") or 0)
+        # Trend BEFORE recording, so the stored sample is the previous depth.
+        trend = _trend(d["name"], depth)
+        _record_depth(d["name"], depth)
+        if depth > 0:
+            sample, reasons = await _peek(d.get("vhost", "/"), d["name"])
+            peeked = bool(sample)
+            oldest = max((s["age_seconds"] for s in sample if s["age_seconds"] is not None),
+                         default=None)
+        else:
+            sample, reasons, peeked, oldest = [], [], True, None
+        v = _verdict(depth, d.get("source_consumers"), trend, oldest, reasons,
+                     d.get("source") or "")
+        queues.append({
+            "name": d["name"], "source": d.get("source"), "depth": depth,
+            "source_consumers": d.get("source_consumers"),
+            "severity": v["severity"], "headline": v["headline"], "action": v["action"],
+            "trend": v["trend"], "oldest_age_seconds": oldest,
+            "reasons": reasons, "sample": sample, "peeked": peeked,
+        })
+    queues.sort(key=lambda q: (-SEV_RANK[q["severity"]], -q["depth"]))
+    crit = sum(1 for q in queues if q["severity"] == "critical")
+    warn = sum(1 for q in queues if q["severity"] == "warn")
+    verdict = "CRITICAL" if crit else ("WARN" if warn else "OK")
+    _latest = {"configured": True, "verdict": verdict, "crit": crit, "warn": warn,
+               "queues": queues}
+    return _latest
+
+
+async def latest() -> dict:
+    return _latest if _latest is not None else await scan()
+
+
+async def run_dlq_intel_loop() -> None:
+    """Background poll so the intelligence (and richer alerts) stay warm."""
+    interval = max(30, settings.dlq_intel_interval)
+    await asyncio.sleep(18)
+    while True:
+        if is_configured():
+            try:
+                await scan()
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:  # noqa: BLE001
+                logger.error("dlq_intel: cycle failed: %s", e)
+        await asyncio.sleep(interval)

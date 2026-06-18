@@ -138,3 +138,34 @@ def test_peek_failure_returns_empty(monkeypatch, store):
     import asyncio
     sample, reasons = asyncio.run(dlq_intel._peek("/", "export.dlq"))
     assert sample == [] and reasons == []
+
+
+def test_scan_builds_enriched_view(monkeypatch, store):
+    monkeypatch.setattr(store, "dlq_intel_enabled", True)
+    monkeypatch.setattr(store, "rabbitmq_api_url", "https://rmq.example")
+    monkeypatch.setattr(store, "rabbitmq_user", "u")
+    monkeypatch.setattr(store, "rabbitmq_password", "p")
+
+    async def fake_base():
+        return {"configured": True, "dlqs": [
+            {"name": "export.dlq", "vhost": "/", "depth": 240, "source": "export",
+             "source_consumers": 2, "severity": "warn", "first_seen": None},
+            {"name": "antivirus.dlq", "vhost": "/", "depth": 0, "source": "antivirus",
+             "source_consumers": 1, "severity": "ok", "first_seen": None},
+        ]}
+    monkeypatch.setattr(dlq_intel.rabbitmq_dlq, "latest", fake_base)
+
+    async def fake_peek(vhost, name):
+        return ([{"reason": "max-retries", "source": "export", "routing": "x",
+                  "age_seconds": 3 * 3600}],
+                [{"reason": "max-retries", "count": 240}])
+    monkeypatch.setattr(dlq_intel, "_peek", fake_peek)
+
+    import asyncio
+    view = asyncio.run(dlq_intel.scan())
+    assert view["configured"] is True
+    q = {x["name"]: x for x in view["queues"]}
+    assert q["export.dlq"]["severity"] == "critical"
+    assert q["export.dlq"]["reasons"][0]["reason"] == "max-retries"
+    assert q["antivirus.dlq"]["severity"] == "ok"
+    assert view["verdict"] in ("CRITICAL", "WARN", "OK")

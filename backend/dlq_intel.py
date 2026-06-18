@@ -10,7 +10,11 @@ consumes a message; never touches FROZEN code.
 from __future__ import annotations
 
 import logging
+from contextlib import closing
 from datetime import datetime, timezone
+
+import db
+from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -52,3 +56,50 @@ def _parse_failure(message: dict, now: datetime | None = None) -> dict:
         "routing": (rks[0] if rks else "—"),
         "age_seconds": age,
     }
+
+
+# ── depth history → trend ─────────────────────────────────────────────────────
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS dlq_intel_history (
+    queue TEXT NOT NULL, ts TEXT NOT NULL, depth INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_dlqih_queue ON dlq_intel_history(queue);
+"""
+
+
+def _conn():
+    conn = db.connect()
+    conn.executescript(_SCHEMA)
+    return conn
+
+
+def _record_depth(queue: str, depth: int) -> None:
+    """Append a depth sample and prune to the last dlq_intel_history per queue."""
+    now = datetime.now(timezone.utc).isoformat()
+    with closing(_conn()) as conn:
+        conn.execute("INSERT INTO dlq_intel_history (queue, ts, depth) VALUES (?,?,?)",
+                     (queue, now, int(depth)))
+        conn.execute(
+            "DELETE FROM dlq_intel_history WHERE queue=? AND ts NOT IN "
+            "(SELECT ts FROM dlq_intel_history WHERE queue=? ORDER BY ts DESC LIMIT ?)",
+            (queue, queue, settings.dlq_intel_history))
+        conn.commit()
+
+
+def _trend(queue: str, current: int) -> str:
+    """growing / draining / stable vs the most recent prior sample; unknown if none.
+    NB: scan() computes the trend BEFORE recording the new sample, so the most recent
+    stored sample is the previous depth."""
+    with closing(_conn()) as conn:
+        row = conn.execute(
+            "SELECT depth FROM dlq_intel_history WHERE queue=? ORDER BY ts DESC LIMIT 1",
+            (queue,)).fetchone()
+    if not row:
+        return "unknown"
+    delta = settings.dlq_intel_grow_delta
+    base = row["depth"]
+    if current >= base + delta:
+        return "growing"
+    if current <= base - delta:
+        return "draining"
+    return "stable"

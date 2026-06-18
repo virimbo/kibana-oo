@@ -43,16 +43,16 @@ def send_email_to(recipients: list[str], subject: str, html: str, text: str) -> 
         return False
 
 
-async def send_webhook_as(text: str, username: str = ALERT_SENDER) -> bool:
-    """Post the alert to the configured webhook with a sender username override.
-    The {"text", "username"} payload is accepted by Mattermost (and Slack) incoming
-    webhooks. Returns False (never raises) if unconfigured or on error."""
+async def post_webhook(payload: dict) -> bool:
+    """Post a prebuilt JSON payload to the configured webhook (Mattermost/Slack
+    incoming webhook — supports {username, text, attachments}). Returns False
+    (never raises) if unconfigured or on error."""
     url = settings.digest_webhook_url
-    if not url:
+    if not url or not payload:
         return False
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(url, json={"text": text, "username": username})
+            resp = await client.post(url, json=payload)
             resp.raise_for_status()
         return True
     except Exception as e:  # noqa: BLE001 — delivery must never break the loop

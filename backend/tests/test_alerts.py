@@ -225,7 +225,7 @@ def test_scan_sends_red_not_green_and_records(store, monkeypatch):
     sent = []
     monkeypatch.setattr(alerts_send, "send_email_to",
                         lambda recips, subject, html, text: sent.append(subject) or True)
-    monkeypatch.setattr(alerts_send, "send_webhook_as", _noop_webhook)
+    monkeypatch.setattr(alerts_send, "post_webhook", _noop_webhook)
     monkeypatch.setattr(alerts, "_collect", lambda: alerts._normalize_uptime(
         {"enabled": True, "groups": [{"env": "ACC", "sites": [
             {"name": "open-acc.overheid.nl", "env": "ACC", "state": "down",
@@ -248,7 +248,7 @@ def test_scan_disabled_global_sends_nothing(store, monkeypatch):
     sent = []
     monkeypatch.setattr(alerts_send, "send_email_to",
                         lambda *a, **k: sent.append(1) or True)
-    monkeypatch.setattr(alerts_send, "send_webhook_as", _noop_webhook)
+    monkeypatch.setattr(alerts_send, "post_webhook", _noop_webhook)
     monkeypatch.setattr(alerts, "_collect", lambda: [
         alerts._item("dlq", "PROD", "export.dlq", "critical")])
     asyncio.run(alerts.scan())
@@ -270,3 +270,32 @@ def test_api_requires_super(monkeypatch):
     with pytest.raises(HTTPException) as ei:
         require_super(session={"username": "user@x"})
     assert ei.value.status_code == 403
+
+
+import alerts_mattermost
+
+
+def test_mattermost_payload_critical():
+    item = alerts._item("environment", "ACC", "open-acc.overheid.nl", "critical",
+                        status="HTTP 404 / DOWN")
+    p = alerts_mattermost.payload(item, "new", "ok", "http://d/", "FB-OO:Anton")
+    assert p["username"] == "FB-OO:Anton"
+    a = p["attachments"][0]
+    assert a["color"] == "#f85149"
+    assert "open-acc.overheid.nl" in a["title"]
+    assert a["title_link"] == "http://d/"
+    fields = {f["title"]: f["value"] for f in a["fields"]}
+    assert fields["Omgeving"] == "ACC"
+    assert "HTTP 404 / DOWN" in fields["Huidige status"]
+    assert any("Aanbevolen actie" in f["title"] for f in a["fields"])
+    assert isinstance(a["ts"], int)
+
+
+def test_mattermost_payload_recovery_has_no_action():
+    item = alerts._item("certificate", "PROD", "open.overheid.nl", "ok",
+                        status="grade OK")
+    p = alerts_mattermost.payload(item, "recovery", "critical", "http://d/", "S")
+    a = p["attachments"][0]
+    assert a["color"] == "#46c97a"
+    assert "hersteld" in a["text"].lower()
+    assert not any("Aanbevolen actie" in f["title"] for f in a["fields"])

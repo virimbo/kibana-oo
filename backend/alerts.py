@@ -227,15 +227,19 @@ async def scan(now: datetime | None = None) -> dict:
 
 async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[str]) -> None:
     import alerts_email
-    subject, html, text = alerts_email.render(item, kind, prev_severity, _dashboard_url())
+    import alerts_mattermost
+    url = _dashboard_url()
+    subject, html, text = alerts_email.render(item, kind, prev_severity, url)
     delivered = False
     try:
-        # Both channels are branded with the alerts_send.ALERT_SENDER identity and
-        # leave notify.py untouched. Email → the ADMIN-managed recipient list;
-        # webhook → Mattermost-compatible {"text","username"} payload.
+        # Both channels are branded with alerts_send.ALERT_SENDER and leave notify.py
+        # untouched. Email → ADMIN-managed recipient list; webhook → a rich
+        # Mattermost attachment card (colour bar, lead, field grid, action).
         delivered = await asyncio.to_thread(alerts_send.send_email_to, recipients,
                                             subject, html, text)
-        await alerts_send.send_webhook_as(text)
+        payload = alerts_mattermost.payload(item, kind, prev_severity, url,
+                                            alerts_send.ALERT_SENDER)
+        await alerts_send.post_webhook(payload)
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: dispatch failed for %s: %s", item["card_id"], e)
     alerts_store.record_history(

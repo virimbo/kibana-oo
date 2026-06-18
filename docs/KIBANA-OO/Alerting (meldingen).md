@@ -103,6 +103,61 @@ eenmalig) · **Recovery** (weer groen). *Géén* herhaalmeldingen zolang iets st
 
 ---
 
+## Certificaat-alerting (TLS) — wanneer krijg je een melding?
+
+De motor leest per host de **grade** (`OK` / `WARN` / `CRITICAL`) die de
+certificaatmonitor berekent (zie [[Certificaten en TLS]]; die code is bevroren). De
+melding hangt af van die grade én van de ingestelde **drempel**.
+
+### Wat maakt een grade WARN of CRITICAL?
+
+| Grade | Wanneer (drempels uit de cert-code) |
+|---|---|
+| 🟢 **OK** | meer dan 30 dagen geldig én geen trust/keten/hostname-problemen |
+| 🟠 **WARN** | **< 30 dagen** tot verloop, of een klein issue |
+| 🔴 **CRITICAL** | **< 14 dagen** tot verloop, **verlopen**, of een ernstig vertrouwens­probleem: **onvolledige/gebroken keten**, **hostname-mismatch** of **ingetrokken** (OCSP revoked) |
+
+### Wat krijg je met de huidige drempel?
+
+- **Drempel `critical` (standaard):** je krijgt een certificaat­melding **pas bij
+  CRITICAL** — dus ~14 dagen vóór verloop of bij een echt trust-probleem.
+- **Drempel `warn`:** je krijgt óók de vroege **30-dagen**-waarschuwing.
+
+In beide gevallen geldt de één-melding-regel: **één** melding wanneer de grade slecht
+wordt → stilte → **één** herstelmelding zodra het certificaat vernieuwd is en de grade
+weer **OK** is.
+
+### Een echt voorbeeld — `open.overheid.nl` (verloopt 8 aug 2026)
+
+| Datum | Dagen over | Grade | Melding bij `critical` | Melding bij `warn` |
+|---|---|---|---|---|
+| nu | 50 | 🟢 OK | — | — |
+| ~9 jul 2026 | 30 | 🟠 WARN | — (stil) | ✅ één melding |
+| ~25 jul 2026 | 14 | 🔴 CRITICAL | ✅ één melding | (al gemeld) |
+| na vernieuwing | reset | 🟢 OK | ✅ recovery | ✅ recovery |
+
+> Vandaag staan álle certificaten op **GRADE OK** (50/81/76 dagen), dus er gaat nu
+> niets af.
+
+### Detectieritme
+
+Websites en DLQ's worden **elke minuut** gecontroleerd; certificaten via de
+**dagelijkse TLS-audit** (bij opstart + elke 24 u). Een certificaat dat kritiek wordt
+wordt dus bij de eerstvolgende audit opgepikt en daarna binnen ~60 s gemeld. Bewust zo:
+certificaten veranderen langzaam.
+
+### Gating
+
+Een certificaat­melding vereist (zoals elke melding) dat **globaal ∧ categorie
+"Certificaten & TLS" ∧ de omgeving (PROD/ACC/TST) ∧ die specifieke certificaat­kaart**
+allemaal aan staan.
+
+> **Aanbeveling:** omdat certificaten weken vooraf waarschuwen, kun je de drempel op
+> **`warn`** zetten zodat je het al op **30 dagen** hoort i.p.v. pas op 14. Te wijzigen
+> in **Beheer → Alerting → Drempel**.
+
+---
+
 ## Configuratie & randgevallen
 
 `.env` (server; nooit in de frontend):

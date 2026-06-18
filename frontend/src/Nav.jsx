@@ -54,7 +54,7 @@ const PRIMARY = [
 ];
 
 // Sub-pages reached from the Beheer hub keep "Beheer" lit as the active section.
-const BEHEER_SUB = new Set(["admin", "settings", "regression", "authorization"]);
+const BEHEER_SUB = new Set(["admin", "settings", "regression", "authorization", "alerts"]);
 
 function initials(name) {
   const parts = (name || "").split(/[^A-Za-z0-9]+/).filter(Boolean);

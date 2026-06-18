@@ -14,9 +14,9 @@ import asyncio
 import logging
 from datetime import datetime, timezone
 
+import alerts_send
 import alerts_store
 import cert_monitor
-import notify
 import rabbitmq_dlq
 import uptime
 from config import settings
@@ -227,16 +227,15 @@ async def scan(now: datetime | None = None) -> dict:
 
 async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[str]) -> None:
     import alerts_email
-    import alerts_send
     subject, html, text = alerts_email.render(item, kind, prev_severity, _dashboard_url())
     delivered = False
     try:
-        # Email goes to the ADMIN-managed recipient list (alerts_send, additive —
-        # notify.py is untouched). Webhook reuses notify.send_webhook, whose
-        # {"text": ...} payload a Mattermost incoming webhook accepts as-is.
+        # Both channels are branded with the alerts_send.ALERT_SENDER identity and
+        # leave notify.py untouched. Email → the ADMIN-managed recipient list;
+        # webhook → Mattermost-compatible {"text","username"} payload.
         delivered = await asyncio.to_thread(alerts_send.send_email_to, recipients,
                                             subject, html, text)
-        await notify.send_webhook(text)
+        await alerts_send.send_webhook_as(text)
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: dispatch failed for %s: %s", item["card_id"], e)
     alerts_store.record_history(

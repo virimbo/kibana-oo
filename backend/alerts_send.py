@@ -1,14 +1,22 @@
-"""Send an alert email to an EXPLICIT recipient list (the admin-managed list),
-reusing the configured SMTP settings. Additive — notify.py is left untouched.
-Best-effort: returns False (never raises) if unconfigured or on error."""
+"""Alert delivery: email to an EXPLICIT recipient list (the admin-managed list)
+and a Mattermost-compatible webhook — both branded with a fixed sender identity.
+Additive — notify.py is left untouched. Best-effort: every function returns False
+(never raises) if unconfigured or on error."""
 import logging
 import smtplib
 import ssl
 from email.message import EmailMessage
+from email.utils import formataddr
+
+import httpx
 
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+# Display name the alerts appear to come from, on every channel (email From +
+# Mattermost webhook username). The email address stays SMTP_FROM.
+ALERT_SENDER = "FB-OO:Anton"
 
 
 def send_email_to(recipients: list[str], subject: str, html: str, text: str) -> bool:
@@ -18,7 +26,7 @@ def send_email_to(recipients: list[str], subject: str, html: str, text: str) -> 
         return False
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = settings.smtp_from
+    msg["From"] = formataddr((ALERT_SENDER, settings.smtp_from))
     msg["To"] = ", ".join(recipients)
     msg.set_content(text)
     msg.add_alternative(html, subtype="html")
@@ -32,4 +40,21 @@ def send_email_to(recipients: list[str], subject: str, html: str, text: str) -> 
         return True
     except Exception as e:  # noqa: BLE001 — delivery must never break the loop
         logger.error("alerts: email to %s failed: %s", recipients, e)
+        return False
+
+
+async def send_webhook_as(text: str, username: str = ALERT_SENDER) -> bool:
+    """Post the alert to the configured webhook with a sender username override.
+    The {"text", "username"} payload is accepted by Mattermost (and Slack) incoming
+    webhooks. Returns False (never raises) if unconfigured or on error."""
+    url = settings.digest_webhook_url
+    if not url:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(url, json={"text": text, "username": username})
+            resp.raise_for_status()
+        return True
+    except Exception as e:  # noqa: BLE001 — delivery must never break the loop
+        logger.error("alerts: webhook post failed: %s", e)
         return False

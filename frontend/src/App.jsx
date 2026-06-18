@@ -160,7 +160,7 @@ function LoginPage({ onLogin }) {
           <span className="brand-mark">
             <Icon.Spark />
           </span>
-          <span className="brand-name">KIBANA-OO</span>
+          <span className="brand-name">Open Overheid - Monitoring</span>
         </div>
         <p className="login-desc">
           Sign in with your Kibana credentials to ask questions about your
@@ -270,7 +270,7 @@ function AssistantMessage({ msg }) {
       </span>
       <div className="msg-body">
         <div className="msg-head">
-          <span className="msg-name">KIBANA-OO</span>
+          <span className="msg-name">Open Overheid - Monitoring</span>
           <span className="ai-badge">AI-generated</span>
           {msg.time && <span className="msg-time">{fmtTime(msg.time)}</span>}
           {!isEmpty && !isStreaming && !isError && (
@@ -580,7 +580,7 @@ function ChatPage({
       <TopNav
         active="chat"
         brandMark={<Icon.Spark />}
-        brandName="KIBANA-OO"
+        brandName="Open Overheid - Monitoring"
         brandSub="AI Log Assistant · koop-plooi-prod"
         can={can}
         isAdmin={isAdmin}
@@ -622,7 +622,7 @@ function ChatPage({
                   </span>
                   <h2>Ask anything about your logs &amp; metrics</h2>
                   <p>
-                    KIBANA-OO searches your Elasticsearch cluster and uses an AI model
+                    Open Overheid - Monitoring searches your Elasticsearch cluster and uses an AI model
                     to answer in natural language — with the source log entries cited.
                   </p>
                   <p className="ai-disclosure ai-disclosure--chat">

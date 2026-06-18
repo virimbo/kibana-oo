@@ -89,7 +89,7 @@ export default function TopNav({
         type="button"
         className="brand brand--btn"
         onClick={() => onNavigate("chat")}
-        title="KIBANA-OO — go to Chat"
+        title="Open Overheid - Monitoring — go to Chat"
       >
         <span className="brand-mark">{brandMark}</span>
         <div className="brand-text">

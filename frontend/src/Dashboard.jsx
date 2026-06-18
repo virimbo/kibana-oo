@@ -371,7 +371,7 @@ function CertCard({ c }) {
     <div className={`cert-card cert-card--${c.status}`}>
       <span className="cert-host">
         {c.host}
-        {c.source === "probe" && <span className="cert-tag" title="Checked live by KIBANA-OO">live</span>}
+        {c.source === "probe" && <span className="cert-tag" title="Checked live by Open Overheid - Monitoring">live</span>}
         <GradeBadge grade={c.grade} />
       </span>
       <span className="cert-days">

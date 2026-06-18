@@ -45,7 +45,7 @@ const TIME_RANGES = [
 
 // Fallback used only if the backend's /data-views endpoint is unreachable.
 const DEFAULT_DATA_VIEWS = [
-  { id: "logs-*", label: "All logs" },
+  { id: "logs-*", label: "Alle logs" },
   { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
   { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
   { id: "apm-*", label: "APM" },
@@ -138,7 +138,7 @@ function LoginPage({ onLogin }) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Login failed");
+        throw new Error(data.detail || "Aanmelden mislukt");
       }
 
       const data = await res.json();
@@ -146,7 +146,7 @@ function LoginPage({ onLogin }) {
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
-          ? "Cannot reach the backend. Make sure it is running."
+          ? "Kan de backend niet bereiken. Controleer of die draait."
           : err.message
       );
     } finally {
@@ -164,33 +164,29 @@ function LoginPage({ onLogin }) {
           <span className="brand-name">Open Overheid - Monitoring</span>
         </div>
         <p className="login-desc">
-          Sign in with your Kibana credentials to ask questions about your
-          logs and metrics in plain language.
-        </p>
-        <p className="ai-disclosure">
-          This application uses an AI system (Llama or Mistral) to generate answers based
-          on your log data. Responses are AI-generated and should be verified.
+          Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om
+          toegang te krijgen tot de monitoringomgeving.
         </p>
 
         <form onSubmit={handleLogin}>
           <label>
-            <span>Username</span>
+            <span>Gebruikersnaam</span>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="your.name@koop.overheid.nl"
+              placeholder="uw.naam@koop.overheid.nl"
               autoFocus
               required
             />
           </label>
           <label>
-            <span>Password</span>
+            <span>Wachtwoord</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your Kibana password"
+              placeholder="Uw SP-wachtwoord"
               required
             />
           </label>
@@ -202,13 +198,9 @@ function LoginPage({ onLogin }) {
           )}
 
           <button type="submit" className="btn btn--primary" disabled={loading}>
-            {loading ? "Connecting…" : "Sign in"}
+            {loading ? "Bezig met aanmelden…" : "Aanmelden"}
           </button>
         </form>
-
-        <p className="login-foot">
-          Connected to <code>koop-plooi-prod</code>
-        </p>
       </div>
     </div>
   );
@@ -233,8 +225,8 @@ function CopyButton({ text }) {
     <button
       className="icon-btn"
       onClick={copy}
-      title={copied ? "Copied" : "Copy answer"}
-      aria-label="Copy answer"
+      title={copied ? "Gekopieerd" : "Antwoord kopiëren"}
+      aria-label="Antwoord kopiëren"
     >
       {copied ? <Icon.Check /> : <Icon.Copy />}
     </button>
@@ -535,7 +527,7 @@ function ChatPage({
             // Last-resort safety net: the backend now always streams a real
             // answer (or a summary built from the logs), so this only shows if
             // the connection dropped before any content arrived.
-            "_The connection ended before an answer arrived. Please try again — if it persists, check that the backend and Ollama are running._",
+            "_De verbinding eindigde voordat er een antwoord kwam. Probeer het opnieuw — als het aanhoudt, controleer of de backend en Ollama draaien._",
         }));
       } catch (err) {
         if (err.name === "AbortError") {
@@ -549,7 +541,7 @@ function ChatPage({
         } else {
           const detail =
             err.message === "Failed to fetch"
-              ? "Cannot reach the backend. Make sure the backend and Ollama are running."
+              ? "Kan de backend niet bereiken. Controleer of de backend en Ollama draaien."
               : err.message;
           updateLast({
             status: "error",
@@ -582,7 +574,7 @@ function ChatPage({
         active="chat"
         brandMark={<Icon.Spark />}
         brandName="Open Overheid - Monitoring"
-        brandSub="AI Log Assistant · koop-plooi-prod"
+        brandSub="AI-logassistent · koop-plooi-prod"
         can={can}
         isAdmin={isAdmin}
         username={username}
@@ -595,7 +587,7 @@ function ChatPage({
         dlqCount={dlqCount}
         status={{
           tone: connected === null ? "idle" : connected ? "ok" : "down",
-          label: connected === null ? "Checking" : connected ? "Connected" : "Offline",
+          label: connected === null ? "Controleren" : connected ? "Verbonden" : "Offline",
         }}
       />
 
@@ -710,8 +702,8 @@ function ChatPage({
                 type="button"
                 className="attach-remove"
                 onClick={() => setImage(null)}
-                title="Remove image"
-                aria-label="Remove image"
+                title="Afbeelding verwijderen"
+                aria-label="Afbeelding verwijderen"
               >
                 ×
               </button>
@@ -731,8 +723,8 @@ function ChatPage({
               className="btn btn--ghost btn--attach"
               onClick={() => fileInputRef.current?.click()}
               disabled={loading}
-              title="Attach a screenshot (or paste an image)"
-              aria-label="Attach image"
+              title="Screenshot toevoegen (of plak een afbeelding)"
+              aria-label="Afbeelding toevoegen"
             >
               <Icon.Paperclip />
             </button>
@@ -773,8 +765,8 @@ function ChatPage({
         </div>
         {showHint && (
           <p className="composer-hint">
-            Querying <code>{dataView}</code> · answers are generated from live log
-            data. Always verify critical findings in Kibana.
+            Bevraagt <code>{dataView}</code> · antwoorden worden gegenereerd uit live log-
+            data. Verifieer kritieke bevindingen altijd in Kibana.
           </p>
         )}
       </div>

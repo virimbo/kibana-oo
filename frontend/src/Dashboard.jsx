@@ -13,7 +13,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 const DEFAULT_DATA_VIEW = "logs-*";
 
 const FALLBACK_DATA_VIEWS = [
-  { id: "logs-*", label: "All logs" },
+  { id: "logs-*", label: "Alle logs" },
   { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
   { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
   { id: "apm-*", label: "APM" },
@@ -84,7 +84,7 @@ export function CollapsiblePanel({
           className="collapse-btn"
           onClick={() => setCollapsed((c) => !c)}
           aria-expanded={!collapsed}
-          title={collapsed ? `Show ${title}` : `Hide ${title}`}
+          title={collapsed ? `Toon ${title}` : `Verberg ${title}`}
         >
           <span className={`chev ${collapsed ? "" : "chev--open"}`} aria-hidden="true">▸</span>
           {icon ? `${icon} ` : ""}
@@ -122,11 +122,11 @@ function fmtDur(secs) {
 
 // ─── Pipeline outcomes card ───────────────────────────────────────────────
 const OC_META = {
-  published: { label: "Published", icon: "🟢", cls: "ok" },
-  updated: { label: "Updated", icon: "🔵", cls: "info" },
-  withdrawn: { label: "Withdrawn", icon: "🟠", cls: "warn" },
-  failed: { label: "Failed", icon: "🔴", cls: "err" },
-  in_progress: { label: "In progress", icon: "⏳", cls: "muted" },
+  published: { label: "Gepubliceerd", icon: "🟢", cls: "ok" },
+  updated: { label: "Bijgewerkt", icon: "🔵", cls: "info" },
+  withdrawn: { label: "Ingetrokken", icon: "🟠", cls: "warn" },
+  failed: { label: "Mislukt", icon: "🔴", cls: "err" },
+  in_progress: { label: "In behandeling", icon: "⏳", cls: "muted" },
 };
 const OC_ORDER = ["published", "updated", "withdrawn", "failed", "in_progress"];
 
@@ -140,7 +140,7 @@ function PipeSplit({ by, outcome }) {
 }
 
 const OUTCOMES_INFO =
-  "What actually happened to documents in this window, split by pipeline (OVS/NVS): published, updated, withdrawn (ingetrokken), and failed to publish (system error). 'Failed' is reconciled against open.overheid.nl, so a document that is in fact live is never counted as a failure. Click a tile to see the exact documents.";
+  "Wat er daadwerkelijk met documenten in dit venster is gebeurd, gesplitst per pipeline (OVS/NVS): gepubliceerd, bijgewerkt, ingetrokken en niet gepubliceerd (system error). 'Mislukt' wordt afgestemd op open.overheid.nl, zodat een document dat in werkelijkheid live staat nooit als mislukt wordt geteld. Klik op een tegel om de exacte documenten te zien.";
 
 function OutcomesCard({ data, onNavigate }) {
   const [open, setOpen] = useState(null); // which outcome's drill list is shown
@@ -151,14 +151,14 @@ function OutcomesCard({ data, onNavigate }) {
   const summary =
     data && sr != null ? (
       <span className={`panel-collapsed-summary--inline panel-collapsed-summary--${srCls}`}>
-        {sr}% success · {data.throughput} through · {data.backlog} in progress
+        {sr}% succes · {data.throughput} verwerkt · {data.backlog} in behandeling
       </span>
     ) : null;
 
   if (!data) {
     return (
-      <CollapsiblePanel id="outcomes" title="Pipeline outcomes" icon="📊" info={OUTCOMES_INFO}>
-        <p className="muted">Loading…</p>
+      <CollapsiblePanel id="outcomes" title="Pipeline-uitkomsten" icon="📊" info={OUTCOMES_INFO}>
+        <p className="muted">Laden…</p>
       </CollapsiblePanel>
     );
   }
@@ -168,28 +168,28 @@ function OutcomesCard({ data, onNavigate }) {
   return (
     <CollapsiblePanel
       id="outcomes"
-      title="Pipeline outcomes"
+      title="Pipeline-uitkomsten"
       icon="📊"
       info={OUTCOMES_INFO}
       cardId="card:outcomes"
-      subtitle="How many documents were published, updated, withdrawn or failed in this window — and the publish success rate."
+      subtitle="Hoeveel documenten in dit venster zijn gepubliceerd, bijgewerkt, ingetrokken of mislukt — en het publicatie-succespercentage."
       summary={summary}
     >
       <div className="oc-headline">
         <div className={`oc-kpi oc-kpi--${srCls}`}>
           <span className="oc-kpi-num">{sr == null ? "—" : `${sr}%`}</span>
           <span className="oc-kpi-label">
-            publish success rate <Delta pct={data.trend?.throughput_pct} />
+            publicatie-succespercentage <Delta pct={data.trend?.throughput_pct} />
           </span>
         </div>
         <ul className="oc-facts">
           <li>
-            <b>{data.throughput}</b> through · <b>{data.publish_failures}</b> failed{" "}
+            <b>{data.throughput}</b> verwerkt · <b>{data.publish_failures}</b> mislukt{" "}
             <Delta pct={data.trend?.failed_pct} />
           </li>
-          <li><b>{data.backlog}</b> in progress (backlog)</li>
+          <li><b>{data.backlog}</b> in behandeling (backlog)</li>
           <li>
-            time-to-publish p50 <b>{fmtDur(data.latency?.p50_seconds)}</b> · p95{" "}
+            tijd-tot-publicatie p50 <b>{fmtDur(data.latency?.p50_seconds)}</b> · p95{" "}
             <b>{fmtDur(data.latency?.p95_seconds)}</b>
           </li>
         </ul>
@@ -205,7 +205,7 @@ function OutcomesCard({ data, onNavigate }) {
               className={`oc-tile oc-tile--${meta.cls} ${open === o ? "is-open" : ""}`}
               onClick={() => setOpen(open === o ? null : o)}
               disabled={!n}
-              title={n ? "Click to list these documents" : "None in this window"}
+              title={n ? "Klik om deze documenten te tonen" : "Geen in dit venster"}
             >
               <span className="oc-tile-top">{meta.icon} {meta.label}</span>
               <span className="oc-tile-num">{n}</span>
@@ -217,7 +217,7 @@ function OutcomesCard({ data, onNavigate }) {
 
       {!open && (
         <p className="muted oc-hint">
-          ▸ Click a tile to list its documents — then click one to trace it, or open it on open.overheid.nl ↗
+          ▸ Klik op een tegel om de documenten te tonen — klik er vervolgens op om te tracen, of open het op open.overheid.nl ↗
         </p>
       )}
 
@@ -232,7 +232,7 @@ function OutcomesCard({ data, onNavigate }) {
                 tabIndex={0}
                 onClick={() => onNavigate("documents", d.id)}
                 onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", d.id)}
-                title="Click to trace this document"
+                title="Klik om dit document te tracen"
               >
                 <span
                   className={`oc-pill oc-pill--${
@@ -257,7 +257,7 @@ function OutcomesCard({ data, onNavigate }) {
                     target="_blank"
                     rel="noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    title="Open on open.overheid.nl"
+                    title="Open op open.overheid.nl"
                   >
                     ↗
                   </a>
@@ -266,7 +266,7 @@ function OutcomesCard({ data, onNavigate }) {
             ))}
           </ul>
         ) : (
-          <p className="muted oc-drill-empty">No documents to show for “{OC_META[open].label}”.</p>
+          <p className="muted oc-drill-empty">No documents to show for &ldquo;{OC_META[open].label}&rdquo;.</p>
         ))}
 
       <p className="muted oc-foot">
@@ -371,7 +371,7 @@ function CertCard({ c }) {
     <div className={`cert-card cert-card--${c.status}`}>
       <span className="cert-host">
         {c.host}
-        {c.source === "probe" && <span className="cert-tag" title="Checked live by Open Overheid - Monitoring">live</span>}
+        {c.source === "probe" && <span className="cert-tag" title="Live gecontroleerd door Open Overheid - Monitoring">live</span>}
         <GradeBadge grade={c.grade} />
       </span>
       <span className="cert-days">
@@ -456,7 +456,7 @@ function CertCard({ c }) {
 
 // ─── Aanleverfouten card: documents rejected at delivery, by publisher ─────
 const AANLEVER_INFO =
-  "Documents rejected at delivery (aanlevering) and NOT published — the doculoket 'Aanleverfouten'. The errored document never reaches open.overheid.nl, so this is detected in the logs and reconciled: it auto-resolves the moment the corrected document is published. Grouped by publisher so you know who to contact; click a title to trace it, ↗ to open it in doculoket, ✓ to dismiss.";
+  "Documenten die bij aanlevering zijn geweigerd en NIET gepubliceerd — de doculoket 'Aanleverfouten'. Het document met de error bereikt open.overheid.nl nooit, dus dit wordt in de logs gedetecteerd en verzoend: het lost automatisch op zodra het gecorrigeerde document is gepubliceerd. Gegroepeerd per publisher zodat je weet wie je moet benaderen; klik op een titel om te tracen, ↗ om in doculoket te openen, ✓ om af te handelen.";
 
 function AanleverfoutenCard({ data, onAck, onNavigate }) {
   if (!data) {
@@ -551,7 +551,7 @@ function AanleverfoutenCard({ data, onAck, onNavigate }) {
 
 // ─── RabbitMQ dead-letter queues card ──────────────────────────────────────
 const DLQ_INFO =
-  "RabbitMQ dead-letter queues (*.dlq). A non-empty DLQ means messages failed processing and are stuck. Each is paired with its source queue: if the source has 0 consumers, nothing will drain it (critical). Read-only via the RabbitMQ Management API; polled in the background and alerts when a DLQ fills.";
+  "RabbitMQ dead-letter queues (*.dlq). Een niet-lege DLQ betekent dat berichten niet verwerkt konden worden en vastzitten. Elke DLQ is gekoppeld aan zijn source queue: heeft de source 0 consumers, dan wordt niets gedraind (critical). Alleen-lezen via de RabbitMQ Management API; op de achtergrond gepolld en alert wanneer een DLQ volloopt.";
 
 function dlqAge(iso) {
   if (!iso) return "";
@@ -570,7 +570,7 @@ function DlqCard({ data, onNavigate }) {
         <h3>🐰 Dead-letter queues <InfoTip text={DLQ_INFO} /></h3>
         <p className="muted">
           {data && data.configured === false
-            ? "Not configured — set RABBITMQ_USER / RABBITMQ_PASSWORD in .env."
+            ? "Niet geconfigureerd — stel RABBITMQ_USER / RABBITMQ_PASSWORD in .env in."
             : "Loading…"}
         </p>
       </section>
@@ -623,12 +623,12 @@ function DlqCard({ data, onNavigate }) {
             <div className="dlq-tile-name" title={d.name}>{shortName(d)}</div>
             <div className="dlq-tile-meta">
               {d.depth === 0
-                ? "empty"
+                ? "leeg"
                 : `${d.depth.toLocaleString("nl-NL")} stuck${d.first_seen ? ` · ${dlqAge(d.first_seen)}` : ""}`}
             </div>
             <div className={`dlq-tile-cons${d.source_consumers === 0 ? " dlq-tile-cons--none" : ""}`}>
               {d.source_consumers === 0
-                ? "⛔ no consumer"
+                ? "⛔ geen consumer"
                 : d.source_consumers != null
                 ? `▶ ${d.source_consumers} consumer${d.source_consumers === 1 ? "" : "s"}`
                 : "—"}
@@ -645,7 +645,7 @@ function DlqCard({ data, onNavigate }) {
 // open/closed choice is remembered per `id` across reloads, like
 // CollapsiblePanel but one level up — so power users can fold away what they
 // don't watch and the page remembers their layout.
-function DashZone({ id, title, alert = false, defaultCollapsed = false, children }) {
+function DashZone({ id, title, eyebrow, alert = false, defaultCollapsed = false, children }) {
   const key = `dash.zone.${id}`;
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -666,12 +666,13 @@ function DashZone({ id, title, alert = false, defaultCollapsed = false, children
   return (
     <section className={`dash-zone${collapsed ? " is-collapsed" : ""}`}>
       <h2 className={`dash-section${alert ? " dash-section--alert" : ""}`}>
+        {eyebrow && <span className="dash-section-eyebrow">{eyebrow}</span>}
         <button
           type="button"
           className="dash-section-toggle"
           onClick={() => setCollapsed((c) => !c)}
           aria-expanded={!collapsed}
-          title={collapsed ? `Show ${title}` : `Hide ${title}`}
+          title={collapsed ? `${title} tonen` : `${title} verbergen`}
         >
           <span className={`chev ${collapsed ? "" : "chev--open"}`} aria-hidden="true">▸</span>
           {title}
@@ -728,12 +729,12 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
     const lvl = snap?.status_level;
     const tone = lvl === "ok" ? "ok" : lvl === "degraded" ? "warn" : lvl ? "crit" : "muted";
     stats.push({ key: "status", cardId: "hero:status", tone, skeleton: !snap,
-      value: lvl === "ok" ? "All clear" : lvl === "degraded" ? "Degraded" : lvl ? "Critical" : "—",
-      label: "System status", desc: "Overall health, this window",
-      hint: "The headline verdict for the selected period: All clear, Degraded, or Critical — based on the number of critical issues found." });
+      value: lvl === "ok" ? "Alles OK" : lvl === "degraded" ? "Verminderd" : lvl ? "Kritiek" : "—",
+      label: "Systeemstatus", desc: "Algehele health, dit venster",
+      hint: "Het hoofdoordeel voor de geselecteerde periode: Alles OK, Verminderd of Kritiek — op basis van het aantal gevonden kritieke issues." });
     stats.push({ key: "crit", cardId: "hero:criticals", tone: !snap ? "muted" : snap.total > 0 ? "crit" : "ok", skeleton: !snap,
-      value: snap ? snap.total : "—", label: "Criticals", desc: "Error logs, 5xx & APM errors",
-      hint: "Total error-level log entries, HTTP 5xx server errors and APM errors in the selected window. The mini-graph shows the trend over the period.",
+      value: snap ? snap.total : "—", label: "Kritieke meldingen", desc: "Error logs, 5xx & APM errors",
+      hint: "Totaal aantal error-level log entries, HTTP 5xx server errors en APM errors in het geselecteerde venster. De mini-grafiek toont de trend over de periode.",
       spark: (snap?.timeseries || []).map((b) => b.count) });
   }
   if (can("pipeline_health")) {
@@ -746,22 +747,22 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
     const pending = health?.stuck_count || 0;
     stats.push({ key: "risk", cardId: "hero:risk", tone: problems > 0 ? "crit" : "ok",
       value: health ? problems : "—", skeleton: health === null,
-      label: "Docs at risk",
-      desc: pending > 0 ? `of ${pending.toLocaleString("en-US")} still processing` : "all published",
-      hint: "Documents with a real problem (cannot be published) — these need action. The 'still processing' total are documents normally moving through the pipeline; most publish fine. Click to trace.",
+      label: "Docs met risico",
+      desc: pending > 0 ? `van ${pending.toLocaleString("nl-NL")} nog in verwerking` : "alles gepubliceerd",
+      hint: "Documenten met een echt probleem (kunnen niet gepubliceerd worden) — deze vereisen actie. Het 'nog in verwerking'-totaal zijn documenten die normaal door de pipeline bewegen; de meeste publiceren prima. Klik om te tracen.",
       onClick: (problems > 0 || pending > 0) ? () => onNavigate("documents") : undefined });
   }
   if (can("aanleverfouten")) {
     const n = aanlever?.count;
     stats.push({ key: "aanlever", cardId: "hero:aanlever", tone: n > 0 ? "warn" : "ok", value: aanlever ? (n || 0) : "—", skeleton: aanlever === null,
-      label: "Aanleverfouten", desc: "Rejected at delivery",
-      hint: "Documents rejected at delivery/intake (aanlevering) by a publisher — they never entered the pipeline and need to be re-delivered." });
+      label: "Aanleverfouten", desc: "Geweigerd bij aanlevering",
+      hint: "Documenten die bij aanlevering door een publisher zijn geweigerd — ze zijn nooit de pipeline ingegaan en moeten opnieuw worden aangeleverd." });
   }
   if (can("rabbitmq") && dlq && dlq.configured !== false) {
     const n = dlq.count || 0;
     stats.push({ key: "dlq", cardId: "hero:dlq", tone: n > 0 ? "warn" : "ok", value: n,
-      label: "Dead-letter queues", desc: "Stuck RabbitMQ messages",
-      hint: "RabbitMQ dead-letter queues that currently hold messages — work that failed processing and is waiting, nothing is draining it." });
+      label: "Dead-letter queues", desc: "Vastgelopen RabbitMQ-berichten",
+      hint: "RabbitMQ dead-letter queues die nu berichten bevatten — werk dat niet verwerkt kon worden en wacht; niets draint het." });
   }
 
   if (!stats.length) return null;
@@ -968,6 +969,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
       <div className="chat-scroll">
         <div className="dash">
           <div className="dash-controls">
+            <span className="page-eyebrow" style={{ width: "100%", marginBottom: -4 }}>Bereik & databron</span>
             <label className="control">
               <span className="control-label">
                 Period <InfoTip text="A quick preset (rolling window ending now) or a custom from→to range — pick any dates, including very old data." />
@@ -977,7 +979,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
             <label className="control">
               <span className="control-label">
-                Data view <InfoTip text="Which Elasticsearch dataset to analyze. “logs-*” is everything; the others narrow to a specific system." />
+                Data view <InfoTip text={'Which Elasticsearch dataset to analyze. \u201Clogs-*\u201D is everything; the others narrow to a specific system.'} />
               </span>
               <select
                 className="control-select"
@@ -995,7 +997,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             </label>
 
             <button className="btn btn--ghost" onClick={load} disabled={loading}>
-              {loading ? "Refreshing…" : "Refresh"}
+              {loading ? "Vernieuwen…" : "Vernieuwen"}
             </button>
             {loadedAt && (
               <span className="dash-asof">
@@ -1009,7 +1011,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           {showSec("uptime") && can("uptime") && <UptimeBoard token={token} />}
 
           {showSec("infra") && can("grafana") && (
-            <DashZone id="infra" title="Infrastructuur">
+            <DashZone id="infra" title="Infrastructuur" eyebrow="Grafana & servers">
               <InfraLinks token={token} />
             </DashZone>
           )}
@@ -1018,7 +1020,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
           )}
 
-          <DashZone id="attention" title="Needs attention" alert>
+          <DashZone id="attention" title="Vereist aandacht" eyebrow="Actie vereist" alert>
 
           {showSec("aanlever") && can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
@@ -1105,22 +1107,22 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           )}
           </DashZone>
 
-          <DashZone id="throughput" title="Throughput & outcomes">
+          <DashZone id="throughput" title="Throughput & outcomes" eyebrow="Documentverwerking">
           {can("outcomes") && <OutcomesCard data={outcomes} onNavigate={onNavigate} />}
           </DashZone>
 
           {snap && (
             <>
-              <DashZone id="overview" title="Overview & diagnostics">
+              <DashZone id="overview" title="Overzicht & diagnostiek" eyebrow="Logs & fouten">
               <div className={`status-banner status-banner--${snap.status_level}`}>
                 <strong>
                   {snap.status_level === "ok"
-                    ? "All clear"
+                    ? "Alles OK"
                     : snap.status_level === "degraded"
-                    ? "Degraded"
-                    : "Critical"}
+                    ? "Verminderd"
+                    : "Kritiek"}
                 </strong>
-                {snap.partial && <span className="dash-warn">partial data</span>}
+                {snap.partial && <span className="dash-warn">gedeeltelijke data</span>}
               </div>
 
               <div className="kpis">
@@ -1154,10 +1156,10 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               <CollapsiblePanel
                 id="notfound"
                 cardId="card:notfound"
-                title="Documents not found (404)"
+                title="Documenten niet gevonden (404)"
                 alert={snap.not_found_total > 0}
-                subtitle="Pages users opened that returned “not found” — usually broken links or removed content. High numbers hurt the user experience."
-                info="Pages or documents a user requested but that returned “file not found”. High counts usually mean broken links or removed/missing content on the site."
+                subtitle={'Pages users opened that returned \u201Cnot found\u201D \u2014 usually broken links or removed content. High numbers hurt the user experience.'}
+                info={'Pages or documents a user requested but that returned \u201Cfile not found\u201D. High counts usually mean broken links or removed/missing content on the site.'}
                 summary={
                   <span
                     className={`panel-collapsed-summary--inline panel-collapsed-summary--${
@@ -1172,13 +1174,13 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               >
                 {snap.not_found_total === 0 ? (
                   <p className="muted">
-                    No “not found” errors in this window — every requested page resolved.
+                    No "not found" errors in this window — every requested page resolved.
                   </p>
                 ) : (
                   <>
                     <p className="notfound-total">
                       <strong>{snap.not_found_total}</strong> request
-                      {snap.not_found_total === 1 ? "" : "s"} returned “not found”.
+                      {snap.not_found_total === 1 ? "" : "s"} returned "not found".
                     </p>
                     {snap.not_found_urls.length > 0 && (
                       <ul className="url-list">
@@ -1210,7 +1212,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               <CollapsiblePanel
                 id="overtime"
                 cardId="card:overtime"
-                title="Criticals over time"
+                title="Kritieke meldingen over tijd"
                 info="When issues happened — each bar is a time bucket; taller means more criticals then. A single tall bar = a spike."
               >
                 <div className="spark">
@@ -1229,7 +1231,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 id="bysystem"
                 cardId="card:bysystem"
                 title="By system"
-                info="Critical issues per data view (system). The highlighted tile is the one you're currently viewing; “unavailable” means that system couldn't be reached this load."
+                info={'Critical issues per data view (system). The highlighted tile is the one you\u2019re currently viewing; \u201Cunavailable\u201D means that system couldn\u2019t be reached this load.'}
               >
                 <div className="tiles">
                   {snap.systems.map((s) => (
@@ -1356,15 +1358,15 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                   <section className="panel panel--alert" data-smartcard="card:pipeline-health" data-smartlabel="Documents needing attention" data-smartstatus="crit">
                     <h3>
                       🚨 Documents needing attention
-                      <InfoTip text="Documents that are NOT yet live on open.overheid.nl — errored (cannot be published) or stuck/hanging in a service. Surfaced proactively so you act before users report it. Click a document to trace exactly where it failed." />
+                      <InfoTip text="Documenten die nog NIET live staan op open.overheid.nl — errored (kunnen niet gepubliceerd worden) of stuck/hangend in een service. Proactief getoond zodat je handelt voordat gebruikers het melden. Klik op een document om precies te tracen waar het misging." />
                     </h3>
                     <p className="pipe-alert">
-                      {atRisk.length} document{atRisk.length === 1 ? "" : "s"} at risk
-                      {critical > 0 ? ` · ${critical} critical` : ""} — act before users notice.
+                      {atRisk.length} document{atRisk.length === 1 ? "" : "s"} met risico
+                      {critical > 0 ? ` · ${critical} critical` : ""} — handel voordat gebruikers het merken.
                     </p>
                     <div className="digest-bar">
-                      <button className="btn btn--ghost" onClick={sendDigest} title="Email / Slack this list now">
-                        📧 Send me this digest
+                      <button className="btn btn--ghost" onClick={sendDigest} title="Deze lijst nu e-mailen / Slacken">
+                        📧 Stuur mij deze digest
                       </button>
                       {digestMsg && <span className="digest-msg">{digestMsg}</span>}
                     </div>
@@ -1377,7 +1379,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                           tabIndex={0}
                           onClick={() => onNavigate("documents", d.id)}
                           onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onNavigate("documents", d.id)}
-                          title="Click to trace this document"
+                          title="Klik om dit document te tracen"
                         >
                           <span className={`stuck-badge stuck-badge--${d.verdict}`}>
                             {d.verdict === "problem" ? "⛔ CRITICAL" : "🕒"} {d.stuck_stage}
@@ -1391,7 +1393,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     </ul>
                     {health.confirmed_published > 0 && (
                       <p className="muted pipe-confirmed">
-                        ✓ {health.confirmed_published} other document{health.confirmed_published === 1 ? "" : "s"} had hiccups but {health.confirmed_published === 1 ? "is" : "are"} already published &amp; readable — not at risk.
+                        ✓ {health.confirmed_published} ander document{health.confirmed_published === 1 ? "" : "s"} had hiccups maar {health.confirmed_published === 1 ? "is" : "are"} al gepubliceerd &amp; leesbaar — geen risico.
                       </p>
                     )}
                   </section>
@@ -1409,7 +1411,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               </DashZone>
 
               {aiEnabled && (
-              <DashZone id="ai" title="AI insights">
+              <DashZone id="ai" title="AI insights" eyebrow="Kunstmatige intelligentie">
               <CollapsiblePanel
                 id="aitriage"
                 cardId="card:aitriage"
@@ -1422,7 +1424,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     onClick={() => loadBriefing(true)}
                     disabled={briefingState === "loading"}
                   >
-                    {briefingState === "loading" ? "Generating…" : "Regenerate"}
+                    {briefingState === "loading" ? "Genereren…" : "Opnieuw genereren"}
                   </button>
                 }
               >

@@ -49,7 +49,7 @@ const NavIcon = {
 const PRIMARY = [
   { view: "chat", label: "Chat" },
   { view: "dashboard", label: "Dashboard", feature: "dashboard" },
-  { view: "documents", label: "Documents", feature: "documents" },
+  { view: "documents", label: "Documenten", feature: "documents" },
   { view: "admin", label: "Beheer", adminOnly: true },
 ];
 
@@ -89,7 +89,7 @@ export default function TopNav({
         type="button"
         className="brand brand--btn"
         onClick={() => onNavigate("chat")}
-        title="Open Overheid - Monitoring — go to Chat"
+        title="Open Overheid - Monitoring — naar Chat"
       >
         <span className="brand-mark">{brandMark}</span>
         <div className="brand-text">
@@ -134,7 +134,7 @@ export default function TopNav({
           <span className="user-name">{username}</span>
         </div>
         <button className="btn btn--ghost" onClick={onLogout}>
-          Sign out
+          Afmelden
         </button>
       </div>
     </header>

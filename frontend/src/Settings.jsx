@@ -30,13 +30,13 @@ const PROVIDERS = [
     value: "ollama",
     name: "Ollama",
     kind: "local",
-    hint: "Runs on your own infrastructure — private, no data leaves the network.",
+    hint: "Draait op je eigen infrastructuur — privé, er verlaat geen data het netwerk.",
   },
   {
     value: "mistral",
     name: "Mistral",
     kind: "cloud",
-    hint: "Hosted Mistral API — needs MISTRAL_API_KEY and sends prompts off-site.",
+    hint: "Gehoste Mistral API — vereist MISTRAL_API_KEY en stuurt prompts naar buiten.",
   },
 ];
 
@@ -65,12 +65,12 @@ export default function SettingsPage({
 
   // Dashboard blocks the admin can show/hide (all default on).
   const DASH_SECTIONS = [
-    { key: "uptime", label: "Beschikbaarheid (environment status)", hint: "The PROD/ACC/TEST up/down board at the top." },
-    { key: "infra", label: "Infrastructuur (Grafana)", hint: "The Grafana deep-link card(s)." },
-    { key: "hero", label: "Overzichtstegels (hero)", hint: "The big stat tiles: Critical, Criticals, Docs at risk, Aanleverfouten, DLQ." },
-    { key: "certs", label: "Certificaten & TLS", hint: "The certificate-expiry / TLS-health cards." },
-    { key: "dlq", label: "Dead-letter queues", hint: "The RabbitMQ DLQ queue cards." },
-    { key: "aanlever", label: "Aanleverfouten", hint: "The delivery-rejection card." },
+    { key: "uptime", label: "Beschikbaarheid (environment status)", hint: "Het PROD/ACC/TEST up/down-overzicht bovenaan." },
+    { key: "infra", label: "Infrastructuur (Grafana)", hint: "De Grafana deep-link-card(s)." },
+    { key: "hero", label: "Overzichtstegels (hero)", hint: "De grote stat-tegels: Critical, Criticals, Docs at risk, Aanleverfouten, DLQ." },
+    { key: "certs", label: "Certificaten & TLS", hint: "De cards voor certificaatvervaldatum / TLS-status." },
+    { key: "dlq", label: "Dead-letter queues", hint: "De RabbitMQ DLQ queue-cards." },
+    { key: "aanlever", label: "Aanleverfouten", hint: "De card voor afgewezen aanleveringen." },
   ];
 
   return (
@@ -79,7 +79,7 @@ export default function SettingsPage({
         active="settings"
         brandMark="⚙"
         brandName="Settings"
-        brandSub="AI & feature toggles · admin"
+        brandSub="AI- & functie-toggles · admin"
         can={can}
         isAdmin={isAdmin}
         username={username}
@@ -94,20 +94,33 @@ export default function SettingsPage({
 
       <div className="chat-scroll">
         <div className="dash">
+          {/* ── Command-center hero ───────────────────────────── */}
+          <section className="page-hero">
+            <div className="page-hero-main">
+              <span className="page-eyebrow">Beheer · Instellingen</span>
+              <h1 className="page-hero-h1">⚙ Instellingen</h1>
+              <p className="page-hero-lead">
+                AI-assistent, chatfuncties en dashboard-indeling beheren.
+                Wijzigingen worden direct toegepast en onthouden voor deze sessie.
+              </p>
+            </div>
+          </section>
+
           {/* ── AI model management ─────────────────────────────── */}
           <section className="panel set-panel">
-            <h3>🤖 AI assistant</h3>
+            <span className="page-eyebrow">Model & provider</span>
+            <h3>🤖 AI-assistent</h3>
             <p className="muted set-intro">
-              Turn the AI on or off, or choose which model answers. When off, the
-              dashboard, chat and document analysis fall back to deterministic,
-              data-only views — nothing is sent to any model.
+              Zet de AI aan of uit, of kies welk model antwoordt. Als deze uit staat,
+              vallen het dashboard, de chat en de documentanalyse terug op
+              deterministische, data-only weergaven — er wordt niets naar een model gestuurd.
             </p>
 
             <Toggle
               checked={aiEnabled}
               onChange={setAiEnabled}
-              label="Enable AI assistant"
-              hint="Master switch. Off = no AI commentary anywhere; all monitoring still works."
+              label="AI-assistent inschakelen"
+              hint="Hoofdschakelaar. Uit = nergens AI-commentaar; alle monitoring blijft werken."
             />
 
             <div className={`set-providers${aiEnabled ? "" : " set-providers--off"}`}>
@@ -137,7 +150,7 @@ export default function SettingsPage({
               </div>
               {!aiEnabled && (
                 <p className="muted set-providers-note">
-                  AI is switched off — enable it above to pick a model.
+                  AI staat uit — schakel deze hierboven in om een model te kiezen.
                 </p>
               )}
             </div>
@@ -145,53 +158,55 @@ export default function SettingsPage({
 
           {/* ── Chat experience ─────────────────────────────────── */}
           <section className="panel set-panel">
-            <h3>Chat experience</h3>
+            <span className="page-eyebrow">Gespreksinstellingen</span>
+            <h3>Chatfuncties</h3>
             <p className="muted set-intro">
-              Toggle features on or off. Changes apply immediately and are remembered for this session.
+              Functies aan- of uitzetten. Wijzigingen worden direct toegepast en onthouden voor deze sessie.
             </p>
 
             <Toggle
               checked={autocorrect}
               onChange={setAutocorrect}
               disabled={!aiEnabled}
-              label="Auto-correct questions"
-              hint="Fix spelling & grammar before sending. IDs, codes and numbers are preserved. Needs AI."
+              label="Vragen automatisch corrigeren"
+              hint="Corrigeert spelling & grammatica voor het versturen. IDs, codes en getallen blijven behouden. Vereist AI."
             />
             <Toggle
               checked={showSuggestions}
               onChange={setShowSuggestions}
-              label="Show quick questions"
-              hint="One-click starter questions (recent errors, latency, summary…) on an empty chat."
+              label="Snelle vragen tonen"
+              hint="Startvragen met één klik (recente errors, latency, samenvatting…) in een lege chat."
             />
             <Toggle
               checked={showWelcome}
               onChange={setShowWelcome}
-              label="Show welcome screen"
-              hint="The intro title, description and AI disclosure on an empty chat."
+              label="Welkomstscherm tonen"
+              hint="De introtitel, beschrijving en AI-disclosure in een lege chat."
             />
             <Toggle
               checked={showHint}
               onChange={setShowHint}
-              label="Show composer hint"
-              hint="The 'Querying logs-* …' line under the message box."
+              label="Composer-hint tonen"
+              hint="De regel 'Querying logs-* …' onder het berichtenvak."
             />
           </section>
 
           {/* ── Dashboard experience ────────────────────────────── */}
           <section className="panel set-panel">
-            <h3>Dashboard experience</h3>
+            <span className="page-eyebrow">Dashboard-indeling</span>
+            <h3>Dashboard-weergave</h3>
             <p className="muted set-intro">
-              Toggle dashboard features on or off. Changes apply immediately and are remembered for this session.
+              Dashboard-functies aan- of uitzetten. Wijzigingen worden direct toegepast en onthouden voor deze sessie.
             </p>
 
             <Toggle
               checked={showCardDetails}
               onChange={setShowCardDetails}
-              label="Show card detail panel (hover)"
-              hint="The right-side panel that appears when you hover a dashboard card — component info, runbook 'WAT TE DOEN NU', vault TODOs and AI analysis. Off = no hover panel."
+              label="Card-detailpaneel tonen (hover)"
+              hint="Het rechterpaneel dat verschijnt als je over een dashboard-card hovert — component-info, runbook 'WAT TE DOEN NU', vault-TODOs en AI-analyse. Uit = geen hover-paneel."
             />
 
-            <div className="set-subhead">Sections — show or hide whole blocks</div>
+            <div className="set-subhead">Secties — hele blokken tonen of verbergen</div>
             {DASH_SECTIONS.map((s) => (
               <Toggle
                 key={s.key}

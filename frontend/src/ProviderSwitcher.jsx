@@ -5,17 +5,17 @@
 // without a circular dependency on App.
 export default function ProviderSwitcher({ value, onChange, disabled = false }) {
   const off = value === "none";
-  const name = off ? "AI off" : value === "mistral" ? "Mistral" : "Ollama";
+  const name = off ? "AI uit" : value === "mistral" ? "Mistral" : "Ollama";
   const kind = off ? "disabled" : value === "mistral" ? "cloud" : "local";
   return (
     <label
       className="provider-switch"
       data-provider={value}
-      title="AI model — applies to chat, dashboard triage and document analysis. Choose Off to disable AI everywhere."
+      title="AI-model — geldt voor chat, dashboard-triage en documentanalyse. Kies Uit om AI overal uit te schakelen."
     >
       <span className="provider-switch-dot" aria-hidden="true" />
       <span className="provider-switch-text">
-        <span className="provider-switch-kicker">AI model</span>
+        <span className="provider-switch-kicker">AI-model</span>
         <span className="provider-switch-name">
           {name} <em>{kind}</em>
         </span>
@@ -29,9 +29,9 @@ export default function ProviderSwitcher({ value, onChange, disabled = false }) 
         disabled={disabled}
         aria-label="AI model provider"
       >
-        <option value="ollama">Ollama (local)</option>
+        <option value="ollama">Ollama (lokaal)</option>
         <option value="mistral">Mistral (cloud)</option>
-        <option value="none">Off — disable AI</option>
+        <option value="none">Uit — AI uitschakelen</option>
       </select>
     </label>
   );

@@ -7,16 +7,16 @@ import TimeRange, { timeParams, loadRange, saveRange } from "./TimeRange";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 const PERIODS = [
-  { value: 15, label: "Last 15 min" },
-  { value: 30, label: "Last 30 min" },
-  { value: 60, label: "Last 1 hour" },
-  { value: 360, label: "Last 6 hours" },
-  { value: 1440, label: "Last 24 hours" },
+  { value: 15, label: "Laatste 15 min" },
+  { value: 30, label: "Laatste 30 min" },
+  { value: 60, label: "Laatste uur" },
+  { value: 360, label: "Laatste 6 uur" },
+  { value: 1440, label: "Laatste 24 uur" },
 ];
 const DEFAULT_PERIOD = 60;
 const DEFAULT_DATA_VIEW = "logs-*";
 const FALLBACK_DATA_VIEWS = [
-  { id: "logs-*", label: "All logs" },
+  { id: "logs-*", label: "Alle logs" },
   { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
   { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
   { id: "apm-*", label: "APM" },
@@ -73,7 +73,7 @@ const fmtDuration = (a, b) => {
 function JourneyFlow({ stages }) {
   if (!stages || stages.length === 0) return null;
   return (
-    <div className="jflow" role="list" aria-label="Document journey through services">
+    <div className="jflow" role="list" aria-label="Documentreis door de services">
       {stages.map((s, i) => {
         const err = s.errors > 0;
         const dur = fmtDuration(s.first_seen, s.last_seen);
@@ -83,20 +83,20 @@ function JourneyFlow({ stages }) {
               <span className="jflow-step">{i + 1}</span>
               <span className="jflow-dot" aria-hidden="true" />
               <span className="jflow-name">{s.service}</span>
-              <span className="jflow-count" title="log events at this stage">{s.events}</span>
+              <span className="jflow-count" title="log events in deze fase">{s.events}</span>
               {err && <span className="jflow-badge">⚠ {s.errors}</span>}
               <div className="jflow-tip" role="tooltip">
                 <div className="jflow-tip-head">
-                  <span className="jflow-tip-step">Step {i + 1} of {stages.length}</span>
+                  <span className="jflow-tip-step">Stap {i + 1} van {stages.length}</span>
                   <span className={`jflow-tip-status ${err ? "is-err" : "is-ok"}`}>
-                    {err ? `⚠ ${s.errors} error${s.errors === 1 ? "" : "s"}` : "✓ healthy"}
+                    {err ? `⚠ ${s.errors} error${s.errors === 1 ? "" : "s"}` : "✓ gezond"}
                   </span>
                 </div>
                 <div className="jflow-tip-name">{s.service}</div>
                 <dl className="jflow-tip-grid">
                   <dt>Events</dt>
                   <dd>{s.events}</dd>
-                  <dt>Time</dt>
+                  <dt>Tijd</dt>
                   <dd>{fmtTime(s.first_seen)} → {fmtTime(s.last_seen)}{dur ? ` · ${dur}` : ""}</dd>
                 </dl>
                 {s.message && <div className="jflow-tip-msg">{s.message}</div>}
@@ -113,10 +113,10 @@ function JourneyFlow({ stages }) {
 }
 
 const lifeStatusLabel = (s) =>
-  s.status === "missing" ? "not reached yet"
-  : s.status === "ok" ? "✓ healthy"
-  : s.status === "warning" ? "⚠ warnings"
-  : "⛔ problem";
+  s.status === "missing" ? "nog niet bereikt"
+  : s.status === "ok" ? "✓ gezond"
+  : s.status === "warning" ? "⚠ waarschuwingen"
+  : "⛔ probleem";
 
 // The canonical Document Lifecycle: every expected pipeline stage in order,
 // coloured by what actually happened — so a non-tech admin sees how far the
@@ -130,10 +130,10 @@ function LifecycleBar({ lifecycle }) {
       <div className={`life-verdict life-verdict--${lifecycle.verdict}`}>
         <span className="life-verdict-text">{lifecycle.headline}</span>
         <span className="life-verdict-progress">
-          {lifecycle.reached_count} / {lifecycle.total_stages} stages
+          {lifecycle.reached_count} / {lifecycle.total_stages} fasen
         </span>
       </div>
-      <div className="life-flow" role="list" aria-label="Document lifecycle">
+      <div className="life-flow" role="list" aria-label="Levenscyclus van het document">
         {stages.map((s, i) => {
           const probCount = (s.problems || []).reduce((a, p) => a + p.count, 0);
           return (
@@ -153,20 +153,20 @@ function LifecycleBar({ lifecycle }) {
                   </div>
                   <div className="life-tip-desc">{s.desc}</div>
                   {s.confirmed && (
-                    <div className="life-tip-confirmed">✓ Confirmed live on open.overheid.nl</div>
+                    <div className="life-tip-confirmed">✓ Bevestigd live op open.overheid.nl</div>
                   )}
                   {s.reached ? (
                     <dl className="life-tip-grid">
                       <dt>Events</dt><dd>{s.events}</dd>
                       {s.duration && (
                         <>
-                          <dt>Time here</dt>
-                          <dd>{s.duration}{s.slow ? " · ⚠ slow" : ""}</dd>
+                          <dt>Tijd hier</dt>
+                          <dd>{s.duration}{s.slow ? " · ⚠ traag" : ""}</dd>
                         </>
                       )}
                       {s.first_seen && (
                         <>
-                          <dt>Seen</dt>
+                          <dt>Gezien</dt>
                           <dd>{fmtTime(s.first_seen)} → {fmtTime(s.last_seen)}</dd>
                         </>
                       )}
@@ -210,22 +210,22 @@ function PipelineHealth({ health, onTrace }) {
     <section className={`panel ${stuck.length ? "panel--alert" : ""}`}>
       <h3>
         🚦 Pipeline health
-        <InfoTip text={`Proactively scans documents active in the last ${hours}h: which are stuck in the pipeline, and where problems cluster by stage. Click a stuck document to trace it.`} />
+        <InfoTip text={`Scant proactief documenten die de laatste ${hours}u actief waren: welke stuck zitten in de pipeline, en waar problemen clusteren per stage. Klik op een stuck document om te tracen.`} />
       </h3>
       {clean ? (
-        <p className="pipe-ok">✓ All {health.documents_scanned} documents flowing normally in the last {hours}h.</p>
+        <p className="pipe-ok">✓ Alle {health.documents_scanned} documenten stromen normaal door in de laatste {hours}u.</p>
       ) : (
         <p className={stuck.length ? "pipe-alert" : "pipe-ok"}>
           {stuck.length > 0
-            ? `⚠ ${stuck.length} document${stuck.length === 1 ? "" : "s"} not live (need attention)`
-            : "✓ No documents stuck — everything reached open.overheid.nl"}
+            ? `⚠ ${stuck.length} document${stuck.length === 1 ? "" : "s"} niet live (vereisen aandacht)`
+            : "✓ Geen documenten stuck — alles bereikte open.overheid.nl"}
           {" · "}
-          {warn} warning{warn === 1 ? "" : "s"} · {err} error{err === 1 ? "" : "s"} across {health.documents_scanned} documents
+          {warn} warning{warn === 1 ? "" : "s"} · {err} error{err === 1 ? "" : "s"} over {health.documents_scanned} documenten
         </p>
       )}
       {health.confirmed_published > 0 && (
         <p className="muted pipe-confirmed">
-          ✓ {health.confirmed_published} document{health.confirmed_published === 1 ? "" : "s"} had log hiccups but {health.confirmed_published === 1 ? "is" : "are"} confirmed <b>published &amp; readable</b> on open.overheid.nl — not counted as stuck.
+          ✓ {health.confirmed_published} document{health.confirmed_published === 1 ? "" : "s"} had log hiccups maar {health.confirmed_published === 1 ? "is" : "are"} bevestigd <b>gepubliceerd &amp; leesbaar</b> op open.overheid.nl — niet als stuck geteld.
         </p>
       )}
 
@@ -239,7 +239,7 @@ function PipelineHealth({ health, onTrace }) {
               tabIndex={0}
               onClick={() => onTrace(d.id)}
               onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onTrace(d.id)}
-              title="Click to trace this document"
+              title="Klik om dit document te tracen"
             >
               <span className={`stuck-badge stuck-badge--${d.verdict}`}>
                 {d.verdict === "problem" ? "⛔" : "🕒"} {d.stuck_stage}
@@ -474,7 +474,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
               </select>
             </label>
             <button className="btn btn--ghost" onClick={load} disabled={loading}>
-              {loading ? "Refreshing…" : "Refresh"}
+              {loading ? "Vernieuwen…" : "Vernieuwen"}
             </button>
             {loadedAt && (
               <span className="dash-asof">data as of {loadedAt.toLocaleTimeString()}</span>
@@ -489,8 +489,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
             <>
               <section className={`panel ${data.alert_level !== "ok" ? "panel--alert" : ""}`}>
                 <h3>
-                  Document health
-                  <InfoTip text="Early warning: document errors in this window vs the prior period. A spike turns this red so you can act before users notice a broken or missing document." />
+                  Documentstatus
+                  <InfoTip text="Vroege waarschuwing: document-errors in dit venster vs de vorige periode. Een piek kleurt dit rood zodat je kunt handelen voordat gebruikers een kapot of ontbrekend document merken." />
                 </h3>
                 {data.alert_level === "ok" ? (
                   <p className="pipe-ok">✓ No document errors in this window.</p>
@@ -532,8 +532,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
               <section className="panel">
                 <div className="panel-head">
                   <h3>
-                    Trace a document
-                    <InfoTip text="Enter a Plooi/document id (ronl-…) to see its full lifecycle across services — every step, status, and any errors — so you can find where its flow failed." />
+                    Een document tracen
+                    <InfoTip text="Voer een Plooi/document-id (ronl-…) in om de volledige lifecycle over de services te zien — elke stap, status en eventuele errors — zodat je vindt waar de flow misging." />
                   </h3>
                 </div>
                 <form
@@ -545,12 +545,12 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 >
                   <input
                     className="feed-search trace-input"
-                    placeholder="e.g. ronl-d9d80f3d0fb042bf7fd2eea4708b937f"
+                    placeholder="bijv. ronl-d9d80f3d0fb042bf7fd2eea4708b937f"
                     value={traceId}
                     onChange={(e) => setTraceId(e.target.value)}
                   />
                   <button className="btn btn--primary" type="submit" disabled={traceLoading || !traceId.trim()}>
-                    {traceLoading ? "Tracing…" : "Trace"}
+                    {traceLoading ? "Traceren…" : "Traceer"}
                   </button>
                 </form>
                 {traceError && <p className="muted">{traceError}</p>}
@@ -645,7 +645,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                         className="btn btn--ghost trace-toggle"
                         onClick={() => setShowAllEvents((v) => !v)}
                       >
-                        {showAllEvents ? "Hide raw log" : `Show full log (${trace.events.length} events)`}
+                        {showAllEvents ? "Raw log verbergen" : `Volledige log tonen (${trace.events.length} events)`}
                       </button>
                       {showAllEvents && (
                         <table className="dash-table feed-table">
@@ -689,8 +689,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
 
               <section className="panel">
                 <h3>
-                  Errors by source
-                  <InfoTip text="Processing and mapping issues grouped by document source (bron) in this window — spot which feed is failing. Best-effort source detection (tunable)." />
+                  Errors per bron
+                  <InfoTip text="Processing- en mapping-issues gegroepeerd per document-bron in dit venster — zie welke feed faalt. Best-effort bron-detectie (instelbaar)." />
                 </h3>
                 {!data.by_source || data.by_source.length === 0 ? (
                   <p className="muted">No processing or mapping issues in this window.</p>
@@ -754,7 +754,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
               </div>
 
               <section className="panel">
-                <h3>By action <InfoTip text="What happened to documents — classified from the log text. 'other' = not yet classified (tunable)." /></h3>
+                <h3>Op actie <InfoTip text="Wat er met documenten gebeurde — geclassificeerd uit de log-tekst. 'other' = nog niet geclassificeerd (instelbaar)." /></h3>
                 <div className="tiles">
                   {(data.by_action || []).map((a) => (
                     <div key={a.action} className="tile">
@@ -767,7 +767,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
               </section>
 
               <section className="panel">
-                <h3>By type <InfoTip text="Document file type, taken from the filename in the log (pdf, xml, …)." /></h3>
+                <h3>Op type <InfoTip text="Document-bestandstype, uit de bestandsnaam in de log (pdf, xml, …)." /></h3>
                 <div className="tiles">
                   {(data.by_type || []).map((t) => (
                     <div key={t.type} className="tile">
@@ -780,7 +780,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
               </section>
 
               <section className="panel">
-                <h3>Activity over time</h3>
+                <h3>Activiteit over tijd</h3>
                 <div className="spark">
                   {(data.timeseries || []).map((b, i) => (
                     <div
@@ -795,11 +795,11 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
 
               <section className="panel">
                 <div className="panel-head">
-                  <h3>Activity feed <InfoTip text="Recent document events, newest first. Click a document to open it on open.overheid.nl. Filter by text or action." /></h3>
+                  <h3>Activiteitenfeed <InfoTip text="Recente document-events, nieuwste eerst. Klik op een document om het op open.overheid.nl te openen. Filter op tekst of actie." /></h3>
                   <div className="feed-filters">
                     <input
                       className="feed-search"
-                      placeholder="Filter… (document, file, message)"
+                      placeholder="Filter… (document, bestand, bericht)"
                       value={q}
                       onChange={(e) => setQ(e.target.value)}
                     />
@@ -808,7 +808,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                       value={actionFilter}
                       onChange={(e) => setActionFilter(e.target.value)}
                     >
-                      <option value="all">All actions</option>
+                      <option value="all">Alle acties</option>
                       {ACTIONS.map((a) => (
                         <option key={a} value={a}>
                           {a}

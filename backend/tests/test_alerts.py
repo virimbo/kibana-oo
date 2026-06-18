@@ -164,23 +164,24 @@ def test_render_recovery_kind():
     assert "✅" in subject or "recovery" in subject.lower()
 
 
-def test_decide_new_then_cooldown_then_repeat():
+def test_decide_new_then_silent_while_down():
+    """One alert when it breaks, then NOTHING until it recovers — no repeats ever."""
     now = datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
     crit = alerts._item("dlq", "PROD", "export.dlq", "critical")
-    # No prior state, red → NEW
+    # No prior state, red → NEW (the single down-alert)
     kind, nxt = alerts._decide(crit, prev=None, cooldown_min=60, now=now)
     assert kind == "new" and nxt["severity"] == "critical" and nxt["red_since"]
 
-    # 30 min later, same severity, within cooldown → suppressed
     prev = nxt
-    kind2, _ = alerts._decide(crit, prev=prev, cooldown_min=60,
-                              now=now + timedelta(minutes=30))
-    assert kind2 is None
-
-    # 61 min after last send, still red → REPEATED
-    kind3, _ = alerts._decide(crit, prev=prev, cooldown_min=60,
-                              now=now + timedelta(minutes=61))
-    assert kind3 == "repeated"
+    # 30 min later, still down → silent
+    assert alerts._decide(crit, prev=prev, cooldown_min=60,
+                          now=now + timedelta(minutes=30))[0] is None
+    # 6 hours later, STILL down → STILL silent (no time-based repeat)
+    assert alerts._decide(crit, prev=prev, cooldown_min=60,
+                          now=now + timedelta(hours=6))[0] is None
+    # a full day later → still silent
+    assert alerts._decide(crit, prev=prev, cooldown_min=60,
+                          now=now + timedelta(days=1))[0] is None
 
 
 def test_decide_escalation_bypasses_cooldown():

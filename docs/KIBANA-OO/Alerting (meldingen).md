@@ -50,9 +50,12 @@ over ACC, terwijl PROD gewoon blijft melden.
 de database bewaard (niet in de frontend) en bij elke verzending in de geschiedenis
 vastgelegd.
 
+**Meldritme — belangrijk.** Je krijgt **één** melding zodra een kaart stuk gaat,
+daarna **stilte** zolang het stuk blijft (géén herhaalmails), en **één** herstel­melding
+zodra het weer OK is. Alleen als een probleem *verergert* naar **critical** volgt
+eenmalig een **escalatie**. Per incident dus 1× DOWN + 1× UP (+ hooguit 1× escalatie).
+
 **Instellingen.**
-- **Cooldown (min.)** — minimale tijd tussen herhaalmails voor dezelfde kaart
-  (standaard 60). Anti-spam.
 - **Drempel** — `critical` (alleen rood, standaard) of `warn` (waarschuwing + rood).
 
 **Geschiedenis.** Tabel met tijd, kaart, soort (new/repeated/recovery/escalation),
@@ -80,10 +83,10 @@ Inhoud: severity, omgeving, component, huidige status (`HTTP 404 / DOWN`), vorig
 status (`ok`), tijdstip, dashboardlink en een **voorgestelde actie** ("controleer de
 service/ingress, kijk in de logs, herstart zo nodig de pod").
 
-Blijft 'ie down? Binnen de cooldown: **geen** herhaalmail. Na de cooldown: één
-**Repeated**-mail. Loopt warn → critical op? Dan **Escalation**, direct (cooldown
-overgeslagen). Komt 'ie weer up? Eén **Recovery**-mail ("is hersteld") en de kaart
-wordt opnieuw scherp gezet.
+Blijft 'ie down? Dan krijg je **niets** meer — geen herhaalmails, hoe lang het ook
+duurt. Loopt warn → critical op? Dan eenmalig een **Escalation**. Komt 'ie weer up?
+Eén **Recovery**-mail ("is hersteld") en de kaart wordt opnieuw scherp gezet, zodat
+een volgende storing weer als nieuwe melding telt.
 
 ---
 
@@ -95,8 +98,8 @@ wordt opnieuw scherp gezet.
 - 🔴 **critical** — echt mis (site DOWN, DLQ vol of zonder consumer, certificaat
   < 14 dagen / ketenfout). Meldt altijd (drempel `critical`).
 
-**Soorten melding:** **New** (was groen, nu rood) · **Repeated** (nog steeds rood, na
-cooldown) · **Escalation** (warn → critical, direct) · **Recovery** (weer groen).
+**Soorten melding:** **New** (was groen, nu rood) · **Escalation** (warn → critical,
+eenmalig) · **Recovery** (weer groen). *Géén* herhaalmeldingen zolang iets stuk is.
 
 ---
 

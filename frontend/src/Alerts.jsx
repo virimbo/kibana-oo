@@ -256,15 +256,6 @@ export default function AlertsPage({
 
             <div className="alerts-settings-row">
               <div className="alerts-field">
-                <label htmlFor="al-cd">Cooldown (minuten)</label>
-                <input id="al-cd" className="alerts-input" type="number" min={1} max={10080}
-                       defaultValue={status.config.cooldown_minutes}
-                       onBlur={(e) => {
-                         const v = Number(e.target.value);
-                         if (v && v !== status.config.cooldown_minutes) saveConfig({ cooldown_minutes: v });
-                       }} />
-              </div>
-              <div className="alerts-field">
                 <label htmlFor="al-th">Drempel</label>
                 <select id="al-th" className="alerts-select"
                         value={status.config.severity_threshold}
@@ -274,6 +265,11 @@ export default function AlertsPage({
                 </select>
               </div>
             </div>
+            <p className="muted set-intro" style={{ marginTop: 4 }}>
+              📨 Eén melding zodra iets stuk gaat, daarna stilte zolang het stuk blijft,
+              en één herstelmelding zodra het weer OK is. (Bij verergering naar
+              <em> critical</em> volgt eenmalig een escalatie.)
+            </p>
           </div>
         </section>
 

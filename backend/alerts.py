@@ -148,20 +148,16 @@ def _decide(item: dict, prev: dict | None, cooldown_min: int, now: datetime):
         return "new", {"severity": sev, "last_sent_at": now_iso,
                        "last_kind": "new", "red_since": now_iso}
 
-    # Still red. Escalation (severity rank increased) bypasses cooldown.
+    # Still red. The ONLY extra alert per incident is a single escalation when the
+    # problem worsens into a higher severity (in practice warn → critical).
     if SEV_RANK[sev] > SEV_RANK[prev_sev]:
         return "escalation", {"severity": sev, "last_sent_at": now_iso,
                               "last_kind": "escalation",
                               "red_since": prev.get("red_since") or now_iso}
 
-    # Same/lower severity and still red → repeat only after cooldown.
-    last_sent = (prev or {}).get("last_sent_at")
-    if last_sent:
-        elapsed_min = (now - datetime.fromisoformat(last_sent)).total_seconds() / 60
-        if elapsed_min >= cooldown_min:
-            return "repeated", {"severity": sev, "last_sent_at": now_iso,
-                                "last_kind": "repeated", "red_since": prev.get("red_since")}
-    return None, {**prev, "severity": sev}  # within cooldown: update sev, no send
+    # Still red, severity unchanged → STAY SILENT. Exactly one alert when it breaks,
+    # then nothing until it recovers. No time-based repeats (cooldown_min unused).
+    return None, {**prev, "severity": sev}
 
 
 # ── orchestration (collect → decide → send → persist) ─────────────────────────

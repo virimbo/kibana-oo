@@ -32,6 +32,8 @@ from rabbitmq_dlq import run_dlq_monitor_loop
 from uptime import run_uptime_monitor_loop
 from uptime_api import router as uptime_router
 from infra_api import router as infra_router
+from alerts_api import router as alerts_router
+from alerts import run_alert_loop
 from auth import require_super
 import permissions
 import regression
@@ -50,11 +52,12 @@ async def lifespan(app: FastAPI):
     cert_task = asyncio.create_task(run_cert_monitor_loop())
     dlq_task = asyncio.create_task(run_dlq_monitor_loop())
     uptime_task = asyncio.create_task(run_uptime_monitor_loop())
-    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime).")
+    alerts_task = asyncio.create_task(run_alert_loop())
+    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime, alerting).")
     try:
         yield
     finally:
-        for t in (cert_task, dlq_task, uptime_task):
+        for t in (cert_task, dlq_task, uptime_task, alerts_task):
             t.cancel()
             try:
                 await t
@@ -80,6 +83,7 @@ app.include_router(dashboard_router)
 app.include_router(context_router)
 app.include_router(uptime_router)
 app.include_router(infra_router)
+app.include_router(alerts_router)
 
 class LoginRequest(BaseModel):
     username: str

@@ -19,6 +19,18 @@
 - The cert monitoring works and is sensitive. Treat it as read-only. If a change
   seems necessary, explain it and **wait for a yes** — do not edit first.
 
+## Rule 2b — Mistral (AI provider) is FROZEN 🔒
+
+- **Never** touch the **Mistral** settings or code without explicit, specific approval:
+  - `MISTRAL_API_KEY` / `MISTRAL_BASE_URL` / `MISTRAL_MODEL` (`.env`, `.env.example`,
+    `backend/config.py`)
+  - the Mistral code path in `backend/llm.py` (`_generate_mistral_answer*`)
+  - the Mistral choice in the provider switcher / Settings UI
+- Mistral works perfectly and is fast (hosted GPU API). Treat it as read-only.
+- Performance/tuning work on the **local Ollama** path is fine (model, keep-alive,
+  context, GPU) — but it must **not** change anything Mistral-related. If a change
+  seems to require touching Mistral, explain it and **wait for a yes** — do not edit first.
+
 ## Rule 3 — When in doubt, ask
 
 - If a task can only be done by modifying existing working code, **pause and ask**

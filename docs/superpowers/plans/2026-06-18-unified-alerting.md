@@ -18,6 +18,7 @@
 |---|---|
 | `backend/alerts.py` (new) | collect → normalize → filter → decide → persist → loop |
 | `backend/alerts_email.py` (new) | pure rendering: `(item, kind, prev) → (subject, html, text)` |
+| `backend/alerts_send.py` (new) | additive SMTP send to an explicit recipient list (notify.py untouched) |
 | `backend/alerts_api.py` (new) | HTTP surface; auth guards; validation; config/toggles/history |
 | `backend/alerts_store.py` (new) | all SQLite access for the feature (schema, config, toggles, state, history, audit) |
 | `frontend/src/Alerts.jsx` (new) | admin UI (toggles, recipients, history) |
@@ -1047,14 +1048,15 @@ def get_config_safe() -> dict:
 
 async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[str]) -> None:
     import alerts_email
+    import alerts_send
     subject, html, text = alerts_email.render(item, kind, prev_severity, _dashboard_url())
     delivered = False
     try:
-        # notify.send_email uses the configured DIGEST recipients; we also pass our
-        # admin recipient list in the body header so routing is explicit + auditable.
-        if recipients:
-            text = "To: " + ", ".join(recipients) + "\n" + text
-        delivered = await asyncio.to_thread(notify.send_email, subject, html, text)
+        # Email goes to the ADMIN-managed recipient list (alerts_send, additive —
+        # notify.py is untouched). Webhook reuses notify.send_webhook, whose
+        # {"text": ...} payload a Mattermost incoming webhook accepts as-is.
+        delivered = await asyncio.to_thread(alerts_send.send_email_to, recipients,
+                                            subject, html, text)
         await notify.send_webhook(text)
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: dispatch failed for %s: %s", item["card_id"], e)
@@ -1079,7 +1081,65 @@ async def run_alert_loop() -> None:
         await asyncio.sleep(interval)
 ```
 
-> **Note on recipients:** `notify.send_email` (existing, FROZEN-by-policy reuse) sends to `DIGEST_RECIPIENT_LIST`. The admin-managed `recipients` list is recorded in history and prefixed into the body. If you later want the engine to send to the admin list *as the actual To:*, that is a follow-up that adds a new `send_email_to(recipients, ...)` in a NEW helper module — do NOT modify `notify.py` here. For this plan, set `DIGEST_RECIPIENT_LIST` to the same admin recipients in `.env` (documented in Task 10).
+- [ ] **Step 3b: Create the additive send helper `backend/alerts_send.py`**
+
+A tiny module that sends to an **explicit** recipient list (so the admin-managed
+list is the real `To:`). It reuses the existing `settings.smtp_*` config but does
+NOT import or modify `notify.py`. Mirrors `notify.send_email`'s SMTP handling.
+
+```python
+"""Send an alert email to an EXPLICIT recipient list (the admin-managed list),
+reusing the configured SMTP settings. Additive — notify.py is left untouched.
+Best-effort: returns False (never raises) if unconfigured or on error."""
+import logging
+import smtplib
+import ssl
+from email.message import EmailMessage
+
+from config import settings
+
+logger = logging.getLogger(__name__)
+
+
+def send_email_to(recipients: list[str], subject: str, html: str, text: str) -> bool:
+    """Blocking SMTP send to `recipients`. Call via asyncio.to_thread."""
+    recipients = [r.strip() for r in (recipients or []) if r and r.strip()]
+    if not (settings.smtp_host and settings.smtp_from and recipients):
+        return False
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = settings.smtp_from
+    msg["To"] = ", ".join(recipients)
+    msg.set_content(text)
+    msg.add_alternative(html, subtype="html")
+    try:
+        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=15) as server:
+            if settings.smtp_use_tls:
+                server.starttls(context=ssl.create_default_context())
+            if settings.smtp_user:
+                server.login(settings.smtp_user, settings.smtp_password)
+            server.send_message(msg)
+        return True
+    except Exception as e:  # noqa: BLE001 — delivery must never break the loop
+        logger.error("alerts: email to %s failed: %s", recipients, e)
+        return False
+```
+
+Update the Task 7 scan test (`test_scan_sends_red_not_green_and_records`) to patch
+`alerts_send.send_email_to` instead of `notify.send_email`:
+
+```python
+    import alerts_send
+    monkeypatch.setattr(alerts_send, "send_email_to",
+                        lambda recips, subject, html, text: sent.append(subject) or True)
+    monkeypatch.setattr(alerts.notify, "send_webhook",
+                        lambda text: _AsyncTrue())
+```
+
+where `_AsyncTrue` is a tiny awaitable returning True — or simpler, make the webhook
+a no-op coroutine: `async def _noop(*a, **k): return True` and patch with it. In
+`test_scan_disabled_global_sends_nothing`, patch `alerts_send.send_email_to` the same
+way. (The engine never calls `notify.send_email` for alerts anymore.)
 
 - [ ] **Step 4: Run to verify it passes**
 
@@ -1087,7 +1147,7 @@ Run docker pytest. Expected: PASS (the two scan tests; all prior tests still gre
 
 - [ ] **Step 5: Commit**
 ```bash
-git add backend/alerts.py backend/tests/test_alerts.py
+git add backend/alerts.py backend/alerts_send.py backend/tests/test_alerts.py
 git commit -m "feat(alerts): scan orchestration, dispatch, history, background loop"
 ```
 

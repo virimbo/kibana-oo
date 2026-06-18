@@ -1,20 +1,57 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import TopNav from "./Nav";
 import {
   fetchAlertsStatus, fetchAlertsHistory, putAlertToggle, putAlertConfig,
 } from "./api";
 
-// Beheer → Alerting (meldingen). Admin surface to manage the unified alert engine:
-// global/category/env/card toggles, recipients, cooldown, threshold and history.
-// Viewing needs the `alerts` grant; mutations are super-admin-only (enforced
-// server-side — a non-super save returns 403, surfaced as an inline error).
-const SEV_COLOR = { ok: "#3fb950", warn: "#d29922", critical: "#f85149" };
+// Beheer → Alerting (meldingen). Admin surface for the unified alert engine:
+// master switch, scope toggles (category/env/card), recipients, cooldown,
+// threshold and history. Built on the dashboard design language (.panel,
+// .switch, .up-tile, env colours, .dash-table). Viewing needs the `alerts`
+// grant; mutations are super-admin-only (enforced server-side → 403 surfaced).
+
 const CATEGORIES = [
   ["environment", "Omgevingsstatus"],
   ["dlq", "Dead-letter queues"],
   ["certificate", "Certificaten & TLS"],
 ];
 const ENVS = ["PROD", "ACC", "TST"];
+const SEV_TILE = { ok: "up", warn: "warn", critical: "down" };
+const ENV_CLASS = { PROD: "prod", ACC: "acc", TST: "tst" };
+
+// Reusable on/off switch — same markup/styling as Settings' Toggle.
+function Switch({ checked, onChange, disabled = false, label }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={disabled}
+      className={`switch${checked ? " is-on" : ""}`}
+      onClick={() => !disabled && onChange(!checked)}
+    >
+      <span className="switch-knob" />
+    </button>
+  );
+}
+
+function Row({ label, hint, checked, onChange, disabled }) {
+  return (
+    <div className={`set-row${disabled ? " set-row--disabled" : ""}`}>
+      <div className="set-row-text">
+        <span className="set-row-label">{label}</span>
+        {hint && <span className="set-row-hint">{hint}</span>}
+      </div>
+      <Switch checked={checked} onChange={onChange} disabled={disabled} label={label} />
+    </div>
+  );
+}
+
+function fmtTs(ts) {
+  if (!ts) return "";
+  return String(ts).replace("T", " ").replace(/\.\d+/, "").replace(/(\+00:00|Z)$/, " UTC");
+}
 
 export default function AlertsPage({
   token, username, onLogout, onNavigate, llmProvider, onProviderChange,
@@ -24,6 +61,8 @@ export default function AlertsPage({
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
   const [recipients, setRecipients] = useState("");
+  const [saved, setSaved] = useState(false);
+  const savedTimer = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -40,151 +79,237 @@ export default function AlertsPage({
 
   useEffect(() => { load(); }, [load]);
 
+  const flashSaved = () => {
+    setSaved(true);
+    clearTimeout(savedTimer.current);
+    savedTimer.current = setTimeout(() => setSaved(false), 1800);
+  };
+
   const toggleOn = (scope, ref) => {
     const t = (status?.toggles || []).find((x) => x.scope === scope && x.ref === ref);
     return t ? !!t.enabled : true; // absence = ON
   };
   const setToggle = async (scope, ref, enabled) => {
+    // optimistic: reflect immediately, reconcile on reload
     try { await putAlertToggle(token, { scope, ref, enabled }); load(); }
     catch (e) { setError(String(e.message || e)); }
   };
   const saveConfig = async (patch) => {
-    try { await putAlertConfig(token, patch); load(); }
+    try { await putAlertConfig(token, patch); await load(); flashSaved(); }
     catch (e) { setError(String(e.message || e)); }
   };
 
   const nav = (
     <TopNav
-      active="alerts"
-      brandMark="🔔"
-      brandName="Alerting"
-      brandSub="Meldingen"
-      can={can}
-      isAdmin={isAdmin}
-      username={username}
-      onLogout={onLogout}
-      onNavigate={onNavigate}
-      llmProvider={llmProvider}
-      onProviderChange={onProviderChange}
-      aanleverCount={aanleverCount}
-      dlqCount={dlqCount}
+      active="alerts" brandMark="🔔" brandName="Alerting" brandSub="Meldingen · admin"
+      can={can} isAdmin={isAdmin} username={username} onLogout={onLogout}
+      onNavigate={onNavigate} llmProvider={llmProvider} onProviderChange={onProviderChange}
+      aanleverCount={aanleverCount} dlqCount={dlqCount}
     />
   );
 
+  // ── inert / loading / error shells ──
   if (status && status.enabled === false) {
     return (
-      <>
-        {nav}
-        <main className="page">
-          <div className="card">
-            Alerting is uitgeschakeld (<code>ALERTS_ENABLED=false</code>). Zet de
-            functie aan in de omgeving om meldingen te beheren.
-          </div>
-        </main>
+      <>{nav}
+        <div className="chat-scroll"><div className="dash">
+          <section className="panel set-panel">
+            <h3>🔔 Alerting (meldingen)</h3>
+            <div className="alerts-banner alerts-banner--off">
+              ⚠ Alerting staat uit (<code>ALERTS_ENABLED=false</code>). Zet de functie
+              aan in de omgeving om meldingen te beheren.
+            </div>
+          </section>
+        </div></div>
       </>
     );
   }
+  if (!status) {
+    return (<>{nav}<div className="chat-scroll"><div className="dash">
+      <section className="panel set-panel"><p className="muted">Laden…</p></section>
+    </div></div></>);
+  }
+
+  const items = status.items || [];
+  const counts = items.reduce((a, it) => (a[it.severity] = (a[it.severity] || 0) + 1, a), {});
+  const globalOn = toggleOn("global", "");
 
   return (
-    <>
-      {nav}
-      <main className="page alerts-page">
-        <h2>🔔 Alerting (meldingen)</h2>
+    <>{nav}
+      <div className="chat-scroll"><div className="dash">
+
         {error && <div className="error" role="alert">{error}</div>}
-        {!status && <div className="card">Laden…</div>}
 
-        {status && (
-          <>
-            <section className="card">
-              <label className="toggle-row">
-                <input type="checkbox" checked={toggleOn("global", "")}
-                       onChange={(e) => setToggle("global", "", e.target.checked)} />
-                <strong>Alerting globaal ingeschakeld</strong>
-              </label>
-            </section>
+        {/* ── Master / engine status ─────────────────────────── */}
+        <section className="panel set-panel">
+          <div className="alerts-hero">
+            <div className="alerts-hero-text">
+              <span className="alerts-hero-title">🔔 Alerting (meldingen)</span>
+              <span className="alerts-hero-sub">
+                E-mailmeldingen zodra een kaart RED wordt — omgevingen, dead-letter
+                queues en certificaten. Slim ontdubbeld met cooldown en herstelmelding.
+              </span>
+            </div>
+            <div className="alerts-pills">
+              <span className={`alerts-pill ${counts.critical ? "alerts-pill--crit" : "alerts-pill--muted"}`}>
+                <b>{counts.critical || 0}</b> kritiek
+              </span>
+              <span className={`alerts-pill ${counts.warn ? "alerts-pill--warn" : "alerts-pill--muted"}`}>
+                <b>{counts.warn || 0}</b> waarschuwing
+              </span>
+              <span className="alerts-pill alerts-pill--ok"><b>{counts.ok || 0}</b> ok</span>
+            </div>
+          </div>
+          <div style={{ marginTop: 6 }}>
+            <Row
+              label="Alerting globaal ingeschakeld"
+              hint="Hoofdschakelaar. Uit = er gaan geen meldingen, monitoring blijft gewoon werken."
+              checked={globalOn}
+              onChange={(v) => setToggle("global", "", v)}
+            />
+          </div>
+          {!globalOn && (
+            <div className="alerts-banner alerts-banner--off" style={{ marginTop: 10 }}>
+              ⚠ Globaal uitgeschakeld — er worden nu geen meldingen verstuurd.
+            </div>
+          )}
+        </section>
 
-            <section className="card">
-              <h3>Categorieën</h3>
+        {/* ── Scope: categories + environments ───────────────── */}
+        <section className={`panel set-panel${globalOn ? "" : " is-muted"}`}>
+          <h3>Bereik</h3>
+          <p className="muted set-intro">
+            Een melding gaat alléén af als élk niveau aan staat: globaal · categorie ·
+            omgeving · kaart. Zet een niveau uit om die hele tak te dempen.
+          </p>
+          <div className="alerts-scope-grid">
+            <div className="alerts-scope-col">
+              <h4>Categorieën</h4>
               {CATEGORIES.map(([key, label]) => (
-                <label key={key} className="toggle-row">
-                  <input type="checkbox" checked={toggleOn("category", key)}
-                         onChange={(e) => setToggle("category", key, e.target.checked)} />
-                  {label}
-                </label>
+                <Row key={key} label={label} checked={toggleOn("category", key)}
+                     disabled={!globalOn}
+                     onChange={(v) => setToggle("category", key, v)} />
               ))}
-              <h3>Omgevingen</h3>
+            </div>
+            <div className="alerts-scope-col">
+              <h4>Omgevingen</h4>
               {ENVS.map((env) => (
-                <label key={env} className="toggle-row">
-                  <input type="checkbox" checked={toggleOn("env", env)}
-                         onChange={(e) => setToggle("env", env, e.target.checked)} />
-                  {env}
-                </label>
+                <Row key={env} label={env} checked={toggleOn("env", env)}
+                     disabled={!globalOn}
+                     onChange={(v) => setToggle("env", env, v)} />
               ))}
-            </section>
+            </div>
+          </div>
+        </section>
 
-            <section className="card">
-              <h3>Kaarten</h3>
-              <ul className="alerts-cards">
-                {(status.items || []).map((it) => (
-                  <li key={it.card_id} className="toggle-row">
-                    <input type="checkbox" checked={toggleOn("card", it.card_id)}
-                           onChange={(e) => setToggle("card", it.card_id, e.target.checked)} />
-                    <span style={{ color: SEV_COLOR[it.severity] || "#888" }}>●</span>
-                    <span>[{it.env}] {it.name}</span>
-                    <em>{it.status}</em>
-                  </li>
+        {/* ── Per-card tiles ─────────────────────────────────── */}
+        <section className="panel set-panel">
+          <h3>Kaarten <span className="muted" style={{ fontWeight: 400 }}>· {items.length} bewaakt</span></h3>
+          {items.length === 0 && <p className="alerts-empty">Geen kaarten beschikbaar.</p>}
+          <div className="alerts-card-grid">
+            {items.map((it) => {
+              const on = toggleOn("card", it.card_id);
+              const tile = SEV_TILE[it.severity] || "unk";
+              const envc = ENV_CLASS[it.env] || "other";
+              return (
+                <div key={it.card_id}
+                     className={`up-tile up-tile--${tile} alerts-tile${on && globalOn ? "" : " is-muted"}`}>
+                  <div className="alerts-tile-head">
+                    <span className={`env-badge env-badge--${envc}`}>{it.env}</span>
+                    <span className={`up-tile-state up-tile-state--${tile}`}>
+                      {it.severity.toUpperCase()}
+                    </span>
+                    <span className="alerts-tile-switch">
+                      <Switch checked={on} disabled={!globalOn}
+                              onChange={(v) => setToggle("card", it.card_id, v)}
+                              label={`alert voor ${it.name}`} />
+                    </span>
+                  </div>
+                  <span className="alerts-tile-name">{it.name}</span>
+                  <span className="alerts-tile-status">{it.status}</span>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* ── Recipients + settings ──────────────────────────── */}
+        <section className="panel set-panel">
+          <h3>Ontvangers &amp; instellingen</h3>
+          <div className="alerts-form">
+            {(status.config.recipients || []).length > 0 && (
+              <div className="alerts-chips">
+                {status.config.recipients.map((r) => (
+                  <span key={r} className="alerts-chip">{r}</span>
                 ))}
-                {(status.items || []).length === 0 && <li>Geen kaarten beschikbaar.</li>}
-              </ul>
-            </section>
-
-            <section className="card">
-              <h3>Ontvangers</h3>
-              <textarea value={recipients} rows={2} style={{ width: "100%" }}
-                        placeholder="ops@example.com, beheer@example.com"
-                        onChange={(e) => setRecipients(e.target.value)} />
-              <button className="btn" onClick={() => saveConfig({
+              </div>
+            )}
+            <textarea className="alerts-textarea" rows={2} value={recipients}
+                      placeholder="ops@example.com, beheer@example.com"
+                      onChange={(e) => setRecipients(e.target.value)} />
+            <div className="alerts-save-row">
+              <button className="btn btn--primary" onClick={() => saveConfig({
                 recipients: recipients.split(",").map((s) => s.trim()).filter(Boolean),
               })}>Ontvangers opslaan</button>
+              <span className={`alerts-saved${saved ? " is-shown" : ""}`}>✓ opgeslagen</span>
+            </div>
 
-              <h3>Instellingen</h3>
-              <label>Cooldown (min):{" "}
-                <input type="number" min={1} max={10080}
+            <div className="alerts-settings-row">
+              <div className="alerts-field">
+                <label htmlFor="al-cd">Cooldown (minuten)</label>
+                <input id="al-cd" className="alerts-input" type="number" min={1} max={10080}
                        defaultValue={status.config.cooldown_minutes}
-                       onBlur={(e) => saveConfig({ cooldown_minutes: Number(e.target.value) })} />
-              </label>{"  "}
-              <label>Drempel:{" "}
-                <select defaultValue={status.config.severity_threshold}
+                       onBlur={(e) => {
+                         const v = Number(e.target.value);
+                         if (v && v !== status.config.cooldown_minutes) saveConfig({ cooldown_minutes: v });
+                       }} />
+              </div>
+              <div className="alerts-field">
+                <label htmlFor="al-th">Drempel</label>
+                <select id="al-th" className="alerts-select"
+                        value={status.config.severity_threshold}
                         onChange={(e) => saveConfig({ severity_threshold: e.target.value })}>
-                  <option value="critical">critical (alleen rood)</option>
-                  <option value="warn">warn (waarschuwing + rood)</option>
+                  <option value="critical">critical · alleen rood</option>
+                  <option value="warn">warn · waarschuwing + rood</option>
                 </select>
-              </label>
-            </section>
+              </div>
+            </div>
+          </div>
+        </section>
 
-            <section className="card">
-              <h3>Alertgeschiedenis</h3>
-              <table className="alerts-history">
+        {/* ── History ────────────────────────────────────────── */}
+        <section className="panel set-panel">
+          <h3>Alertgeschiedenis</h3>
+          {history.length === 0 ? (
+            <p className="alerts-empty">Nog geen meldingen verzonden.</p>
+          ) : (
+            <div className="alerts-history-wrap">
+              <table className="dash-table">
                 <thead><tr>
                   <th>Tijd</th><th>Kaart</th><th>Soort</th><th>Severity</th><th>Verzonden</th>
                 </tr></thead>
                 <tbody>
                   {history.map((h, i) => (
                     <tr key={i}>
-                      <td>{h.ts}</td><td>{h.card_id}</td><td>{h.kind}</td>
-                      <td style={{ color: SEV_COLOR[h.severity] }}>{h.severity}</td>
-                      <td>{h.delivered ? "✓" : "✗"}</td>
+                      <td className="alerts-ts">{fmtTs(h.ts)}</td>
+                      <td>{h.card_id}</td>
+                      <td><span className={`alert-kind alert-kind--${h.kind}`}>{h.kind}</span></td>
+                      <td>
+                        <span className={`alert-sev-dot alert-sev--${h.severity}`} />
+                        {h.severity}
+                      </td>
+                      <td className={h.delivered ? "alerts-deliver--yes" : "alerts-deliver--no"}>
+                        {h.delivered ? "✓" : "✗"}
+                      </td>
                     </tr>
                   ))}
-                  {history.length === 0 && (
-                    <tr><td colSpan={5}>Nog geen meldingen verzonden.</td></tr>
-                  )}
                 </tbody>
               </table>
-            </section>
-          </>
-        )}
-      </main>
+            </div>
+          )}
+        </section>
+
+      </div></div>
     </>
   );
 }

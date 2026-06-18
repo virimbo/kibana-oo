@@ -55,3 +55,37 @@ def test_trend_growing_stable_draining(store):
 
 def test_trend_unknown_without_history(store):
     assert dlq_intel._trend("brand-new.dlq", current=3) == "unknown"
+
+
+def test_verdict_growing_is_critical(store):
+    v = dlq_intel._verdict(depth=240, source_consumers=2, trend="growing",
+                           oldest_age=3 * 3600,
+                           reasons=[{"reason": "max-retries", "count": 200},
+                                    {"reason": "rejected", "count": 40}],
+                           source="order-service")
+    assert v["severity"] == "critical"
+    assert "groeit" in v["headline"]
+    assert "max-retries" in v["headline"]
+    assert v["action"]
+
+
+def test_verdict_no_consumer_is_critical(store):
+    v = dlq_intel._verdict(depth=12, source_consumers=0, trend="stable",
+                           oldest_age=600, reasons=[{"reason": "expired", "count": 12}],
+                           source="x")
+    assert v["severity"] == "critical"
+
+
+def test_verdict_parked_long_is_warn(store):
+    old = int(6 * 86400)
+    v = dlq_intel._verdict(depth=12, source_consumers=2, trend="stable",
+                           oldest_age=old, reasons=[{"reason": "rejected", "count": 12}],
+                           source="x")
+    assert v["severity"] == "warn"
+    assert "geparkeerd" in v["headline"].lower()
+
+
+def test_verdict_empty_is_ok(store):
+    v = dlq_intel._verdict(depth=0, source_consumers=2, trend="stable",
+                           oldest_age=None, reasons=[], source="x")
+    assert v["severity"] == "ok"

@@ -1083,8 +1083,14 @@ body {
 
 .dash-controls {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 14px 18px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-panel);
+  margin-bottom: 18px;
 }
 
 .dash-asof {
@@ -2919,3 +2925,208 @@ body {
 .alerts-mtile-status { font-size: 11px; color: var(--text-secondary);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @keyframes alerts-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* ══ Shared page-level design tokens ═════════════════════════════════════════
+   Generalised from the Alerting page (gold standard). Every content page reuses
+   these so the editorial "command-center" look is consistent across the app.
+   Naming: page-* mirrors alerts-* but is page-agnostic.                     */
+
+/* ── Eyebrow label ────────────────────────────────────────────────────────── */
+.page-eyebrow {
+  display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+
+/* ── Hero section (mirrors .alerts-hero-wrap) ─────────────────────────────── */
+.page-hero {
+  position: relative; overflow: hidden; display: flex; align-items: center;
+  justify-content: space-between; gap: 28px; flex-wrap: wrap; padding: 26px 28px;
+  border-radius: var(--radius); border: 1px solid var(--border);
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(77,159,255,.10), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, rgba(70,201,122,.07), transparent 50%),
+    var(--bg-panel);
+}
+.page-hero--accent-warn {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(227,179,65,.12), transparent 55%),
+    var(--bg-panel);
+  border-color: var(--warn);
+}
+.page-hero--accent-teal {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(45,182,166,.10), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, rgba(77,159,255,.07), transparent 50%),
+    var(--bg-panel);
+}
+.page-hero--accent-purple {
+  background:
+    radial-gradient(120% 140% at 0% 0%, rgba(139,92,246,.10), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, rgba(77,159,255,.06), transparent 50%),
+    var(--bg-panel);
+}
+.page-hero-main { min-width: 280px; flex: 1 1 360px; }
+.page-hero-h1 { font-size: 30px; line-height: 1.05; margin: 6px 0 8px; letter-spacing: -.02em; }
+.page-hero-lead { font-size: 13.5px; color: var(--text-secondary); max-width: 56ch; margin: 0; }
+.page-hero-actions { display: inline-flex; align-items: center; gap: 10px; margin-top: 16px; }
+
+/* ── Stat cards (right side of hero) ──────────────────────────────────────── */
+.page-hero-stats { display: flex; gap: 14px; flex-wrap: wrap; }
+.page-stat {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 92px; padding: 14px 16px; border-radius: var(--radius-sm);
+  background: var(--bg-input); border: 1px solid var(--border);
+}
+.page-stat-num { font-size: 30px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.page-stat-lbl { font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-faint); margin-top: 6px; }
+.page-stat--ok    .page-stat-num { color: var(--success); }
+.page-stat--warn  .page-stat-num { color: var(--warn); }
+.page-stat--crit  .page-stat-num { color: var(--error); }
+.page-stat--muted .page-stat-num { color: var(--text-faint); }
+.page-stat.is-live { border-color: currentColor; }
+.page-stat--crit.is-live { animation: alerts-pulse 1.8s ease-in-out infinite; }
+
+/* ── Section header with eyebrow ──────────────────────────────────────────── */
+.page-section-head {
+  display: flex; align-items: center; gap: 14px; padding: 4px 2px 14px;
+  border-bottom: 1px solid var(--border); margin-bottom: 14px; flex-wrap: wrap;
+}
+.page-section-icon { font-size: 22px; line-height: 1; }
+.page-section-titles { display: flex; flex-direction: column; gap: 1px; margin-right: auto; }
+.page-section-title { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -.01em; }
+.page-section-roll { display: flex; gap: 7px; flex-wrap: wrap; }
+
+/* ── Entrance animation (reusable) ────────────────────────────────────────── */
+@keyframes page-rise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.page-rise { animation: page-rise .42s cubic-bezier(.2,.7,.2,1) both; }
+
+/* ── DLQ Intel page-specific (replaces inline styles) ─────────────────────── */
+.dlqi-fields { display: flex; align-items: flex-end; gap: 28px; flex-wrap: wrap; }
+.dlqi-action { margin-top: 10px; }
+.dlqi-queue-tile { margin-bottom: 12px; }
+.dlqi-sample-table { margin-top: 8px; }
+.dlqi-headline { margin-bottom: 10px; }
+
+/* ── Regression page-specific (replaces inline styles) ────────────────────── */
+.reg-bar-head { margin-bottom: 4px; }
+.reg-bar-desc { margin: 0; }
+
+/* ── Admin grid entrance animation ────────────────────────────────────────── */
+.admin-card { animation: page-rise .42s cubic-bezier(.2,.7,.2,1) both; }
+.admin-grid .admin-card:nth-child(1) { animation-delay: 0ms; }
+.admin-grid .admin-card:nth-child(2) { animation-delay: 50ms; }
+.admin-grid .admin-card:nth-child(3) { animation-delay: 100ms; }
+.admin-grid .admin-card:nth-child(4) { animation-delay: 150ms; }
+.admin-grid .admin-card:nth-child(5) { animation-delay: 200ms; }
+.admin-grid .admin-card:nth-child(6) { animation-delay: 250ms; }
+
+/* ── Responsive hero ──────────────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .page-hero { padding: 18px 16px; gap: 18px; }
+  .page-hero-h1 { font-size: 22px; }
+  .page-hero-stats { width: 100%; justify-content: space-between; }
+  .page-stat { min-width: 76px; padding: 10px 12px; }
+  .page-stat-num { font-size: 22px; }
+}
+
+/* ── Dashboard zone eyebrow ───────────────────────────────────────────────── */
+.dash-section-eyebrow {
+  display: block; font-size: 10px; font-weight: 700; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--text-faint); margin-bottom: 2px;
+}
+
+
+/* ══ Chat composer — polished & provider-aware (accent follows the active AI) ══
+   The focus glow, control accents and send button pick up --provider-accent
+   (Ollama = emerald, Mistral = amber, off = grey), set on :root by App. */
+.composer {
+  position: relative;
+  border-top: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--provider-accent) 7%, transparent), transparent 42%),
+    rgba(17, 22, 31, 0.92);
+  backdrop-filter: blur(12px);
+  padding: 16px 22px 14px;
+}
+.composer::before {
+  content: ""; position: absolute; top: -1px; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent,
+    color-mix(in srgb, var(--provider-accent) 55%, transparent) 35%,
+    color-mix(in srgb, var(--provider-accent) 55%, transparent) 65%, transparent);
+  opacity: .55;
+}
+
+/* control pills */
+.composer-controls { gap: 12px; }
+.control {
+  padding: 6px 10px 6px 14px;
+  background: linear-gradient(180deg, var(--bg-elevated), var(--bg-input));
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+.control:hover { border-color: color-mix(in srgb, var(--provider-accent) 45%, var(--border-strong)); }
+.control:focus-within {
+  border-color: var(--provider-accent);
+  box-shadow: 0 0 0 3px var(--provider-glow);
+}
+.control-label {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: color-mix(in srgb, var(--provider-accent) 85%, var(--text-secondary));
+}
+.control-label::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%; flex: none;
+  background: var(--provider-accent); box-shadow: 0 0 8px var(--provider-accent);
+}
+.control-select {
+  font-weight: 650; padding-right: 22px;
+  appearance: none; -webkit-appearance: none;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa6b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")
+    no-repeat right 4px center;
+}
+
+/* the text field — provider-aware focus glow + soft elevation */
+.composer-field {
+  background: linear-gradient(180deg, var(--bg-elevated), var(--bg-input));
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.composer-field:focus-within {
+  border-color: var(--provider-accent);
+  box-shadow: 0 0 0 3px var(--provider-glow), 0 12px 34px -16px var(--provider-glow);
+}
+.composer-field textarea { padding: 14px 16px; font-size: 14.5px; }
+.composer-field textarea::placeholder { color: var(--text-faint); opacity: .9; }
+
+/* attach button */
+.btn--attach {
+  width: 48px; height: 48px; border-radius: 14px;
+  background: var(--bg-input); border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  transition: color .14s ease, border-color .14s ease, background .14s ease, transform .14s ease;
+}
+.btn--attach:hover {
+  color: var(--provider-accent); background: var(--bg-elevated);
+  border-color: color-mix(in srgb, var(--provider-accent) 50%, var(--border-strong));
+}
+.btn--attach:active { transform: scale(.94); }
+
+/* send button — gradient + glow, themed to the active AI */
+.btn--send {
+  width: 48px; height: 48px; border-radius: 14px; border: none;
+  background: linear-gradient(135deg, var(--provider-accent), var(--provider-accent-2));
+  color: #08130d;
+  box-shadow: 0 6px 18px -6px var(--provider-glow);
+  transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
+}
+.btn--send:hover:not(:disabled) {
+  transform: translateY(-1px); filter: brightness(1.07);
+  box-shadow: 0 11px 26px -6px var(--provider-glow);
+}
+.btn--send:active:not(:disabled) { transform: translateY(0) scale(.95); }
+.btn--send:disabled {
+  background: var(--bg-input); color: var(--text-faint);
+  border: 1px solid var(--border-strong); box-shadow: none; opacity: .6;
+}

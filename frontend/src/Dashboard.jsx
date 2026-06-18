@@ -979,14 +979,14 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
             <label className="control">
               <span className="control-label">
-                Data view <InfoTip text={'Which Elasticsearch dataset to analyze. \u201Clogs-*\u201D is everything; the others narrow to a specific system.'} />
+                Dataweergave <InfoTip text={'Welke Elasticsearch-dataset te analyseren. \u201Clogs-*\u201D is alles; de andere beperken tot een specifiek systeem.'} />
               </span>
               <select
                 className="control-select"
                 value={dataView}
                 onChange={(e) => setDataView(e.target.value)}
                 disabled={loading}
-                title="Elasticsearch data view to analyze"
+                title="Elasticsearch data view om te analyseren"
               >
                 {dataViews.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -1213,7 +1213,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 id="overtime"
                 cardId="card:overtime"
                 title="Kritieke meldingen over tijd"
-                info="When issues happened — each bar is a time bucket; taller means more criticals then. A single tall bar = a spike."
+                info="Wanneer issues optraden — elke bar is een time bucket; hoger betekent meer criticals toen. Eén hoge bar = een spike."
               >
                 <div className="spark">
                   {snap.timeseries.map((b, i) => (
@@ -1254,7 +1254,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 id="signatures"
                 cardId="card:signatures"
                 title="Top error signatures"
-                info="The most frequent error types, with when each was first and last seen. A burst between two close times often points to one root cause."
+                info="De meest voorkomende error-types, met wanneer elk voor het eerst en laatst gezien is. Een burst tussen twee dicht op elkaar liggende tijden wijst vaak op één root cause."
                 summary={
                   <span className="panel-collapsed-summary--inline">
                     {snap.top_signatures.length} signature
@@ -1287,7 +1287,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 id="services"
                 cardId="card:services"
                 title="Affected services"
-                info="The services (applications) emitting the most critical issues in this window — where to look first."
+                info="De services (applicaties) die de meeste kritieke issues uitzenden in dit venster — waar je eerst moet kijken."
                 summary={
                   <span className="panel-collapsed-summary--inline">
                     {snap.affected_services.length} service
@@ -1314,8 +1314,8 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 cardId="card:http5xx"
                 title="HTTP 5xx"
                 alert={snap.status_codes.length > 0}
-                subtitle="Server errors (status 500–599): the site itself failed to respond, with the URLs that broke. More serious than a 404 — this is the server, not a missing page."
-                info="Server errors — the site failed to respond properly (status 500–599). Listed with the URLs that failed. Different from 404, which means the page wasn't found."
+                subtitle="Server errors (status 500–599): de site zelf reageerde niet, met de URLs die het lieten afweten. Ernstiger dan een 404 — dit is de server, niet een ontbrekende pagina."
+                info="Server errors — de site reageerde niet goed (status 500–599). Vermeld met de URLs die faalden. Anders dan 404, wat betekent dat de pagina niet gevonden is."
                 summary={
                   <span
                     className={`panel-collapsed-summary--inline panel-collapsed-summary--${
@@ -1403,7 +1403,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                       🚦 Documents pipeline
                       <InfoTip text="Proactive check: are any documents failing to reach open.overheid.nl? Updates automatically." />
                     </h3>
-                    <p className="pipe-ok">✓ No documents at risk — everything is reaching open.overheid.nl.</p>
+                    <p className="pipe-ok">✓ Geen documenten met risico — alles bereikt open.overheid.nl.</p>
                   </section>
                 );
               })()}
@@ -1417,7 +1417,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 cardId="card:aitriage"
                 title="AI daily triage"
                 className="panel--ai"
-                info="An AI-written summary of the facts shown above (counts, signatures, services). It only describes those numbers — it can still phrase things wrong, so verify anything important in Kibana."
+                info="Een door AI geschreven samenvatting van de feiten hierboven (counts, signatures, services). Het beschrijft alleen die cijfers — het kan dingen nog steeds verkeerd verwoorden, dus verifieer iets belangrijks altijd in Kibana."
                 headerExtra={
                   <button
                     className="btn btn--ghost panel-header-action"

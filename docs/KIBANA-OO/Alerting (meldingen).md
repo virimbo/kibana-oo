@@ -134,3 +134,67 @@ in de geschiedenis gezet; de ronde gaat door en er crasht niets.
 
 **Rollback.** `ALERTS_ENABLED=false` → motor inert, nul mails, dashboard ongewijzigd.
 Wil je de oude melders terug? Zet de drie `*_ALERT_ENABLED` weer op `true`.
+
+---
+
+## Testen (samen, stap voor stap) 🧪
+
+Een **veilige, gecontroleerde** test zonder iets echts kapot te maken: we voegen
+tijdelijk één doel toe dat gegarandeerd **DOWN** is (het gereserveerde TLD
+`.invalid` lost nóóit op), zodat er een echte RED-kaart ontstaat.
+
+> Tip: zelfs **zonder** SMTP zie je het resultaat — elke beslissing komt in de
+> **Alertgeschiedenis** (met `delivered = ✗` als er geen mail verstuurd kon worden).
+> Zo controleer je eerst de logica, daarna pas de echte e-mail.
+
+**1. Zet de functie aan in `.env`:**
+
+```ini
+ALERTS_ENABLED=true
+ALERTS_INTERVAL=30                 # sneller zien tijdens de test
+ALERTS_DEFAULT_THRESHOLD=critical
+ALERTS_RECIPIENT_SEED=jij@example.com
+
+UPTIME_ENABLED=true                # nodig: levert de omgevingskaarten
+# Voeg onderaan UPTIME_TARGETS een gegarandeerd-DOWN testdoel toe:
+UPTIME_TARGETS=ALERT TEST | TST | https://does-not-exist.invalid | 2xx,3xx
+
+# (optioneel, voor échte mail) vul de SMTP-gegevens in:
+SMTP_HOST=...
+SMTP_PORT=587
+SMTP_USER=...
+SMTP_PASSWORD=...
+SMTP_FROM=...
+```
+
+**2. Herstart de backend:**
+
+```bash
+docker compose up -d --build backend
+docker compose logs -f backend          # let op "Started background monitors (... alerting)"
+```
+
+**3. Bekijk het resultaat (na ±30 sec):**
+
+- **UI:** log in als super-admin → **Beheer → Alerting**. Het testdoel
+  `[TST] does-not-exist.invalid` staat rood; in **Alertgeschiedenis** verschijnt een
+  regel `kind = new, severity = critical`.
+- **E-mail:** met SMTP ingevuld krijg je een mail met onderwerp
+  `⛔ [TST] does-not-exist.invalid is CRITICAL (New alert)`.
+
+**4. Test de schakelaars:** zet **omgeving TST** uit → bij de volgende ronde komt er
+geen nieuwe melding meer. Zet 'm weer aan.
+
+**5. Test herstel (recovery):** verwijder de `ALERT TEST`-regel uit `UPTIME_TARGETS`
+(of zet het doel op een werkende URL), herstart de backend → de kaart wordt groen en
+je krijgt één **Recovery**-mail / een `kind = recovery`-regel.
+
+**6. Opruimen:** haal het testdoel weg en zet `ALERTS_INTERVAL` desgewenst terug naar
+60. Klaar.
+
+Snelle controle zonder UI (API, met een super-admin-token):
+
+```bash
+curl -s localhost:8000/alerts/status  -H "Authorization: Bearer <token>" | jq .items
+curl -s localhost:8000/alerts/history -H "Authorization: Bearer <token>" | jq '.history[0]'
+```

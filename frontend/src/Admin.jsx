@@ -32,6 +32,13 @@ const CARDS = [
     subtitle: "Regression",
     desc: "Na een release: controleer of open.overheid.nl nog werkt — beschikbaarheid, journeys, API en TLS.",
   },
+  {
+    view: "alerts",
+    icon: "🔔",
+    title: "Alerting",
+    subtitle: "Meldingen",
+    desc: "E-mailmeldingen bij RED-status (omgevingen, DLQ, certificaten): aan/uit per kaart, ontvangers, cooldown en geschiedenis.",
+  },
 ];
 
 // Super-admin-only card.

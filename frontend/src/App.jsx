@@ -8,6 +8,7 @@ import SettingsPage from "./Settings";
 import AdminPage from "./Admin";
 import RegressionPage from "./Regression";
 import AuthorizationPage from "./Authorization";
+import AlertsPage from "./Alerts";
 import TopNav from "./Nav";
 
 const SUGGESTIONS = [
@@ -1122,6 +1123,23 @@ export default function App() {
         aanleverCount={aanleverCount}
         dlqCount={dlqCount}
         isAdmin={isAdmin}
+      />
+    );
+  }
+
+  if (view === "alerts" && can("alerts")) {
+    return (
+      <AlertsPage
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        can={can}
+        isAdmin={isAdmin}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
       />
     );
   }

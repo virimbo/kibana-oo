@@ -33,6 +33,7 @@ CATALOG = [
     {"key": "grafana", "label": "Infrastructuur (Grafana-links)", "group": "Dashboard"},
     {"key": "regression", "label": "Regressietest", "group": "Beheer"},
     {"key": "settings", "label": "Settings (AI & toggles)", "group": "Beheer"},
+    {"key": "alerts", "label": "Alerting (meldingen)", "group": "Beheer"},
 ]
 GRANTABLE = [f["key"] for f in CATALOG]
 GRANTABLE_SET = set(GRANTABLE)

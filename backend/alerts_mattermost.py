@@ -75,6 +75,10 @@ def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
         {"short": True, "title": "Soort melding", "value": f"{knd['emoji']} {knd['label']}"},
         {"short": True, "title": "Gedetecteerd", "value": _human_time(now)},
     ]
+    if item.get("category") == "dlq" and item.get("reasons"):
+        top = item["reasons"][0]
+        fields.append({"short": True, "title": "Top-oorzaak",
+                       "value": f"{top['reason']} ({top['count']}×)"})
     if kind != "recovery":
         fields.append({"short": False, "title": "🛠️ Aanbevolen actie",
                        "value": ACTION.get(item["category"],

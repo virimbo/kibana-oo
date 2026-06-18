@@ -37,6 +37,9 @@ def render(item: dict, kind: str, prev_severity: str, dashboard_url: str
         ("Time detected", now), ("Suggested action", action),
         ("Dashboard", dashboard_url),
     ]
+    if item.get("reasons"):
+        top = item["reasons"][0]
+        fields.insert(6, ("Top-oorzaak (DLQ)", f"{top['reason']} ({top['count']}×)"))
     text = "\n".join(f"{k}: {v}" for k, v in fields)
 
     rows = "".join(

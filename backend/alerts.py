@@ -90,6 +90,24 @@ def _normalize_dlq(snap: dict | None) -> list[dict]:
     return out
 
 
+def _normalize_dlq_intel(view: dict | None) -> list[dict]:
+    """Richer DLQ items from dlq_intel: severity = smart verdict; status/detail carry
+    the reason + headline + action so the email/Mattermost can show *why*."""
+    if not view or not view.get("configured"):
+        return []
+    out: list[dict] = []
+    for q in view.get("queues", []):
+        top = q["reasons"][0]["reason"] if q.get("reasons") else "onbekend"
+        status = f"{q['depth']} berichten · {q.get('trend','?')} · vooral {top}"
+        item = _item(CATEGORY_DLQ, "PROD", q["name"], q["severity"], status,
+                     q.get("action", ""))
+        item["headline"] = q.get("headline", "")
+        item["reasons"] = q.get("reasons", [])
+        item["oldest_age_seconds"] = q.get("oldest_age_seconds")
+        out.append(item)
+    return out
+
+
 def _normalize_cert(certs: list) -> list[dict]:
     out: list[dict] = []
     for c in certs or []:
@@ -174,7 +192,11 @@ async def _collect() -> list[dict]:
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: uptime collect failed: %s", e)
     try:
-        items += _normalize_dlq(await rabbitmq_dlq.latest())
+        if settings.dlq_intel_enabled:
+            import dlq_intel
+            items += _normalize_dlq_intel(await dlq_intel.latest())
+        else:
+            items += _normalize_dlq(await rabbitmq_dlq.latest())
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: dlq collect failed: %s", e)
     try:

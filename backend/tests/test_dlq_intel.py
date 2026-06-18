@@ -178,3 +178,18 @@ def test_api_disabled_returns_flag(monkeypatch):
     import asyncio
     out = asyncio.run(dlq_intel_api.intel(session={"username": "x"}))
     assert out == {"enabled": False}
+
+
+def test_alert_item_enriched_from_intel(monkeypatch, store):
+    import alerts
+    monkeypatch.setattr(store, "dlq_intel_enabled", True)
+    intel_view = {"configured": True, "queues": [
+        {"name": "export.dlq", "source": "export", "depth": 240, "severity": "critical",
+         "headline": "🔴 Actief probleem — groeit · 240 berichten · oudste 3u · vooral max-retries op export",
+         "action": "Poison-message...", "trend": "growing", "oldest_age_seconds": 10800,
+         "reasons": [{"reason": "max-retries", "count": 240}], "sample": [], "peeked": True}]}
+    items = alerts._normalize_dlq_intel(intel_view)
+    it = items[0]
+    assert it["category"] == "dlq" and it["severity"] == "critical"
+    assert "max-retries" in it["status"]
+    assert it["detail"]

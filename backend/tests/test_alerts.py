@@ -253,3 +253,20 @@ def test_scan_disabled_global_sends_nothing(store, monkeypatch):
         alerts._item("dlq", "PROD", "export.dlq", "critical")])
     asyncio.run(alerts.scan())
     assert sent == []
+
+
+def test_email_validation():
+    import alerts_api
+    assert alerts_api._valid_email("ops@example.com") is True
+    assert alerts_api._valid_email("not-an-email") is False
+    assert alerts_api._valid_email("a@b") is False
+    assert alerts_api._valid_email("x" * 300 + "@e.com") is False
+
+
+def test_api_requires_super(monkeypatch):
+    import permissions
+    monkeypatch.setattr(permissions, "is_super", lambda u: False)
+    from auth import require_super
+    with pytest.raises(HTTPException) as ei:
+        require_super(session={"username": "user@x"})
+    assert ei.value.status_code == 403

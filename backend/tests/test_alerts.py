@@ -212,3 +212,44 @@ def test_decide_ok_with_no_prior_is_silent():
     ok = alerts._item("dlq", "PROD", "x", "ok")
     kind, nxt = alerts._decide(ok, prev=None, cooldown_min=60, now=now)
     assert kind is None and nxt is None
+
+
+async def _noop_webhook(*a, **k):
+    return True
+
+
+def test_scan_sends_red_not_green_and_records(store, monkeypatch):
+    from config import settings
+    import alerts_send
+    monkeypatch.setattr(settings, "alerts_enabled", True)
+    sent = []
+    monkeypatch.setattr(alerts_send, "send_email_to",
+                        lambda recips, subject, html, text: sent.append(subject) or True)
+    monkeypatch.setattr(alerts.notify, "send_webhook", _noop_webhook)
+    monkeypatch.setattr(alerts, "_collect", lambda: alerts._normalize_uptime(
+        {"enabled": True, "groups": [{"env": "ACC", "sites": [
+            {"name": "open-acc.overheid.nl", "env": "ACC", "state": "down",
+             "http_status": 404}]}]}) + alerts._normalize_dlq(
+        {"configured": True, "dlqs": [
+            {"name": "antivirus.dlq", "depth": 0, "severity": "ok"}]}))
+
+    asyncio.run(alerts.scan())
+    assert any("open-acc.overheid.nl" in s for s in sent)        # red → emailed
+    assert all("antivirus" not in s for s in sent)               # green → not
+    hist = store.list_history()
+    assert any(h["card_id"] == "environment:ACC:open-acc.overheid.nl" for h in hist)
+
+
+def test_scan_disabled_global_sends_nothing(store, monkeypatch):
+    from config import settings
+    import alerts_send
+    monkeypatch.setattr(settings, "alerts_enabled", True)
+    store.set_config("global_enabled", False, actor="a")
+    sent = []
+    monkeypatch.setattr(alerts_send, "send_email_to",
+                        lambda *a, **k: sent.append(1) or True)
+    monkeypatch.setattr(alerts.notify, "send_webhook", _noop_webhook)
+    monkeypatch.setattr(alerts, "_collect", lambda: [
+        alerts._item("dlq", "PROD", "export.dlq", "critical")])
+    asyncio.run(alerts.scan())
+    assert sent == []

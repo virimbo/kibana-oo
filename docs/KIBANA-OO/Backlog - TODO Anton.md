@@ -58,10 +58,10 @@ nodig, en het token is in Grafana intrekbaar (Zero-Trust).
 ---
 
 ## Andere openstaande zaken
-- [ ] **Alerting → Mattermost-kanaal** — stuur de meldingen (ook) naar Mattermost
-  i.p.v./naast e-mail. Geen codewijziging nodig: zet `DIGEST_WEBHOOK_URL` in `.env`
-  op een **Mattermost incoming webhook**; de alertmotor post al een
-  `{"text": …}`-payload die Mattermost direct accepteert. Zie [[Alerting (meldingen)]].
+- [x] **Alerting → Mattermost-kanaal** — ✅ gedaan (18 jun 2026). `DIGEST_WEBHOOK_URL`
+  staat op de Mattermost incoming webhook; de motor post een **rijke kaart**
+  (gekleurde balk, kop, samenvatting, veldenraster, aanbevolen actie) als afzender
+  **FB-OO:Anton**. Zie [[Alerting (meldingen)]].
 - [ ] **Alerting → eigen domein bij Resend verifiëren** — nu kan Resend (ongeverifieerd
   account) alléén naar `fb.open.overheid@gmail.com` sturen. Verifieer een domein op
   resend.com/domains en zet `SMTP_FROM` op een adres van dat domein; dán kunnen ook

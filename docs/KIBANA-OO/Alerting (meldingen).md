@@ -117,13 +117,30 @@ RABBITMQ_ALERT_ENABLED=false
 CERT_ALERT_ENABLED=false
 ```
 
-**E-mail** loopt via de bestaande SMTP-instellingen (`SMTP_*`). Vul die in; de
-geheimen blijven serverzijde.
+**E-mail** loopt via SMTP (`SMTP_*`). In gebruik via **Resend** als SMTP-gateway:
+`SMTP_HOST=smtp.resend.com`, `SMTP_USER=resend`, `SMTP_PASSWORD=<Resend API-key>`,
+`SMTP_FROM=onboarding@resend.dev`. Geheimen blijven serverzijde.
+> ⚠ Resend-randgeval: met een **ongeverifieerd** account en `onboarding@resend.dev`
+> mag je alléén naar het **eigenaarsadres** van het Resend-account sturen
+> (`fb.open.overheid@gmail.com`). Wil je naar andere ontvangers? Verifieer een
+> domein op resend.com/domains en zet `SMTP_FROM` op een adres van dat domein.
 
-**Mattermost (later).** De motor post elke melding ook als webhook. Wil je naar
-Mattermost i.p.v. (of naast) e-mail? Zet `DIGEST_WEBHOOK_URL` op een **Mattermost
-incoming webhook** — de motor stuurt al een `{"text": ...}`-payload die Mattermost
-direct accepteert. Geen codewijziging nodig.
+**Afzender-identiteit.** Alle meldingen verschijnen als afzender **`FB-OO:Anton`**
+— zowel de e-mail (From-naam) als de Mattermost-post (webhook-username). Vast
+ingesteld in `alerts_send.ALERT_SENDER`.
+
+**Mattermost — actief.** Zet `DIGEST_WEBHOOK_URL` op een **Mattermost incoming
+webhook** (bijv. `https://chat.standaardplatform.nl/hooks/…`) en herstart de
+backend. De motor post dan per melding een **rijke kaart** (Slack/Mattermost
+*attachment*): een gekleurde balk (rood/oranje/groen naar severity), een kop
+(`🔴 KRITIEK · <component>`), een korte intelligente samenvatting, een veldenraster
+(omgeving · categorie · huidige/vorige status · soort · tijdstip), een
+**🛠️ Aanbevolen actie** en een voettekst met tijd. Herstelmeldingen zijn groen en
+zonder actieblok. Geen codewijziging nodig — alleen de `.env`-regel.
+
+**Dashboardlink.** De kaart/e-mail linkt naar `FRONTEND_ORIGIN` (nu
+`http://localhost:3000/`, werkt alleen op de host). Zet `FRONTEND_ORIGIN` op de
+publieke/VPN-URL van het dashboard zodat de link ook vanuit Mattermost/e-mail werkt.
 
 **Rechten.** Bekijken vereist het recht **`alerts`** (Beheer → Autorisatie). Wijzigen
 (schakelaars, ontvangers, instellingen) kan **alleen de super-admin**. Elke wijziging

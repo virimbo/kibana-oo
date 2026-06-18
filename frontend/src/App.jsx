@@ -138,7 +138,7 @@ function LoginPage({ onLogin }) {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || "Login failed");
+        throw new Error(data.detail || "Aanmelden mislukt");
       }
 
       const data = await res.json();
@@ -146,7 +146,7 @@ function LoginPage({ onLogin }) {
     } catch (err) {
       setError(
         err.message === "Failed to fetch"
-          ? "Cannot reach the backend. Make sure it is running."
+          ? "Kan de backend niet bereiken. Controleer of die draait."
           : err.message
       );
     } finally {
@@ -164,33 +164,29 @@ function LoginPage({ onLogin }) {
           <span className="brand-name">Open Overheid - Monitoring</span>
         </div>
         <p className="login-desc">
-          Sign in with your Kibana credentials to ask questions about your
-          logs and metrics in plain language.
-        </p>
-        <p className="ai-disclosure">
-          This application uses an AI system (Llama or Mistral) to generate answers based
-          on your log data. Responses are AI-generated and should be verified.
+          Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om
+          toegang te krijgen tot de monitoringomgeving.
         </p>
 
         <form onSubmit={handleLogin}>
           <label>
-            <span>Username</span>
+            <span>Gebruikersnaam</span>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="your.name@koop.overheid.nl"
+              placeholder="uw.naam@koop.overheid.nl"
               autoFocus
               required
             />
           </label>
           <label>
-            <span>Password</span>
+            <span>Wachtwoord</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Your Kibana password"
+              placeholder="Uw SP-wachtwoord"
               required
             />
           </label>
@@ -202,13 +198,9 @@ function LoginPage({ onLogin }) {
           )}
 
           <button type="submit" className="btn btn--primary" disabled={loading}>
-            {loading ? "Connecting…" : "Sign in"}
+            {loading ? "Bezig met aanmelden…" : "Aanmelden"}
           </button>
         </form>
-
-        <p className="login-foot">
-          Connected to <code>koop-plooi-prod</code>
-        </p>
       </div>
     </div>
   );

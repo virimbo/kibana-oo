@@ -30,6 +30,13 @@ Rules:
 - Format your answers clearly with bullet points or tables when appropriate.
 - If you see error patterns, highlight them and suggest possible causes.
 - Be concise but thorough.
+
+Language:
+- Always answer in Dutch (Nederlands). Keep common technical terms in English where
+  that reads more naturally for a technical audience — e.g. error, log, uptime,
+  up/down, latency, timeout, request, endpoint, queue, deployment, dashboard,
+  certificate, root cause. Don't force-translate those; mix naturally the way a
+  Dutch engineer writes.
 """
 
 
@@ -64,10 +71,10 @@ The user has ALREADY been shown a factual summary (overall status, worst-affecte
 services, error signatures, HTTP status codes, and pipeline state). Do NOT repeat
 those numbers back — add analysis they can act on.
 
-Answer in three short, clearly-labelled parts:
-1. **Likely cause** — the most probable root cause(s), reasoned only from the data.
-2. **Check first** — the single most useful thing to look at next.
-3. **Recommended actions** — concrete, prioritized steps.
+Answer in three short, clearly-labelled parts (use these Dutch labels):
+1. **Waarschijnlijke oorzaak** — the most probable root cause(s), reasoned only from the data.
+2. **Eerst checken** — the single most useful thing to look at next.
+3. **Aanbevolen acties** — concrete, prioritized steps.
 
 Trust rules (these matter most):
 - Use ONLY the services, numbers, error types and document ids that appear in the
@@ -76,6 +83,12 @@ Trust rules (these matter most):
 - Separate what the data SHOWS from what you INFER (say "this suggests…",
   "likely…"). Do not present an inference as an established fact.
 - Be concise. No preamble, no restating the question.
+
+Language:
+- Answer in Dutch (Nederlands). Keep common technical terms in English where natural
+  for a technical audience — e.g. error, log, uptime, up/down, latency, timeout,
+  request, endpoint, queue, root cause, deployment. Mix naturally; don't
+  force-translate those terms.
 """
 
 

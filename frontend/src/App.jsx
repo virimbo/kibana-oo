@@ -14,33 +14,33 @@ import TopNav from "./Nav";
 
 const SUGGESTIONS = [
   {
-    title: "🚨 Critical errors now",
+    title: "🚨 Kritieke errors nu",
     prompt:
-      "What are the most critical errors in the last hour? Group them by service, give the count per service, and explain the likely cause of the worst one.",
+      "Wat zijn de meest kritieke errors van het afgelopen uur? Groepeer ze per service, geef de count per service, en leg de waarschijnlijke oorzaak van de ergste uit.",
   },
   {
-    title: "🩺 Failing services",
+    title: "🩺 Falende services",
     prompt:
-      "Which services are failing, erroring or unhealthy right now? List the worst first with what's going wrong.",
+      "Welke services falen, geven errors of zijn unhealthy op dit moment? Zet de ergste bovenaan met wat er misgaat.",
   },
   {
-    title: "📄 Publication problems",
+    title: "📄 Publicatieproblemen",
     prompt:
-      "Are there errors that would stop documents being published — connection resets, timeouts, indexing/mapping failures, or 5xx? Summarize what's at risk.",
+      "Zijn er errors die het publiceren van documenten zouden blokkeren — connection resets, timeouts, indexing/mapping failures of 5xx? Vat samen wat er risico loopt.",
   },
   {
-    title: "🔎 Anything unusual?",
+    title: "🔎 Iets ongewoons?",
     prompt:
-      "Summarize the last 30 minutes of activity and flag anything unusual or risky that an admin should look at.",
+      "Vat de laatste 30 minuten aan activiteit samen en markeer alles wat ongewoon of riskant is en waar een admin naar zou moeten kijken.",
   },
 ];
 
 const TIME_RANGES = [
-  { value: 15, label: "Last 15 min" },
-  { value: 30, label: "Last 30 min" },
-  { value: 60, label: "Last 1 hour" },
-  { value: 360, label: "Last 6 hours" },
-  { value: 1440, label: "Last 24 hours" },
+  { value: 15, label: "Laatste 15 min" },
+  { value: 30, label: "Laatste 30 min" },
+  { value: 60, label: "Laatste 1 uur" },
+  { value: 360, label: "Laatste 6 uur" },
+  { value: 1440, label: "Laatste 24 uur" },
 ];
 
 // Fallback used only if the backend's /data-views endpoint is unreachable.
@@ -621,21 +621,21 @@ function ChatPage({
                   <span className="welcome-mark">
                     <Icon.Spark />
                   </span>
-                  <h2>Ask anything about your logs &amp; metrics</h2>
+                  <h2>Stel gerust een vraag over je logs &amp; metrics</h2>
                   <p>
-                    Open Overheid - Monitoring searches your Elasticsearch cluster and uses an AI model
-                    to answer in natural language — with the source log entries cited.
+                    Open Overheid - Monitoring doorzoekt je Elasticsearch-cluster en gebruikt een
+                    AI-model om in natuurlijke taal te antwoorden — met de bron-log-entries erbij.
                   </p>
                   <p className="ai-disclosure ai-disclosure--chat">
-                    You are interacting with an AI system. Responses are generated
-                    by a Llama or Mistral language model and may contain inaccuracies. Always
-                    verify critical findings in Kibana.
+                    Je communiceert met een AI-systeem. Antwoorden worden gegenereerd
+                    door een Llama- of Mistral-taalmodel en kunnen onnauwkeurigheden bevatten.
+                    Verifieer kritieke bevindingen altijd in Kibana.
                   </p>
                 </div>
               )}
               {showSuggestions && (
                 <div className="quick-start">
-                  <span className="quick-start-label">Quick questions</span>
+                  <span className="quick-start-label">Snelle vragen</span>
                   <div className="suggestions">
                     {SUGGESTIONS.map((s) => (
                       <button
@@ -667,13 +667,13 @@ function ChatPage({
         <div className="composer-inner">
           <div className="composer-controls">
             <label className="control">
-              <span className="control-label">Data view</span>
+              <span className="control-label">Dataweergave</span>
               <select
                 className="control-select"
                 value={dataView}
                 onChange={(e) => setDataView(e.target.value)}
                 disabled={loading}
-                title="Elasticsearch data view to search"
+                title="Elasticsearch data view om te doorzoeken"
               >
                 {dataViews.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -684,13 +684,13 @@ function ChatPage({
             </label>
 
             <label className="control">
-              <span className="control-label">Time range</span>
+              <span className="control-label">Tijdsbereik</span>
               <select
                 className="control-select"
                 value={timeRange}
                 onChange={(e) => setTimeRange(Number(e.target.value))}
                 disabled={loading}
-                title="Time range to search"
+                title="Tijdsbereik om te doorzoeken"
               >
                 {TIME_RANGES.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -743,8 +743,8 @@ function ChatPage({
                 rows={1}
                 placeholder={
                   image
-                    ? "Add a question about the image… (optional)"
-                    : "Ask about your logs and metrics…  (Enter to send, Shift+Enter for a new line, paste a screenshot)"
+                    ? "Stel een vraag over de afbeelding… (optioneel)"
+                    : "Stel een vraag over je logs en metrics…  (Enter om te versturen, Shift+Enter voor een nieuwe regel, plak een screenshot)"
                 }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}

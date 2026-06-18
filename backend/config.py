@@ -76,6 +76,18 @@ class Settings(BaseSettings):
     rabbitmq_alert_enabled: bool = True
     rabbitmq_timeout: float = 10.0
 
+    # ── DLQ Intelligence (read-only peek + smart verdict) ─────────────────────
+    # Additive & OFF by default. When true, dlq_intel peeks dead-lettered messages
+    # (read-only, requeued untouched) to explain WHY they failed and produce a smart
+    # verdict (depth + age + trend + reason). Feeds the dashboard card, the DLQ
+    # Intelligence page and the alert content. See dlq_intel.py.
+    dlq_intel_enabled: bool = False
+    dlq_intel_interval: int = 90        # seconds between intelligence passes
+    dlq_intel_peek_max: int = 20        # max messages peeked per queue per pass
+    dlq_intel_parked_days: float = 2.0  # oldest-age beyond this = "geparkeerd" warn
+    dlq_intel_grow_delta: int = 5       # depth rise vs prior sample → "growing"
+    dlq_intel_history: int = 50         # depth samples kept per queue (trend)
+
     # ── Regression test (post-release health gate for the public portal) ──
     # A robust, data-driven suite run after a prod release to confirm
     # open.overheid.nl still works. See regression.py for the default checks.

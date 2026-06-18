@@ -563,7 +563,7 @@ function dlqAge(iso) {
   return h < 24 ? `${h}h ${m % 60}m` : `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
-function DlqCard({ data }) {
+function DlqCard({ data, onNavigate }) {
   if (!data || data.configured === false) {
     return (
       <section className="panel">
@@ -601,6 +601,13 @@ function DlqCard({ data }) {
           {counts.warn > 0 && <span className="dlq-pill dlq-pill--warn">⚠ {counts.warn} warning</span>}
           <span className="dlq-pill dlq-pill--ok">✓ {counts.ok}/{dlqs.length} healthy</span>
         </span>
+        {onNavigate && (
+          <button type="button" className="btn btn--ghost"
+                  style={{ marginLeft: "auto", fontSize: 12 }}
+                  onClick={() => onNavigate("dlq-intel")}>
+            🔍 Intelligentie
+          </button>
+        )}
       </h3>
 
       <div className="dlq-grid">
@@ -1015,7 +1022,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           {showSec("aanlever") && can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
-          {showSec("dlq") && can("rabbitmq") && <DlqCard data={dlq} />}
+          {showSec("dlq") && can("rabbitmq") && <DlqCard data={dlq} onNavigate={onNavigate} />}
 
           {showSec("certs") && can("certificates") && (
           <CollapsiblePanel

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import logging
 
+import alerts_store
+
 logger = logging.getLogger(__name__)
 
 CATEGORY_ENVIRONMENT = "environment"
@@ -91,3 +93,20 @@ def _normalize_cert(certs: list) -> list[dict]:
         out.append(_item(CATEGORY_CERT, _env_from_host(host), host, severity,
                          f"grade {grade or 'OK'} · {days} days left"))
     return out
+
+
+# ── toggle hierarchy + severity threshold ─────────────────────────────────────
+def _toggles_allow(item: dict) -> bool:
+    """global ∧ category ∧ env ∧ card — any explicit OFF suppresses."""
+    return (alerts_store.is_enabled("global", "")
+            and alerts_store.is_enabled("category", item["category"])
+            and alerts_store.is_enabled("env", item["env"])
+            and alerts_store.is_enabled("card", item["card_id"]))
+
+
+def _meets_threshold(severity: str, threshold: str) -> bool:
+    return SEV_RANK.get(severity, 0) >= SEV_RANK.get(threshold, 2)
+
+
+def _eligible(item: dict, threshold: str) -> bool:
+    return _meets_threshold(item["severity"], threshold) and _toggles_allow(item)

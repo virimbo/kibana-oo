@@ -121,3 +121,16 @@ def test_history_and_audit_written(store):
     assert len(rows) == 1 and rows[0]["kind"] == "new"
     store.record_audit("admin@x", "set_toggle", "category:dlq", "disabled")
     assert store.list_audit(limit=10)[0]["action"] == "set_toggle"
+
+
+def test_eligible_respects_threshold_and_hierarchy(store):
+    crit = alerts._item("dlq", "PROD", "export.dlq", "critical")
+    warn = alerts._item("environment", "PROD", "x", "warn")
+    # threshold = critical → warn not eligible, critical eligible
+    assert alerts._eligible(crit, threshold="critical") is True
+    assert alerts._eligible(warn, threshold="critical") is False
+    # lower threshold to warn → warn becomes eligible
+    assert alerts._eligible(warn, threshold="warn") is True
+    # disabling the category suppresses even a critical
+    store.set_toggle("category", "dlq", False, actor="a")
+    assert alerts._eligible(crit, threshold="critical") is False

@@ -62,6 +62,7 @@ REGISTRY: dict[str, str] = {
     "card:pipeline-health": "documents-pipeline",
     "card:aitriage": "criticals",
     "card:grafana": "grafana",
+    "card:service_health": "service-health",
     # Uptime / availability board — every site tile resolves to the shared
     # availability component (the card supplies its own per-site label + state).
     "uptime:open.overheid.nl": "availability",
@@ -374,6 +375,8 @@ def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, boo
     """(condition, urgent) from the card type + its live status, else (None, False)."""
     s = (status or "").strip().lower()
     if card_id.startswith("uptime:") and s in ("down", "degraded", "unreachable"):
+        return "down", s == "down"
+    if card_id.startswith("card:service_health") and s in ("down", "degraded", "unreachable"):
         return "down", s == "down"
     if card_id.startswith("cert:") and s in ("warning", "critical", "expired"):
         return "cert", s in ("critical", "expired")

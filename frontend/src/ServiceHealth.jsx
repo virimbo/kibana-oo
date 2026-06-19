@@ -14,6 +14,24 @@ const VERDICT = {
   down:        { cls: "down", icon: "⛔", label: "down" },
 };
 
+const SVCH_INFO =
+  "De backend-microservices van KOOP/Plooi (Harvester, Antivirus, Repository, " +
+  "Search, DCN, Keycloak, Solr, RabbitMQ, …). Read-only HTTP-probe per service " +
+  "(Spring-actuator + service/UI-endpoint): 5xx of actuator-DOWN = down (rood), " +
+  "2xx–4xx incl. 401/403/405 = up (reageert), traag = degraded, connectie-fout = " +
+  "unreachable (grijs — down óf geen VPN). Klik een tegel voor de losse endpoints.";
+
+// Local InfoTip (same markup/CSS as the dashboard's) — inlined to avoid a circular
+// import with Dashboard.jsx, which imports this card.
+function InfoTip({ text }) {
+  return (
+    <span className="infotip" tabIndex={0} role="note" aria-label={text}>
+      i
+      <span className="infotip-pop">{text}</span>
+    </span>
+  );
+}
+
 function epPath(url) {
   try { const u = new URL(url); return u.host.split(".")[0] + u.pathname; }
   catch { return url; }
@@ -36,9 +54,11 @@ export default function ServiceHealthCard({ token }) {
   const hasProblem = (s.down || 0) + (s.unreachable || 0) + (s.degraded || 0) > 0;
 
   return (
-    <section className={`panel${hasProblem ? " panel--alert" : ""}`}>
+    <section className={`panel${hasProblem ? " panel--alert" : ""}`}
+             data-smartcard="card:service_health" data-smartlabel="Service health"
+             data-smartstatus={s.verdict} data-smartenv="PROD">
       <h3>
-        🧩 Service health
+        🧩 Service health <InfoTip text={SVCH_INFO} />
         <span className="svch-summary">
           {s.down > 0 && <span className="svch-pill svch-pill--down">⛔ {s.down} down</span>}
           {s.unreachable > 0 && <span className="svch-pill svch-pill--unk">? {s.unreachable} unreachable</span>}

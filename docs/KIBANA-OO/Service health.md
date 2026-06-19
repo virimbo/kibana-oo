@@ -1,3 +1,16 @@
+---
+title: Service health
+tags: [dashboard, monitoring, beheer, services, nl]
+aliases: [Service health, Backend services, Microservices]
+component: service-health
+purpose-business: Laat de beheerder in één oogopslag zien of elke backend-service (Harvester, Antivirus, Repository, …) nog werkt.
+purpose-technical: Achtergrond-HTTP-probe per service (Spring-actuator + service-endpoint); classificeert up/down/degraded/unreachable, met actuator-status.
+dependencies: [Harvester, Antivirus, Repository, Search, DCN, Keycloak, Solr, RabbitMQ, Documentopslag, Registration, Dictionary, Admin, Jaeger, Sitemapvalidator, Publicatiebeheer]
+related: [Beschikbaarheid (uptime), Woo Gateway, Monitoring dashboard, Runbook - wat te doen]
+risk: high
+owner: KOOP Beheer
+---
+
 # Service health
 
 > 🇳🇱 Een aparte dashboard-card die de **backend-microservices** van KOOP/Plooi

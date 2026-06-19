@@ -1031,7 +1031,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             id="certs"
             cardId="card:certificates"
             title="Certificate & TLS health"
-            info="Security (TLS) certificate status for the key sites. The app actively checks open.overheid.nl and doculoket.overheid.nl directly — expiry countdown plus any trust, chain, hostname or expiry problems — and also shows anything Kibana monitors. Green: >30 days & trusted; amber: under 30 days or a warning; red: under 14 days, expired, or not trusted."
+            info="Security (TLS) certificaatstatus voor de belangrijkste sites. De app controleert open.overheid.nl en doculoket.overheid.nl actief en direct — expiry-countdown plus eventuele trust-, chain-, hostname- of expiry-problemen — en toont ook wat Kibana monitort. Groen: >30 dagen & trusted; oranje: onder 30 dagen of een warning; rood: onder 14 dagen, verlopen of niet trusted."
             summary={(() => {
               if (!certs || certs.length === 0) return null;
               const problems = certs.filter(

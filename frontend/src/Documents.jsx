@@ -172,7 +172,7 @@ function LifecycleBar({ lifecycle }) {
                       )}
                     </dl>
                   ) : (
-                    <div className="life-tip-miss">No log events for this stage yet.</div>
+                    <div className="life-tip-miss">Nog geen log-events voor deze stage.</div>
                   )}
                   {(s.problems || []).length > 0 && (
                     <ul className="life-tip-probs">
@@ -273,7 +273,7 @@ function PipelineHealth({ health, onTrace }) {
         </ul>
       )}
 
-      <div className="stage-health" aria-label="Problems by stage">
+      <div className="stage-health" aria-label="Problemen per stage">
         {(health.stage_health || []).map((s) => (
           <div
             key={s.key}
@@ -459,7 +459,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
               <TimeRange value={range} onChange={onRangeChange} disabled={loading} />
             </label>
             <label className="control">
-              <span className="control-label">Data view</span>
+              <span className="control-label">Dataweergave</span>
               <select
                 className="control-select"
                 value={dataView}
@@ -604,7 +604,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                               )}
                             </div>
                             {aiLoading ? (
-                              <p className="trace-ai-body muted">Analyzing the document journey…</p>
+                              <p className="trace-ai-body muted">De document-journey wordt geanalyseerd…</p>
                             ) : (
                               <p className="trace-ai-body">{ai.summary}</p>
                             )}
@@ -683,7 +683,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                       )}
                     </>
                   ) : (
-                    <p className="muted">No events found for that id in this data view.</p>
+                    <p className="muted">Geen events gevonden voor dat id in deze dataweergave.</p>
                   ))}
               </section>
 
@@ -693,7 +693,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   <InfoTip text="Processing- en mapping-issues gegroepeerd per document-bron in dit venster — zie welke feed faalt. Best-effort bron-detectie (instelbaar)." />
                 </h3>
                 {!data.by_source || data.by_source.length === 0 ? (
-                  <p className="muted">No processing or mapping issues in this window.</p>
+                  <p className="muted">Geen processing- of mapping-issues in dit venster.</p>
                 ) : (
                   <table className="dash-table">
                     <thead>
@@ -762,7 +762,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                       <span className="tile-count">{a.count}</span>
                     </div>
                   ))}
-                  {(!data.by_action || data.by_action.length === 0) && <p className="muted">No events.</p>}
+                  {(!data.by_action || data.by_action.length === 0) && <p className="muted">Geen events.</p>}
                 </div>
               </section>
 
@@ -775,7 +775,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                       <span className="tile-count">{t.count}</span>
                     </div>
                   ))}
-                  {(!data.by_type || data.by_type.length === 0) && <p className="muted">No file types detected.</p>}
+                  {(!data.by_type || data.by_type.length === 0) && <p className="muted">Geen file types gedetecteerd.</p>}
                 </div>
               </section>
 
@@ -818,7 +818,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   </div>
                 </div>
                 {filtered.length === 0 ? (
-                  <p className="muted">No matching document events.</p>
+                  <p className="muted">Geen overeenkomende document-events.</p>
                 ) : (
                   <table className="dash-table feed-table">
                     <thead>

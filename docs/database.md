@@ -1,21 +1,21 @@
-# Database architecture
+# Database-architectuur
 
-KIBANA-OO uses **SQLite** for its small, durable state. There are **two files**,
-by design, on the mounted data volume.
+KIBANA-OO gebruikt **SQLite** voor zijn kleine, duurzame state. Er zijn — bewust —
+**twee bestanden**, op het gemounte data-volume.
 
-## 1. `incidents.db` — durable incident store
+## 1. `incidents.db` — duurzame incident-store
 
-Owned by `backend/incidents.py`. Holds live, long-lived **document incident**
-state (documents stuck in the pipeline, kept OPEN across restarts and beyond the
-scan window until resolved). This is a distinct domain with its own lifecycle, so
-it keeps its own file — it is intentionally **not** merged into the shared DB to
-avoid migration risk to live prod data.
+Eigenaar: `backend/incidents.py`. Bevat live, langlevende **document-incident**-state
+(documenten die stuck zitten in de pipeline, OPEN gehouden over restarts heen en
+buiten het scan-venster tot ze opgelost zijn). Dit is een apart domein met een eigen
+lifecycle, dus het houdt zijn eigen bestand — het is bewust **niet** samengevoegd met
+de gedeelde DB om migratierisico op live prod-data te vermijden.
 
-## 2. `kibana_oo.db` — shared app database (feature run/audit logs)
+## 2. `kibana_oo.db` — gedeelde app-database (feature run/audit logs)
 
-Owned by `backend/db.py`, with **one table per feature**. This is where
-"run / audit log" style data lives, so there is a single file to mount, persist
-and back up. Connection helper:
+Eigenaar: `backend/db.py`, met **één tabel per feature**. Hier leeft "run / audit
+log"-achtige data, zodat er één bestand is om te mounten, te persisten en te backuppen.
+Connection-helper:
 
 ```python
 import db
@@ -23,62 +23,62 @@ with db.cursor() as conn:      # commits on success, always closes
     conn.execute(...)
 ```
 
-`db.connect()` sets `PRAGMA journal_mode=WAL` (safe concurrent reads/writes) and
-`PRAGMA foreign_keys=ON` (so `ON DELETE CASCADE` works). Each feature module owns
-its own `CREATE TABLE IF NOT EXISTS` schema and shares this connection.
+`db.connect()` zet `PRAGMA journal_mode=WAL` (veilige concurrent reads/writes) en
+`PRAGMA foreign_keys=ON` (zodat `ON DELETE CASCADE` werkt). Elke feature-module bezit
+zijn eigen `CREATE TABLE IF NOT EXISTS`-schema en deelt deze connection.
 
-### Tables
+### Tabellen
 
-**Regression test** (`backend/regression.py`) — hybrid schema:
+**Regression test** (`backend/regression.py`) — hybride schema:
 
-- `regression_runs` — one row per run (summary): `run_id`, `started`, `finished`,
-  `verdict`, `trigger`, `target`, `duration_ms`, counts, `changes`. Powers the
-  history list and verdict trend without a join.
-- `regression_checks` — one row per check (`run_id` FK → `regression_runs`,
+- `regression_runs` — één row per run (summary): `run_id`, `started`, `finished`,
+  `verdict`, `trigger`, `target`, `duration_ms`, counts, `changes`. Voedt de
+  history-lijst en de verdict-trend zonder join.
+- `regression_checks` — één row per check (`run_id` FK → `regression_runs`,
   `ON DELETE CASCADE`): `check_id`, `name`, `severity`, `status`, `detail`,
   `http_status`, `response_ms`, `url`, `method`, `expected`, `actual`,
-  `evidence`. Powers drill-down and per-check reliability queries.
+  `evidence`. Voedt de drill-down en per-check reliability-queries.
 
-Why hybrid (not a single JSON blob): keeping checks as rows lets us answer
-cross-run questions — "how often has the document-file check failed in the last
-50 runs?" — with a `GROUP BY check_id`, instead of parsing thousands of JSON
-blobs. The summary columns on the run row keep the history list fast.
+Waarom hybride (niet één JSON-blob): checks als rows houden laat ons cross-run vragen
+beantwoorden — "hoe vaak is de document-file-check gefaald in de laatste 50 runs?" —
+met een `GROUP BY check_id`, in plaats van duizenden JSON-blobs te parsen. De
+summary-kolommen op de run-row houden de history-lijst snel.
 
-**RabbitMQ DLQ** (`backend/rabbitmq_dlq.py`) — `dlq_state`: one row per currently
-non-empty dead-letter queue (`first_seen` for age, `alerted` for dedup). Deleted
-when the queue drains — the broker is the real-time source of truth for depth, so
-only this minimal state is stored. See [rabbitmq-dlq.md](rabbitmq-dlq.md).
+**RabbitMQ DLQ** (`backend/rabbitmq_dlq.py`) — `dlq_state`: één row per momenteel
+niet-lege dead-letter queue (`first_seen` voor age, `alerted` voor dedup). Verwijderd
+wanneer de queue draint — de broker is de realtime source of truth voor depth, dus
+alleen deze minimale state wordt opgeslagen. Zie [rabbitmq-dlq.md](rabbitmq-dlq.md).
 
-**Authorization** (`backend/permissions.py`) — `feature_grants` (one row per
-`username`+`feature`, the access matrix), `feature_grants_audit` (every
-grant/revoke/seed with actor + timestamp), and `feature_grants_meta` (the
-run-once seed flag). Super admins are in config, not here. See
+**Authorization** (`backend/permissions.py`) — `feature_grants` (één row per
+`username`+`feature`, de access-matrix), `feature_grants_audit` (elke
+grant/revoke/seed met actor + timestamp), en `feature_grants_meta` (de run-once
+seed-flag). Super admins staan in config, niet hier. Zie
 [authorization.md](authorization.md).
 
-**Aanleverfouten** (`backend/aanlever.py`) — `aanlever_incidents`: one row per
-rejected document (`doc_id` PK), with `publisher`, `error_key`/`error_type`,
+**Aanleverfouten** (`backend/aanlever.py`) — `aanlever_incidents`: één row per
+geweigerd document (`doc_id` PK), met `publisher`, `error_key`/`error_type`,
 `message`, `link` (doculoket), `title`, `first_detected`/`last_detected`,
-`status` (open|resolved), and `acknowledged`. A durable incident store (like the
-stuck-doc one, but in the shared DB): OPEN until the document is published on
-open.overheid.nl (auto-resolved) or an admin acknowledges it. See
+`status` (open|resolved), en `acknowledged`. Een duurzame incident-store (zoals die
+voor stuck docs, maar in de gedeelde DB): OPEN tot het document op open.overheid.nl is
+gepubliceerd (auto-resolved) of een admin het acknowledged. Zie
 [aanleverfouten.md](aanleverfouten.md).
 
-### Retention
+### Retentie
 
-Per feature. Regression uses a **failure-aware count cap**
-(`REGRESSION_HISTORY_CAP`, default 1000): when over the cap, prune **oldest PASS
-first** so WARN/FAIL records survive longest, and never prune the most recent
-run. Child `regression_checks` rows cascade-delete with their run.
+Per feature. Regression gebruikt een **failure-aware count cap**
+(`REGRESSION_HISTORY_CAP`, default 1000): bij overschrijding wordt **oudste PASS
+eerst** geprunet zodat WARN/FAIL-records het langst overleven, en de meest recente run
+nooit verwijderd. Child `regression_checks`-rows cascade-deleten met hun run.
 
-## Adding a new feature table
+## Een nieuwe feature-tabel toevoegen
 
-1. Add `CREATE TABLE IF NOT EXISTS <feature>_… ` to the feature module.
-2. Use `db.connect()` / `db.cursor()` — do not open `kibana_oo.db` directly
-   elsewhere.
-3. Decide a retention policy and document it here.
+1. Voeg `CREATE TABLE IF NOT EXISTS <feature>_… ` toe aan de feature-module.
+2. Gebruik `db.connect()` / `db.cursor()` — open `kibana_oo.db` niet direct ergens
+   anders.
+3. Bepaal een retentiebeleid en documenteer het hier.
 
 ## Operations
 
-Both files live under `/app/data` (mount this on a volume in
-`docker-compose.yml`). Back up the directory; WAL means a `.db`, `.db-wal` and
-`.db-shm` per database — copy all three (or checkpoint first).
+Beide bestanden leven onder `/app/data` (mount dit op een volume in
+`docker-compose.yml`). Back-up de directory; WAL betekent een `.db`, `.db-wal` en
+`.db-shm` per database — kopieer alle drie (of checkpoint eerst).

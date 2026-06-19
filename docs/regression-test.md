@@ -1,100 +1,100 @@
 # Regression test — open.overheid.nl
 
-A post-release health gate for the public portal. Run it after shipping to prod
-to confirm the site still works: availability, key journeys, content via the
-openbaarmakingen API, and TLS. Lives under **Beheer → 🧪 Regressietest**.
+Een post-release health gate voor het publieke portaal. Draai die na een prod-release
+om te bevestigen dat de site nog werkt: beschikbaarheid, belangrijke journeys, content
+via de openbaarmakingen-API, en TLS. Te vinden onder **Beheer → 🧪 Regressietest**.
 
-## What it checks
+## Wat het controleert
 
-The suite is **data-driven** (see `default_checks()` in `backend/regression.py`) so
-checks can be added without code changes. Each check has a **severity**
-(`critical` | `warning`). The default set (verified against the live portal):
+De suite is **data-driven** (zie `default_checks()` in `backend/regression.py`) zodat
+checks toegevoegd kunnen worden zonder codewijziging. Elke check heeft een **severity**
+(`critical` | `warning`). De default-set (geverifieerd tegen het live portaal):
 
-| Check | Severity | Asserts |
+| Check | Severity | Assert |
 |---|---|---|
-| Homepage loads | critical | `GET /` → 200, `text/html`, body contains "Open overheid", ≤5 s |
+| Homepage loads | critical | `GET /` → 200, `text/html`, body bevat "Open overheid", ≤5 s |
 | Document page reachable | critical | `GET /details/{uuid}` → 200, `text/html` |
-| Document file downloadable | critical | streamed `GET /documenten/{uuid}` → 200, `application/pdf` (headers only — no 6.5 MB download; the endpoint 404s on HEAD) |
-| Openbaarmakingen API returns metadata | critical | `GET …/openbaarmakingen/api/v0/zoek/{uuid}` → 200 + a document title in the JSON |
+| Document file downloadable | critical | streamed `GET /documenten/{uuid}` → 200, `application/pdf` (alleen headers — geen 6.5 MB download; het endpoint 404t op HEAD) |
+| Openbaarmakingen API returns metadata | critical | `GET …/openbaarmakingen/api/v0/zoek/{uuid}` → 200 + een document-title in de JSON |
 | robots.txt served | warning | `GET /robots.txt` → 200 |
-| Unknown path returns no server error | warning | a bogus path returns **< 500** (the portal returns 401, not 404) |
-| TLS certificate & chain healthy | critical | reuses the TLS audit — grade must not be CRITICAL |
+| Unknown path returns no server error | warning | een bogus path geeft **< 500** (het portaal geeft 401, geen 404) |
+| TLS certificate & chain healthy | critical | hergebruikt de TLS-audit — grade mag niet CRITICAL zijn |
 
-> Response-time-budget breaches are always **soft** (warn), never a hard fail.
+> Overschrijdingen van het response-time-budget zijn altijd **soft** (warn), nooit een
+> hard fail.
 
 ## Verdict
 
-Per-check results roll up to one verdict, mirroring the cert **GRADE**:
+Per-check-resultaten rollen op tot één verdict, gespiegeld aan de cert **GRADE**:
 
-- **FAIL** — any critical check failed (this is what alerts).
-- **WARN** — only warning-level checks failed, or a perf budget was breached.
-- **PASS** — everything green.
+- **FAIL** — een critical check is gefaald (dit is wat alert).
+- **WARN** — alleen warning-level checks gefaald, of een perf-budget overschreden.
+- **PASS** — alles groen.
 
-A **"changed since last run"** note is shown for information only — it never
-affects the verdict (the portal's content changes constantly, so a diff is a
-signal, not a gate).
+Een **"changed since last run"**-notitie wordt alleen ter informatie getoond — die heeft
+nooit invloed op het verdict (de content van het portaal verandert constant, dus een
+diff is een signaal, geen gate).
 
 ## Drill-down evidence
 
-Every check stores, for audit: the **URL**, **method**, **expected vs. actual**
-(status / content-type / bytes / timing), and a **bounded (~500-char) evidence
-snippet** (the resolved title, the matched marker, the TLS findings, …). Expand a
-check in the UI to see exactly why it passed or failed — no need to re-run.
+Elke check bewaart, voor audit: de **URL**, **method**, **expected vs. actual**
+(status / content-type / bytes / timing), en een **bounded (~500-char) evidence-snippet**
+(de resolved title, de matched marker, de TLS-findings, …). Klap een check open in de UI
+om precies te zien waarom die slaagde of faalde — zonder opnieuw te draaien.
 
-Per-check **reliability** (pass/warn/fail counts over the last N runs) is shown so
-a flaky check is obvious at a glance.
+Per-check **reliability** (pass/warn/fail counts over de laatste N runs) wordt getoond
+zodat een flaky check in één oogopslag duidelijk is.
 
-## How to run
+## Hoe te draaien
 
-- **Manually:** Beheer → Regressietest → **Run regression test**. Live per-check
-  progress; the result is stored.
-- **From CI/CD (on deploy):** set `REGRESSION_TRIGGER_TOKEN` in `.env`, then have
-  the pipeline call:
+- **Handmatig:** Beheer → Regressietest → **Run regression test**. Live per-check
+  progress; het resultaat wordt opgeslagen.
+- **Vanuit CI/CD (bij deploy):** zet `REGRESSION_TRIGGER_TOKEN` in `.env`, laat de
+  pipeline dan aanroepen:
   ```
   POST /regression/trigger
   Header: X-Regression-Token: <REGRESSION_TRIGGER_TOKEN>
   ```
-  The endpoint is disabled (404) unless the token is set.
+  Het endpoint is uitgeschakeld (404) tenzij de token gezet is.
 
 ## Alerts
 
-When a run **FAILs**, an alert is sent via the same channels as the cert monitor
-(`DIGEST_WEBHOOK_URL` and/or SMTP). Configure at least one so the post-deploy gate
-reaches you when nobody's watching the dashboard. Toggle with
-`REGRESSION_ALERT_ENABLED`.
+Wanneer een run **FAILt**, gaat een alert uit via dezelfde kanalen als de cert-monitor
+(`DIGEST_WEBHOOK_URL` en/of SMTP). Configureer er minstens één zodat de post-deploy gate
+je bereikt als niemand het dashboard bekijkt. Toggle met `REGRESSION_ALERT_ENABLED`.
 
-## Storage & retention
+## Opslag & retentie
 
-Runs are persisted in the shared app database (`kibana_oo.db`) across two tables —
-`regression_runs` (summary) and `regression_checks` (one row per check) — see
-[database.md](database.md). Retention is **failure-aware**: at most
-`REGRESSION_HISTORY_CAP` runs (default 1000), pruning oldest **PASS** first so
-failures are kept longest; the most recent run is never pruned.
+Runs worden gepersisteerd in de gedeelde app-database (`kibana_oo.db`) over twee tabellen —
+`regression_runs` (summary) en `regression_checks` (één row per check) — zie
+[database.md](database.md). Retentie is **failure-aware**: maximaal
+`REGRESSION_HISTORY_CAP` runs (default 1000), waarbij oudste **PASS** eerst geprunet wordt
+zodat failures het langst bewaard blijven; de meest recente run wordt nooit geprunet.
 
-## Configuration (`.env`)
+## Configuratie (`.env`)
 
-| Var | Default | Purpose |
+| Var | Default | Doel |
 |---|---|---|
 | `REGRESSION_TARGET_URL` | `https://open.overheid.nl` | Site under test |
-| `REGRESSION_KNOWN_DOC_ID` | a published UUID | Document used by the content checks |
-| `REGRESSION_TRIGGER_TOKEN` | _(empty)_ | Enables the CI trigger endpoint |
-| `REGRESSION_ALERT_ENABLED` | `true` | Alert on FAIL |
-| `REGRESSION_HISTORY_CAP` | `1000` | Max runs kept |
+| `REGRESSION_KNOWN_DOC_ID` | een gepubliceerde UUID | Document gebruikt door de content-checks |
+| `REGRESSION_TRIGGER_TOKEN` | _(leeg)_ | Activeert het CI-trigger-endpoint |
+| `REGRESSION_ALERT_ENABLED` | `true` | Alert op FAIL |
+| `REGRESSION_HISTORY_CAP` | `1000` | Max bewaarde runs |
 
 ## API
 
-| Method | Path | Auth | Purpose |
+| Method | Path | Auth | Doel |
 |---|---|---|---|
-| POST | `/dashboard/regression/run` | admin | Start a run |
-| GET | `/dashboard/regression/latest` | admin | Latest run (live while running) |
+| POST | `/dashboard/regression/run` | admin | Start een run |
+| GET | `/dashboard/regression/latest` | admin | Laatste run (live tijdens draaien) |
 | GET | `/dashboard/regression/runs?limit=` | admin | History (summaries) |
-| GET | `/dashboard/regression/runs/{id}` | admin | One run with full check evidence |
+| GET | `/dashboard/regression/runs/{id}` | admin | Eén run met volledige check-evidence |
 | GET | `/dashboard/regression/reliability?limit=` | admin | Per-check pass/warn/fail counts |
-| POST | `/regression/trigger` | token | CI trigger (header `X-Regression-Token`) |
+| POST | `/regression/trigger` | token | CI-trigger (header `X-Regression-Token`) |
 
-## Extending
+## Uitbreiden
 
-- **More HTTP checks:** add an entry to `default_checks()` (url, method/kind,
+- **Meer HTTP-checks:** voeg een entry toe aan `default_checks()` (url, method/kind,
   expected status/content-type/text, severity, time budget).
-- **Browser journeys (later):** the engine dispatches by check `kind`; a
-  Playwright-backed `kind` can be added without touching the rest.
+- **Browser-journeys (later):** de engine dispatcht op check-`kind`; een
+  Playwright-backed `kind` kan toegevoegd worden zonder de rest aan te raken.

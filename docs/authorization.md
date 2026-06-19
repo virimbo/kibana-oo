@@ -1,63 +1,63 @@
-# Authorization — feature grants & the super admin
+# Authorization — feature grants & de super admin
 
-Access is a **per-user × per-feature matrix**, managed by a **super admin**. A
-feature is a card/page/tool; a user sees and can use only the features granted to
-them (deny-by-default), except the **Chat** baseline which is open to any
-authenticated user.
+Toegang is een **per-user × per-feature matrix**, beheerd door een **super admin**.
+Een feature is een card/page/tool; een gebruiker ziet en kan alleen de features
+gebruiken die aan hem zijn granted (deny-by-default), behalve de **Chat**-baseline die
+open is voor elke geauthenticeerde gebruiker.
 
-## Roles
+## Rollen
 
-- **Super admin** — defined in **config** (`SUPER_ADMINS`, comma-separated emails;
-  seeded with `anton.partono@koop.overheid.nl`). Holds **every** feature
-  implicitly and is the **only** role that can manage the matrix. Config-based so
-  it can never be revoked through the UI (no lock-out).
-- **Granted user** — any logged-in user with one or more feature grants.
-- **Everyone else** — Chat only.
+- **Super admin** — gedefinieerd in **config** (`SUPER_ADMINS`, komma-gescheiden
+  e-mails; geseed met `anton.partono@koop.overheid.nl`). Bezit **elke** feature
+  impliciet en is de **enige** rol die de matrix kan beheren. Config-based zodat die
+  nooit via de UI ingetrokken kan worden (geen lock-out).
+- **Granted user** — elke ingelogde gebruiker met één of meer feature-grants.
+- **Iedereen anders** — alleen Chat.
 
-## Feature catalog (matrix columns)
+## Feature-catalogus (matrix-kolommen)
 
 Code-defined in `permissions.CATALOG`: `dashboard`, `certificates`, `outcomes`,
 `pipeline_health`, `aanleverfouten`, `documents`, `regression`, `settings`.
-Baseline (always open): `chat`. Super-only (not grantable): `authorization`.
-Adding a card/tool = adding one catalog entry.
+Baseline (altijd open): `chat`. Super-only (niet grantbaar): `authorization`.
+Een card/tool toevoegen = één catalogus-entry toevoegen.
 
 ## Enforcement (defense in depth)
 
-- **Backend is the source of truth.** Each endpoint is guarded by
-  `auth.require_feature("<key>")`; the matrix manager endpoints by
-  `auth.require_super`. A request for an ungranted feature → **403**.
-- **Frontend reflects it.** `GET /me/permissions` returns
-  `{ is_super, features[], catalog }`; the UI renders only granted pages/cards
-  (`can(feature)`), so nothing ungranted is even shown.
+- **De backend is de source of truth.** Elk endpoint wordt bewaakt door
+  `auth.require_feature("<key>")`; de matrix-manager-endpoints door
+  `auth.require_super`. Een request voor een niet-granted feature → **403**.
+- **De frontend weerspiegelt het.** `GET /me/permissions` geeft
+  `{ is_super, features[], catalog }`; de UI rendert alleen granted pages/cards
+  (`can(feature)`), zodat niets niet-granted überhaupt getoond wordt.
 
-## Management
+## Beheer
 
-Super admin → **Beheer → 🔐 Autorisatie**: a grid of users (rows) × features
-(columns). Check a box to grant, uncheck to revoke — effective immediately. Add a
-user **by email** to pre-authorise them before their first login. A **change log**
-records every grant/revoke (who, what, when).
+Super admin → **Beheer → 🔐 Autorisatie**: een grid van users (rows) × features
+(kolommen). Vink een vakje aan om te granten, uit om in te trekken — direct effectief.
+Voeg een user **op e-mail** toe om hem vooraf te autoriseren vóór zijn eerste login.
+Een **change log** registreert elke grant/revoke (wie, wat, wanneer).
 
-## Storage
+## Opslag
 
-In the shared `kibana_oo.db` (see [database.md](database.md)):
-`feature_grants` (one row per user+feature) and `feature_grants_audit`.
+In de gedeelde `kibana_oo.db` (zie [database.md](database.md)):
+`feature_grants` (één row per user+feature) en `feature_grants_audit`.
 
-## Rollout / migration
+## Rollout / migratie
 
-On first start, `permissions.ensure_seeded()` runs once: every existing
-`DASHBOARD_ADMINS` user is **granted all features** so nothing breaks on
-deploy — then the super admin narrows access deliberately. (Super admins need no
-rows; they have everything.)
+Bij de eerste start draait `permissions.ensure_seeded()` één keer: elke bestaande
+`DASHBOARD_ADMINS`-user wordt **granted op alle features** zodat niets breekt bij
+deploy — daarna versmalt de super admin de toegang bewust. (Super admins hebben geen
+rows nodig; zij hebben alles.)
 
 ## API
 
-| Method | Path | Auth | Purpose |
+| Method | Path | Auth | Doel |
 |---|---|---|---|
-| GET | `/me/permissions` | any session | The caller's features + is_super |
-| GET | `/admin/grants` | super | The full matrix |
+| GET | `/me/permissions` | any session | De features + is_super van de caller |
+| GET | `/admin/grants` | super | De volledige matrix |
 | POST | `/admin/grants` | super | Grant `{username, feature}` |
 | DELETE | `/admin/grants` | super | Revoke `{username, feature}` |
-| GET | `/admin/grants/audit` | super | Recent grant/revoke log |
+| GET | `/admin/grants/audit` | super | Recente grant/revoke-log |
 
 ## Config (`.env`)
 

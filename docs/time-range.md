@@ -1,49 +1,50 @@
 # Time range — presets + custom date ranges
 
-The Dashboard and Documents pages share a **TimeRange** control: quick presets for
-the common case, plus a **custom absolute from→to window** so an admin can analyse
-**any dates, including very old data**.
+De Dashboard- en Documents-pagina's delen een **TimeRange**-control: snelle presets
+voor het gangbare geval, plus een **custom absoluut from→to-venster** zodat een admin
+**elke datum kan analyseren, inclusief heel oude data**.
 
-## The control
+## De control
 
-- **Presets** (rolling window ending now): 15 min · 30 min · 1 h · 6 h · 24 h ·
-  **7 d · 30 d · 90 d · 1 year**.
-- **Custom range…** reveals two `datetime-local` pickers (from / to) and an
-  **Apply** button. Validates: start before end, end not in the future.
-- The **resolved window** is always shown (📅 absolute dates for a custom range),
-  and a *"large range (may be slower)"* hint appears for windows over 90 days.
-- The choice is **persisted** (`sessionStorage`, key `kibana_oo_timerange`) and
-  **shared** across Dashboard ↔ Documents, so the window follows you.
+- **Presets** (rollend venster eindigend op nu): 15 min · 30 min · 1 u · 6 u · 24 u ·
+  **7 d · 30 d · 90 d · 1 jaar**.
+- **Aangepast bereik…** toont twee `datetime-local`-pickers (van / tot) en een
+  **Toepassen**-knop. Valideert: begin vóór einde, einde niet in de toekomst.
+- Het **resolved venster** wordt altijd getoond (📅 absolute datums bij een custom
+  range), en een *"groot bereik (kan trager zijn)"*-hint verschijnt bij vensters van
+  meer dan 90 dagen.
+- De keuze wordt **gepersisteerd** (`sessionStorage`, key `kibana_oo_timerange`) en
+  **gedeeld** over Dashboard ↔ Documents, zodat het venster je volgt.
 
-`TimeRange.jsx` exposes helpers: `timeParams(range)` (the query fragment),
+`TimeRange.jsx` biedt helpers: `timeParams(range)` (het query-fragment),
 `rangeLabel(range)`, `loadRange()`, `saveRange()`.
 
-## Backend (additive — the period path is unchanged)
+## Backend (additief — het period-pad is onveranderd)
 
-Endpoints (`/summary`, `/briefing`, `/documents`, `/outcomes`) accept optional
-`from` / `to` query params **alongside** the existing `period`:
+Endpoints (`/summary`, `/briefing`, `/documents`, `/outcomes`) accepteren optionele
+`from` / `to` query-params **naast** de bestaande `period`:
 
-- `?period=60` → rolling last-hour window (exactly as before).
-- `?from=<ISO|epoch-ms>&to=<ISO|epoch-ms>` → that absolute window.
+- `?period=60` → rollend last-hour-venster (precies als voorheen).
+- `?from=<ISO|epoch-ms>&to=<ISO|epoch-ms>` → dat absolute venster.
 
-One helper, `monitoring.resolve_window(period, from, to)`, owns the logic: with a
-valid `from`/`to` it returns that window (validated — end clamped to now, start <
-end); otherwise it falls back to `period_bounds(period)`. The builders
-(`build_snapshot`, `build_document_activity`, `build_pipeline_outcomes`) gained an
-optional explicit `(start, end)` that overrides the period; **when omitted, the
-behaviour is byte-for-byte identical to before.**
+Eén helper, `monitoring.resolve_window(period, from, to)`, bezit de logica: met een
+geldige `from`/`to` geeft hij dat venster terug (gevalideerd — einde geclampt op nu,
+begin < einde); anders valt hij terug op `period_bounds(period)`. De builders
+(`build_snapshot`, `build_document_activity`, `build_pipeline_outcomes`) kregen een
+optionele expliciete `(start, end)` die de period overschrijft; **wanneer weggelaten
+is het gedrag byte-voor-byte identiek aan voorheen.**
 
-### Robustness for large / very old ranges
+### Robuustheid voor grote / heel oude ranges
 
-- The dashboard timeseries uses **`auto_date_histogram`** (target ~60 buckets) for
-  custom windows, so a 2-year range never explodes the bucket count; the document
-  activity chart uses `interval_for_span()` to the same effect.
-- An out-of-retention / empty window renders the normal empty state (no crash).
-- The AI briefing receives `window_start` / `window_end`, so it states the real
-  range instead of "the last N minutes".
+- De dashboard-timeseries gebruikt **`auto_date_histogram`** (target ~60 buckets) voor
+  custom vensters, zodat een 2-jaars range de bucket-count nooit laat exploderen; de
+  document-activity-chart gebruikt `interval_for_span()` met hetzelfde effect.
+- Een out-of-retention / leeg venster rendert de normale empty state (geen crash).
+- De AI-briefing krijgt `window_start` / `window_end`, zodat die de echte range vermeldt
+  in plaats van "de laatste N minuten".
 
-## Allowed presets
+## Toegestane presets
 
-Preset minutes are validated server-side (`ALLOWED_PERIODS`): 15, 30, 60, 360,
-1440, 10080, 43200, 129600, 525600. Arbitrary windows go through `from`/`to`, not
-this list.
+Preset-minuten worden serverzijde gevalideerd (`ALLOWED_PERIODS`): 15, 30, 60, 360,
+1440, 10080, 43200, 129600, 525600. Willekeurige vensters gaan via `from`/`to`, niet
+via deze lijst.

@@ -1,19 +1,19 @@
-# KIBANA-OO — Architecture & Documentation
+# KIBANA-OO — Architectuur & Documentatie
 
-**KIBANA-OO** is an AI-assisted observability tool for the KOOP / Plooi platform. It lets an
-operator (1) **chat** in natural language about Elasticsearch logs & metrics, and (2) open an
-admin **monitoring dashboard** that surfaces critical issues, certificate expiry, "document not
-found" errors, and OVS→NVS pipeline migration health — all read **through Kibana** (the app never
-talks to Elasticsearch directly, and never probes external URLs).
+**KIBANA-OO** is een AI-ondersteunde observability-tool voor het KOOP / Plooi-platform. Het laat een
+operator (1) in natuurlijke taal **chatten** over Elasticsearch-logs & -metrics, en (2) een
+admin-**monitoring dashboard** openen dat critical issues, certificate-expiry, "document not
+found"-errors en de OVS→NVS pipeline-migratiestatus toont — alles gelezen **via Kibana** (de app
+praat nooit direct met Elasticsearch en probet nooit externe URLs).
 
-- **Frontend:** React 19 + Vite, served by nginx.
-- **Backend:** FastAPI (Python 3.13), talks to Kibana's console proxy and a local Ollama LLM.
-- **LLM:** Ollama running `llama3.2:3b` (CPU).
-- **Auth:** Keycloak OIDC, via Kibana's internal login (the app stores only the Kibana `sid` cookie).
+- **Frontend:** React 19 + Vite, geserveerd door nginx.
+- **Backend:** FastAPI (Python 3.13), praat met Kibana's console-proxy en een lokale Ollama-LLM.
+- **LLM:** Ollama die `llama3.2:3b` draait (CPU).
+- **Auth:** Keycloak OIDC, via Kibana's interne login (de app bewaart alleen de Kibana `sid`-cookie).
 
 ---
 
-## 1. System architecture (container view)
+## 1. Systeemarchitectuur (container view)
 
 ```mermaid
 flowchart LR
@@ -40,13 +40,13 @@ flowchart LR
     kib --> es
 ```
 
-**Key invariant:** the backend reaches Elasticsearch **only** via Kibana's
-`/api/console/proxy` endpoint, authenticated with the user's Kibana session cookie (`sid`).
-There is no direct ES client and no outbound probing of monitored websites.
+**Belangrijke invariant:** de backend bereikt Elasticsearch **alleen** via Kibana's
+`/api/console/proxy`-endpoint, geauthenticeerd met de Kibana-sessiecookie van de user (`sid`).
+Er is geen directe ES-client en geen outbound probing van gemonitorde websites.
 
 ---
 
-## 2. Repository layout
+## 2. Repository-layout
 
 ```mermaid
 flowchart TD
@@ -78,7 +78,7 @@ flowchart TD
 
 ---
 
-## 3. Backend module map
+## 3. Backend module-map
 
 ```mermaid
 flowchart TD
@@ -110,13 +110,13 @@ flowchart TD
     llm --> config
 ```
 
-Each module has one responsibility: `elastic` (Kibana I/O), `monitoring` (deterministic facts),
-`certificates` (TLS expiry), `briefing` (LLM narration), `auth`/`session` (identity), `cache`
+Elke module heeft één verantwoordelijkheid: `elastic` (Kibana I/O), `monitoring` (deterministische facts),
+`certificates` (TLS-expiry), `briefing` (LLM-narratie), `auth`/`session` (identity), `cache`
 (memoization), `config` (settings).
 
 ---
 
-## 4. Authentication flow (Keycloak via Kibana)
+## 4. Authenticatie-flow (Keycloak via Kibana)
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +144,7 @@ Kibana `sid` cookie, kept in an **in-memory** session map (resets on restart).
 
 ---
 
-## 5. Chat flow (streaming)
+## 5. Chat-flow (streaming)
 
 ```mermaid
 sequenceDiagram
@@ -168,7 +168,7 @@ sequenceDiagram
 
 ---
 
-## 6. Dashboard data flow (the fact layer)
+## 6. Dashboard data-flow (de fact layer)
 
 `GET /dashboard/summary` resolves the window **once**, then fans out concurrent Kibana queries and
 assembles a single consistent snapshot. Numbers are 100% deterministic; the LLM only narrates them.
@@ -201,9 +201,9 @@ flowchart TD
     asm --> store["cache (TTL) + return"]
 ```
 
-**Robustness:** if the core aggregation fails → `502`. If a *secondary* query (a data view,
-the baseline, 404s, a pipeline) fails, that part degrades to empty / "unavailable" and the
-snapshot is marked `partial` — the rest still renders.
+**Robuustheid:** als de core-aggregatie faalt → `502`. Als een *secundaire* query (een data view,
+de baseline, 404s, een pipeline) faalt, degradeert dat deel naar empty / "unavailable" en wordt de
+snapshot gemarkeerd als `partial` — de rest rendert nog steeds.
 
 ### "What is critical?"
 
@@ -217,30 +217,30 @@ flowchart LR
     c -->|none| skip["ignored"]
 ```
 
-404s are **not** critical (client error) — they have their own panel.
+404s zijn **niet** critical (client error) — ze hebben hun eigen panel.
 
 ---
 
-## 7. Dashboard panels
+## 7. Dashboard-panels
 
-| Panel | Question it answers | Source |
+| Panel | Vraag die het beantwoordt | Bron |
 |-------|--------------------|--------|
-| Status banner + KPIs | How bad is it right now vs. the prior period? | aggregations + baseline |
-| Certificate expiry | Which TLS certs are about to expire? | Heartbeat/Synthetics (`CERT_INDEX`) |
-| Documents not found (404) | Which documents did users fail to open? | 404 query on selected view |
-| Verwerkingsstraat OVS→NVS | Is migration to the new pipeline complete? | `PIPELINE_*_QUERY` counts |
-| Criticals over time | When did issues spike? | date_histogram |
-| By system | Which system is affected? | per-data-view counts |
-| Top error signatures | What is failing? | `error.type` terms agg |
-| Affected services | Where to look first? | `service.name` terms agg |
-| HTTP 5xx | Which endpoints returned server errors? | status-code + url.path aggs |
-| AI daily triage | Plain-language summary of the above | grounded LLM over the facts |
+| Status banner + KPIs | Hoe erg is het nu vs. de vorige periode? | aggregations + baseline |
+| Certificate expiry | Welke TLS-certs gaan binnenkort verlopen? | Heartbeat/Synthetics (`CERT_INDEX`) |
+| Documents not found (404) | Welke documenten konden users niet openen? | 404-query op geselecteerde view |
+| Verwerkingsstraat OVS→NVS | Is de migratie naar de nieuwe pipeline klaar? | `PIPELINE_*_QUERY` counts |
+| Criticals over time | Wanneer piekten de issues? | date_histogram |
+| By system | Welk systeem is getroffen? | per-data-view counts |
+| Top error signatures | Wat faalt er? | `error.type` terms agg |
+| Affected services | Waar eerst kijken? | `service.name` terms agg |
+| HTTP 5xx | Welke endpoints gaven server errors? | status-code + url.path aggs |
+| AI daily triage | Samenvatting in gewone taal van het bovenstaande | grounded LLM over de facts |
 
-Every panel/KPI/control has an on-demand **ⓘ tooltip** with a plain-language explanation.
+Elk panel/elke KPI/control heeft een on-demand **ⓘ tooltip** met een uitleg in gewone taal.
 
 ---
 
-## 8. Certificate monitoring (read-only, from Kibana)
+## 8. Certificate-monitoring (read-only, vanuit Kibana)
 
 ```mermaid
 flowchart LR
@@ -253,16 +253,16 @@ flowchart LR
     s --> cards["countdown cards"]
 ```
 
-The certificate's expiry is **read from monitoring data already in Elasticsearch** — the app
-does **not** open a TLS connection to the site. If no such data exists, the panel shows a
-friendly "not set up yet" message.
+De expiry van het certificaat wordt **gelezen uit monitoring-data die al in Elasticsearch staat** — de app
+opent **geen** TLS-connectie naar de site. Bestaat zulke data niet, dan toont het panel een
+vriendelijke "not set up yet"-melding.
 
 ---
 
-## 9. OVS → NVS pipeline monitoring
+## 9. OVS → NVS pipeline-monitoring
 
-OVS = *oude verwerkingsstraat* (old pipeline), NVS = *nieuwe verwerkingsstraat* (new pipeline).
-The platform is migrating OVS → NVS, so the **old pipeline should trend to zero**.
+OVS = *oude verwerkingsstraat*, NVS = *nieuwe verwerkingsstraat*.
+Het platform migreert OVS → NVS, dus de **oude pipeline moet naar nul tenderen**.
 
 ```mermaid
 flowchart LR
@@ -275,12 +275,12 @@ flowchart LR
     panel --> share["% via NVS (progress bar)"]
 ```
 
-Matching is **configurable** (`PIPELINE_OVS_QUERY` / `PIPELINE_NVS_QUERY`) so it adapts to how the
-logs label the pipelines, without touching code.
+Matching is **instelbaar** (`PIPELINE_OVS_QUERY` / `PIPELINE_NVS_QUERY`) zodat het zich aanpast aan hoe de
+logs de pipelines labelen, zonder code aan te raken.
 
 ---
 
-## 10. Data model — `DashboardSnapshot`
+## 10. Datamodel — `DashboardSnapshot`
 
 ```mermaid
 classDiagram
@@ -320,9 +320,9 @@ classDiagram
 
 ---
 
-## 11. HTTP endpoints
+## 11. HTTP-endpoints
 
-| Method | Path | Auth | Purpose |
+| Method | Path | Auth | Doel |
 |--------|------|------|---------|
 | GET | `/health` | none | liveness + model name |
 | GET | `/data-views` | none | list of selectable data views |
@@ -335,9 +335,9 @@ classDiagram
 
 ---
 
-## 12. Configuration (environment variables)
+## 12. Configuratie (environment variables)
 
-| Variable | Default | Purpose |
+| Variable | Default | Doel |
 |----------|---------|---------|
 | `KIBANA_URL` | `https://kibana-prod.cicd.s15m.nl` | Kibana base URL |
 | `KIBANA_SPACE` | `koop-plooi-prod` | Kibana space |
@@ -353,12 +353,12 @@ classDiagram
 | `PIPELINE_OVS_QUERY` | `OVS OR "oude verwerkingsstraat"` | match docs to the old pipeline |
 | `PIPELINE_NVS_QUERY` | `NVS OR "nieuwe verwerkingsstraat"` | match docs to the new pipeline |
 
-Index patterns are validated against a regex and whitelist before being interpolated into the
-Kibana proxy path (injection guard).
+Index-patterns worden gevalideerd tegen een regex en whitelist voordat ze in het
+Kibana-proxy-path geïnterpoleerd worden (injection guard).
 
 ---
 
-## 13. Security model
+## 13. Security-model
 
 ```mermaid
 flowchart TD
@@ -369,10 +369,10 @@ flowchart TD
     a -->|yes| ok["handler runs"]
 ```
 
-- **Server-side** enforcement on every dashboard endpoint (the UI only *hides* the nav link).
-- Admin gating today = env allowlist; Keycloak group-claim gating is a documented phase-2
-  (login currently captures only the `sid` cookie, not OIDC group claims).
-- No secrets in the repo; index patterns whitelisted + regex-guarded.
+- **Server-side** enforcement op elk dashboard-endpoint (de UI *verbergt* alleen de nav-link).
+- Admin-gating vandaag = env-allowlist; Keycloak group-claim-gating is een gedocumenteerde fase-2
+  (login captured nu alleen de `sid`-cookie, niet OIDC group claims).
+- Geen secrets in de repo; index-patterns whitelisted + regex-guarded.
 
 ---
 
@@ -390,23 +390,23 @@ flowchart LR
     fe -. reverse proxy .-> be
 ```
 
-Bring up: `docker compose up -d`. The frontend's nginx serves the built SPA and reverse-proxies
-`/login`, `/logout`, `/chat`, `/health`, `/data-views`, and `/dashboard/` to the backend (with
-buffering disabled for SSE streaming).
+Opstarten: `docker compose up -d`. De nginx van de frontend serveert de gebouwde SPA en reverse-proxiet
+`/login`, `/logout`, `/chat`, `/health`, `/data-views` en `/dashboard/` naar de backend (met
+buffering uit voor SSE-streaming).
 
 ---
 
-## 15. Running & testing
+## 15. Draaien & testen
 
-**Run the stack**
+**Draai de stack**
 
 ```bash
 docker compose up -d            # ollama + backend + frontend
 # open http://localhost:3000
 ```
 
-**Backend tests** run in a Python 3.13 container (matches prod; the host's Python 3.14 can't build
-pydantic-core):
+**Backend-tests** draaien in een Python 3.13-container (matcht prod; de Python 3.14 van de host kan
+pydantic-core niet builden):
 
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm \
@@ -415,20 +415,20 @@ MSYS_NO_PATHCONV=1 docker run --rm \
   sh -c "pip install -q -r requirements.txt && python -m pytest -q"
 ```
 
-**Frontend build** is verified via the Docker image build (`docker compose build frontend`).
+**Frontend-build** wordt geverifieerd via de Docker-image-build (`docker compose build frontend`).
 
 ---
 
-## 16. Roadmap (phase 2)
+## 16. Roadmap (fase 2)
 
-- Spike / baseline anomaly detection ("critical only if abnormal vs. trailing baseline").
-- Daily digest (Slack / email) reusing the same fact layer.
-- Scheduled snapshots for instant loads and resilience to Kibana hiccups.
-- Keycloak **group-claim** admin gating (requires capturing OIDC claims at login).
-- OVS/NVS **trend over time** (migration curve).
-- Refine OVS/NVS and 404 field matching against real production fields.
+- Spike / baseline anomaly-detectie ("critical alleen bij afwijking vs. trailing baseline").
+- Dagelijkse digest (Slack / email) die dezelfde fact layer hergebruikt.
+- Geplande snapshots voor instant loads en resilience tegen Kibana-hiccups.
+- Keycloak **group-claim** admin-gating (vereist het capturen van OIDC-claims bij login).
+- OVS/NVS **trend over tijd** (migratiecurve).
+- Verfijn OVS/NVS- en 404-field-matching tegen echte productie-fields.
 
 ---
 
-*Design spec: [`specs/2026-06-08-monitoring-dashboard-design.md`](specs/2026-06-08-monitoring-dashboard-design.md) ·
-Implementation plan: [`plans/2026-06-08-monitoring-dashboard.md`](plans/2026-06-08-monitoring-dashboard.md)*
+*Design-spec: [`specs/2026-06-08-monitoring-dashboard-design.md`](specs/2026-06-08-monitoring-dashboard-design.md) ·
+Implementatieplan: [`plans/2026-06-08-monitoring-dashboard.md`](plans/2026-06-08-monitoring-dashboard.md)*

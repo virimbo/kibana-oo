@@ -1,65 +1,65 @@
 # RabbitMQ DLQ monitor
 
-Watches the **dead-letter queues** on `rabbitmq.koop-plooi-prd.prod5.s15m.nl`. A
-non-empty `*.dlq` means messages failed processing and are stuck — this surfaces
-them proactively, on the dashboard and via alerts.
+Bewaakt de **dead-letter queues** op `rabbitmq.koop-plooi-prd.prod5.s15m.nl`. Een
+niet-lege `*.dlq` betekent dat berichten niet verwerkt konden worden en vastzitten —
+dit toont ze proactief, op het dashboard en via alerts.
 
-## Source
+## Bron
 
-The **RabbitMQ Management API** (`GET /api/queues`) with a **read-only monitoring
-user** (HTTP Basic). Read-only = least privilege: it can't publish, consume, or
-change anything. Inert until `RABBITMQ_USER` / `RABBITMQ_PASSWORD` are set.
+De **RabbitMQ Management API** (`GET /api/queues`) met een **read-only monitoring-user**
+(HTTP Basic). Read-only = least privilege: hij kan niets publishen, consumen of
+wijzigen. Inert tot `RABBITMQ_USER` / `RABBITMQ_PASSWORD` gezet zijn.
 
-## What it shows
+## Wat het toont
 
-For every queue ending in `.dlq` (suffix configurable): its **depth** (ready +
-unacked), **state**, **how long it's been non-empty**, and its **source queue**'s
-context (strip `.dlq`) — crucially, whether the source has **consumers**.
+Voor elke queue die eindigt op `.dlq` (suffix instelbaar): de **depth** (ready +
+unacked), **state**, **hoe lang die al niet-leeg is**, en de context van zijn **source
+queue** (strip `.dlq`) — cruciaal: of de source **consumers** heeft.
 
 ## Severity
 
-| Condition | Verdict |
+| Conditie | Verdict |
 |---|---|
-| DLQ empty | OK |
-| DLQ has ≥ 1 message | **WARN** (reprocess) |
-| DLQ ≥ `RABBITMQ_CRITICAL_MESSAGES` (default 100) **or** source has 0 consumers | **CRITICAL** |
+| DLQ leeg | OK |
+| DLQ heeft ≥ 1 message | **WARN** (reprocess) |
+| DLQ ≥ `RABBITMQ_CRITICAL_MESSAGES` (default 100) **of** source heeft 0 consumers | **CRITICAL** |
 
-A DLQ with messages whose **source has no consumer** is critical regardless of
-count — nothing will drain it. Overall verdict = the worst DLQ.
+Een DLQ met messages waarvan de **source geen consumer** heeft is critical ongeacht het
+aantal — niets zal hem drainen. Totaal-verdict = de slechtste DLQ.
 
 ## Lifecycle (lightweight)
 
-The broker is the real-time source of truth for depth, so we don't store depths.
-We keep only minimal state in `kibana_oo.db` (`dlq_state`): the **first-non-empty
-timestamp** (→ "stuck 3h 20m") and an **alert-dedup marker**. When a DLQ drains to
-0, its row is **deleted** — so it auto-resolves and re-alerts cleanly next time.
+De broker is de realtime source of truth voor depth, dus we slaan geen depths op. We
+houden alleen minimale state in `kibana_oo.db` (`dlq_state`): de **first-non-empty
+timestamp** (→ "stuck 3h 20m") en een **alert-dedup-marker**. Wanneer een DLQ naar 0
+draint, wordt zijn row **verwijderd** — zodat hij auto-resolvet en de volgende keer weer
+netjes alert.
 
 ## Surfacing & alerts
 
-- **Background poll** every `RABBITMQ_POLL_INTERVAL_MINUTES` (default 5) so alerts
-  fire even when nobody's watching.
-- **Alert** (webhook + email, deduped) when a DLQ goes non-empty or escalates to
-  critical. Toggle with `RABBITMQ_ALERT_ENABLED`.
-- **Dashboard card** + a **header badge** (count of non-empty DLQs).
+- **Background poll** elke `RABBITMQ_POLL_INTERVAL_MINUTES` (default 5) zodat alerts
+  afgaan ook als niemand kijkt.
+- **Alert** (webhook + email, deduped) wanneer een DLQ niet-leeg wordt of escaleert naar
+  critical. Toggle met `RABBITMQ_ALERT_ENABLED`.
+- **Dashboard-card** + een **header-badge** (count van niet-lege DLQs).
 
 ## Security & access
 
-- Endpoint `GET /dashboard/dlq` is gated by the **`rabbitmq` authorization
-  feature** (deny-by-default; the super admin grants it — see
-  [authorization.md](authorization.md)). Routed under `/dashboard/` so it's
-  already covered by the nginx proxy.
-- Read-only creds in `.env`, never committed.
+- Endpoint `GET /dashboard/dlq` is gegate door de **`rabbitmq` authorization-feature**
+  (deny-by-default; de super admin grant het — zie [authorization.md](authorization.md)).
+  Gerouteerd onder `/dashboard/` zodat het al door de nginx-proxy gedekt is.
+- Read-only creds in `.env`, nooit gecommit.
 
 ## Config (`.env`)
 
-| Var | Default | Purpose |
+| Var | Default | Doel |
 |---|---|---|
 | `RABBITMQ_API_URL` | `https://rabbitmq.koop-plooi-prd.prod5.s15m.nl` | Management API base |
-| `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | _(empty)_ | Read-only monitoring user (enables the feature) |
-| `RABBITMQ_DLQ_SUFFIX` | `.dlq` | What marks a dead-letter queue |
-| `RABBITMQ_CRITICAL_MESSAGES` | `100` | DLQ depth that's CRITICAL |
-| `RABBITMQ_POLL_INTERVAL_MINUTES` | `5` | Background poll cadence |
-| `RABBITMQ_ALERT_ENABLED` | `true` | Alert on new/escalated DLQs |
+| `RABBITMQ_USER` / `RABBITMQ_PASSWORD` | _(leeg)_ | Read-only monitoring-user (activeert de feature) |
+| `RABBITMQ_DLQ_SUFFIX` | `.dlq` | Wat een dead-letter queue markeert |
+| `RABBITMQ_CRITICAL_MESSAGES` | `100` | DLQ-depth die CRITICAL is |
+| `RABBITMQ_POLL_INTERVAL_MINUTES` | `5` | Cadans van de background poll |
+| `RABBITMQ_ALERT_ENABLED` | `true` | Alert op nieuwe/geëscaleerde DLQs |
 
-> Needs network reach from the backend to the broker (VPN) + the read-only user.
-> Detection ships configurable; calibrate against the live broker.
+> Vereist netwerk-bereik van de backend naar de broker (VPN) + de read-only user.
+> Detectie wordt instelbaar geleverd; kalibreer tegen de live broker.

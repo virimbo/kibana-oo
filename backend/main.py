@@ -36,6 +36,8 @@ from alerts_api import router as alerts_router
 from alerts import run_alert_loop
 from dlq_intel_api import router as dlq_intel_router
 from dlq_intel import run_dlq_intel_loop
+from service_health_api import router as service_health_router
+from service_health import run_service_health_loop
 from auth import require_super
 import permissions
 import regression
@@ -56,11 +58,12 @@ async def lifespan(app: FastAPI):
     uptime_task = asyncio.create_task(run_uptime_monitor_loop())
     alerts_task = asyncio.create_task(run_alert_loop())
     dlq_intel_task = asyncio.create_task(run_dlq_intel_loop())
-    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime, alerting, DLQ intelligence).")
+    service_health_task = asyncio.create_task(run_service_health_loop())
+    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime, alerting, DLQ intelligence, service health).")
     try:
         yield
     finally:
-        for t in (cert_task, dlq_task, uptime_task, alerts_task, dlq_intel_task):
+        for t in (cert_task, dlq_task, uptime_task, alerts_task, dlq_intel_task, service_health_task):
             t.cancel()
             try:
                 await t
@@ -88,6 +91,7 @@ app.include_router(uptime_router)
 app.include_router(infra_router)
 app.include_router(alerts_router)
 app.include_router(dlq_intel_router)
+app.include_router(service_health_router)
 
 class LoginRequest(BaseModel):
     username: str

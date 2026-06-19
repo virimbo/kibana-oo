@@ -2280,6 +2280,41 @@ body {
   background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px;
   padding: 5px 7px; max-height: 8em; overflow: auto; color: var(--text-faint);
 }
+/* ── Regression check detail panel (knowledge base + evidence) ─────────────── */
+.reg-detail-panel {
+  padding: 0 14px 14px 39px;
+  display: flex; flex-direction: column; gap: 10px;
+  animation: page-rise .25s ease both;
+}
+.reg-kb {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.reg-kb-cat {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 10px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 3px 10px; border-radius: 999px; align-self: flex-start;
+}
+.reg-kb-cat-icon { font-size: 13px; }
+.reg-kb-section { display: flex; flex-direction: column; gap: 2px; }
+.reg-kb-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-faint);
+}
+.reg-kb-text { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin: 0; }
+.reg-kb-action {
+  background: var(--warn-soft); border: 1px solid color-mix(in srgb, var(--warn) 30%, transparent);
+  border-radius: var(--radius-sm); padding: 10px 12px;
+}
+.reg-kb-action .reg-kb-label { color: var(--warn); }
+.reg-kb-action .reg-kb-text { color: var(--text-primary); }
+.reg-check--fail .reg-kb-action {
+  background: var(--error-soft); border-color: color-mix(in srgb, var(--error) 30%, transparent);
+}
+.reg-check--fail .reg-kb-action .reg-kb-label { color: var(--error); }
+
 .reg-sev {
   font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
   color: var(--error); border: 1px solid var(--error); border-radius: 3px; padding: 0 5px;
@@ -3258,3 +3293,49 @@ input:focus, select:focus, textarea:focus,
 @media (max-width: 720px) {
   .panel .dash-table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 }
+
+/* ── Service health card (backend microservices) ─────────────────────────────
+   Service-grouped severity tiles; reuses status colours + the design system. */
+.svch-summary { display: inline-flex; gap: 7px; flex-wrap: wrap; margin-left: auto; }
+.svch-pill { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap; }
+.svch-pill--up   { background: rgba(70,201,122,.16); color: var(--success); }
+.svch-pill--warn { background: var(--warn-soft); color: var(--warn); }
+.svch-pill--unk  { background: var(--bg-input); color: var(--text-secondary); }
+.svch-pill--down { background: var(--error-soft); color: var(--error); }
+
+.svch-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.svch-tile {
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-left: 4px solid var(--text-faint); border-radius: var(--radius-sm);
+  overflow: hidden; transition: border-color .14s ease;
+}
+.svch-tile--up   { border-left-color: var(--success); }
+.svch-tile--warn { border-left-color: var(--warn); }
+.svch-tile--unk  { border-left-color: var(--text-faint); }
+.svch-tile--down { border-left-color: var(--error); background: linear-gradient(90deg, var(--error-soft), var(--bg-elevated) 70%); }
+.svch-tile.is-open { border-color: var(--border-strong); }
+
+.svch-tile-head {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  padding: 11px 13px; background: none; border: none; cursor: pointer;
+  font: inherit; color: var(--text-primary); text-align: left;
+}
+.svch-tile-head:hover { background: var(--bg-input); }
+.svch-tile-icon { font-size: 13px; }
+.svch-tile-name { font-size: 13.5px; font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svch-tile-state { font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.svch-tile-state--up   { color: var(--success); }
+.svch-tile-state--warn { color: var(--warn); }
+.svch-tile-state--unk  { color: var(--text-faint); }
+.svch-tile-state--down { color: var(--error); }
+.svch-tile-caret { color: var(--text-faint); font-size: 11px; }
+
+.svch-eps { list-style: none; margin: 0; padding: 4px 13px 11px; display: flex; flex-direction: column; gap: 7px; border-top: 1px solid var(--border); }
+.svch-ep { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.svch-ep-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.svch-ep-dot--up   { background: var(--success); }
+.svch-ep-dot--warn { background: var(--warn); }
+.svch-ep-dot--unk  { background: var(--text-faint); }
+.svch-ep-dot--down { background: var(--error); }
+.svch-ep-path { color: var(--text-secondary); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.svch-ep-meta { margin-left: auto; color: var(--text-faint); font-size: 10.5px; white-space: nowrap; }

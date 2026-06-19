@@ -43,6 +43,7 @@ flowchart TD
 - [[Dashboard - statusoverzicht]] — 🇳🇱 de overzichtsrij (statustegels) + inklapbare zones, voor beheerders
 - [[Smart context paneel]] — 🇳🇱 hover een kaart → rechts paneel met uitleg, status, AI-analyse en TO DO's uit de vault
 - [[Beschikbaarheid (uptime)]] — 🇳🇱 bovenaan het dashboard: is elke site (PROD/ACC/TEST) up? Met kleuren, uptime% en alerts
+- [[Service health]] — 🇳🇱 aparte card: werken de backend-microservices (Harvester, Antivirus, Repository, …)? Per service up/down/unreachable, met actuator-status
 - [[Grafana en infrastructuur]] — 🇳🇱 één-klik-links naar de Grafana-infradashboards (o.a. CloudNativePG)
 - [[Alerting (meldingen)]] — 🇳🇱 e-mailmeldingen bij RED-status (omgevingen, DLQ, certificaten): aan/uit per kaart, ontvangers, cooldown, herstelmeldingen en geschiedenis
 - [[DLQ intelligentie]] — 🇳🇱 waarom staan er berichten vast in een dead-letter queue? Oorzaak, leeftijd, trend, aanbevolen actie (alleen-lezen peek)

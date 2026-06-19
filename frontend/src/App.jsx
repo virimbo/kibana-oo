@@ -63,7 +63,7 @@ const DASH_SECTIONS_KEY = "kibana_oo_dash_sections";
 // Dashboard sections that can be shown/hidden from Settings. All default ON, so
 // nothing disappears unexpectedly; uptime/certs/dlq are core monitoring.
 const DASH_SECTION_DEFAULTS = {
-  uptime: true, infra: true, hero: true, certs: true, dlq: true, aanlever: true,
+  uptime: true, service_health: true, infra: true, hero: true, certs: true, dlq: true, aanlever: true,
 };
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";

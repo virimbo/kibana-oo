@@ -30,6 +30,7 @@ CATALOG = [
     {"key": "rabbitmq", "label": "Dead-letter queues (RabbitMQ)", "group": "Dashboard"},
     {"key": "smart_context", "label": "Smart context panel (hover-intelligentie)", "group": "Dashboard"},
     {"key": "uptime", "label": "Beschikbaarheid (environment status)", "group": "Dashboard"},
+    {"key": "service_health", "label": "Service health (backend microservices)", "group": "Dashboard"},
     {"key": "grafana", "label": "Infrastructuur (Grafana-links)", "group": "Dashboard"},
     {"key": "regression", "label": "Regressietest", "group": "Beheer"},
     {"key": "settings", "label": "Settings (AI & toggles)", "group": "Beheer"},

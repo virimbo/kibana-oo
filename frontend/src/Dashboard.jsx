@@ -6,6 +6,7 @@ import TopNav from "./Nav";
 import TimeRange, { timeParams, rangeLabel, loadRange, saveRange } from "./TimeRange";
 import SmartContextPanel from "./SmartContextPanel";
 import UptimeBoard from "./UptimeBoard";
+import ServiceHealthCard from "./ServiceHealth";
 import InfraLinks from "./InfraLinks";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
@@ -1009,6 +1010,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           {error && <div className="alert alert--error">{error}</div>}
 
           {showSec("uptime") && can("uptime") && <UptimeBoard token={token} />}
+          {showSec("service_health") && can("service_health") && <ServiceHealthCard token={token} />}
 
           {showSec("infra") && can("grafana") && (
             <DashZone id="infra" title="Infrastructuur" eyebrow="Grafana & servers">

@@ -111,6 +111,7 @@ def test_health_analysis_system_enforces_grounding_and_actions():
     """The analyst persona must (a) give actions, not restate facts, and (b) be
     explicitly grounded — the trust guarantee."""
     s = main.HEALTH_ANALYSIS_SYSTEM.lower()
-    assert "likely cause" in s and "recommended actions" in s
+    # part labels are Dutch (chat answers in Nederlands); descriptions stay English
+    assert "waarschijnlijke oorzaak" in s and "aanbevolen acties" in s
     assert "never invent" in s          # no fabricated services/numbers/causes
     assert "do not repeat" in s         # don't re-narrate the facts preamble

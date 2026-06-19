@@ -66,6 +66,7 @@ export default function SettingsPage({
   // Dashboard blocks the admin can show/hide (all default on).
   const DASH_SECTIONS = [
     { key: "uptime", label: "Beschikbaarheid (environment status)", hint: "Het PROD/ACC/TEST up/down-overzicht bovenaan." },
+    { key: "service_health", label: "Service health", hint: "De backend-microservices (Harvester, Antivirus, Repository, …) — werken de endpoints?" },
     { key: "infra", label: "Infrastructuur (Grafana)", hint: "De Grafana deep-link-card(s)." },
     { key: "hero", label: "Overzichtstegels (hero)", hint: "De grote stat-tegels: Critical, Criticals, Docs at risk, Aanleverfouten, DLQ." },
     { key: "certs", label: "Certificaten & TLS", hint: "De cards voor certificaatvervaldatum / TLS-status." },

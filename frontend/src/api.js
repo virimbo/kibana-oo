@@ -40,3 +40,6 @@ export const putAlertConfig = (token, body) => sendJSON("/alerts/config", token,
 
 // ─── DLQ Intelligence (Beheer/Dashboard → 🔍 Intelligentie) ──────────────────
 export const fetchDlqIntel = (token) => getJSON("/dashboard/dlq/intel", token);
+
+// ─── Service health (backend microservices) ──────────────────────────────────
+export const fetchServiceHealth = (token) => getJSON("/dashboard/service-health", token);

@@ -297,6 +297,36 @@ class Settings(BaseSettings):
     uptime_alert_enabled: bool = True    # alert (webhook/email) when a site goes DOWN
     uptime_history: int = 30             # rolling samples kept per site (sparkline/uptime%)
 
+    # ── Service health (backend microservices) ────────────────────────────────
+    # Additive & OFF by default. Read-only HTTP-probes the KOOP/Plooi backend
+    # services (Spring actuators + service/UI endpoints), grouped per service, shown
+    # as a dedicated dashboard card. Internal/VPN-honest: a connect-fail is
+    # "unreachable" (grey), a 5xx / actuator DOWN is "down" (red). See
+    # service_health.py + docs/KIBANA-OO/Service health.md.
+    service_health_enabled: bool = False
+    service_health_interval: int = 60        # seconds between probe cycles
+    service_health_timeout: float = 8.0      # per-request timeout (seconds)
+    service_health_degraded_ms: int = 2500   # slower than this (but up) = degraded
+    # One service per line: `Name | url | url …`. `kind` is inferred (actuator if the
+    # URL contains "actuator", else service). Empty → no services probed.
+    service_health_targets: str = (
+        "Harvester | https://harvester-production-actuator.koop-plooi-prd.prod5.s15m.nl/actuator | https://harvester-production-service.koop-plooi-prd.prod5.s15m.nl/locations\n"
+        "Sitemapvalidator | https://msvc-sitemapsvalidator.koop-plooi-prd.prod5.s15m.nl/validator/rapport\n"
+        "Publicatiebeheer | https://msvc-publicatiebeheer.koop-plooi-prd.prod5.s15m.nl\n"
+        "Antivirus | https://antivirus-production-actuator.koop-plooi-prd.prod5.s15m.nl/actuator | https://antivirus-production-service.koop-plooi-prd.prod5.s15m.nl/\n"
+        "Jaeger | https://jaeger-koop.koop-plooi-prd.prod5.s15m.nl\n"
+        "Dictionary | https://dictionary-actuator.koop-plooi-prd.prod5.s15m.nl | https://dictionary-service.koop-plooi-prd.prod5.s15m.nl/lijsten/Publisher\n"
+        "Registration | https://registration-production-actuator.koop-plooi-prd.prod5.s15m.nl | https://registration-production-service.koop-plooi-prd.prod5.s15m.nl/processen\n"
+        "Repository | https://repository-production-actuator.koop-plooi-prd.prod5.s15m.nl/actuator | https://repository-production-service.koop-plooi-prd.prod5.s15m.nl/\n"
+        "DCN | https://production-dcn-actuator.koop-plooi-prd.prod5.s15m.nl/actuator/hawtio/ | https://production-dcn-admin.koop-plooi-prd.prod5.s15m.nl/statistieken\n"
+        "Admin | https://admin-main-admin.koop-plooi-prd.prod5.s15m.nl/home\n"
+        "Search | https://search-production-actuator.koop-plooi-prd.prod5.s15m.nl/actuator | https://search-production-service.koop-plooi-prd.prod5.s15m.nl/api/v1/_zoek\n"
+        "RabbitMQ | https://rabbitmq.koop-plooi-prd.prod5.s15m.nl/\n"
+        "Solr | https://plooi-solr.koop-plooi-prd.prod5.s15m.nl/solr/\n"
+        "Keycloak | https://keycloak-admin.koop-plooi-prd.prod5.s15m.nl\n"
+        "Documentopslag | https://msvc-documentopslag.koop-plooi-prd.prod5.s15m.nl"
+    )
+
     # ── Unified alerting (admin-managed RED-state email alerts) ───────────────
     # Additive & OFF by default. When true, a background engine reads the existing
     # monitors (uptime/dlq/cert) read-only and sends admin-configured email alerts

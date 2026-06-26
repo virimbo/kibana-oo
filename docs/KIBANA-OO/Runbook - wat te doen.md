@@ -37,6 +37,11 @@ Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en
 - ACC: Bel Firas om het ACC-certificaat te vernieuwen.
 - TEST: Bel Anton om het TEST-certificaat te vernieuwen.
 
+## Bij service down
+- PROD: Controleer de actuator-health (`/actuator/health`) en de pod-status in OpenShift; bekijk de logs in Kibana, herstart zo nodig de pod en escaleer direct naar het dev-team als het aanhoudt.
+- ACC: Bel Firas/dev; controleer de service-logs in Kibana en herstart de pod.
+- TEST: Bel Anton; check de logs en herstart de service indien nodig.
+
 ---
 
 # Procedures (stap voor stap)

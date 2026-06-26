@@ -3400,3 +3400,63 @@ input:focus, select:focus, textarea:focus,
 }
 
 .gx-pagehead { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+
+/* ─── OO-GX · Login split hero ─────────────────────────────── */
+.login-page--gx {
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  height: auto;
+}
+
+.login-split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.login-hero {
+  gap: 18px;
+}
+
+.login-hero-brand {
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.login-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* The card keeps its own .login-card rules; .gx-panel adds the
+   crimson top-accent. Override box-only props so the split reads well. */
+.login-page--gx .login-card {
+  max-width: none;
+  text-align: left;
+}
+
+.login-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 860px) {
+  .login-split {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    max-width: 440px;
+  }
+
+  .login-hero {
+    text-align: left;
+  }
+}

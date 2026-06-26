@@ -155,52 +155,72 @@ function LoginPage({ onLogin }) {
   }
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="brand brand--lg">
-          <span className="brand-mark">
-            <Icon.Spark />
-          </span>
-          <span className="brand-name">Open Overheid - Monitoring</span>
+    <div className="login-page login-page--gx">
+      <div className="login-split">
+        <div className="gx-hero login-hero">
+          <div className="brand login-hero-brand">
+            <span className="brand-mark">
+              <Icon.Spark />
+            </span>
+            <span className="brand-name">Open Overheid - Monitoring</span>
+          </div>
+          <span className="gx-eyebrow">100% INTERN · MONITORING</span>
+          <h1 className="gx-h1">
+            OPEN OVERHEID
+            <br />
+            MONITORING.
+          </h1>
+          <p className="gx-sub">
+            Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om
+            toegang te krijgen tot de monitoringomgeving.
+          </p>
+          <div className="login-hero-tags">
+            <span className="gx-tag">Uptime</span>
+            <span className="gx-tag">Service health</span>
+            <span className="gx-tag">Alerts</span>
+          </div>
         </div>
-        <p className="login-desc">
-          Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om
-          toegang te krijgen tot de monitoringomgeving.
-        </p>
 
-        <form onSubmit={handleLogin}>
-          <label>
-            <span>Gebruikersnaam</span>
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="uw.naam@koop.overheid.nl"
-              autoFocus
-              required
-            />
-          </label>
-          <label>
-            <span>Wachtwoord</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Uw SP-wachtwoord"
-              required
-            />
-          </label>
+        <div className="login-card gx-panel">
+          <div className="login-card-head">
+            <span className="gx-stat-label">AANMELDEN</span>
+            <span className="gx-pill">BEVEILIGD</span>
+          </div>
 
-          {error && (
-            <div className="alert alert--error" role="alert">
-              {error}
-            </div>
-          )}
+          <form onSubmit={handleLogin}>
+            <label>
+              <span>Gebruikersnaam</span>
+              <input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="uw.naam@koop.overheid.nl"
+                autoFocus
+                required
+              />
+            </label>
+            <label>
+              <span>Wachtwoord</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Uw SP-wachtwoord"
+                required
+              />
+            </label>
 
-          <button type="submit" className="btn btn--primary" disabled={loading}>
-            {loading ? "Bezig met aanmelden…" : "Aanmelden"}
-          </button>
-        </form>
+            {error && (
+              <div className="alert alert--error" role="alert">
+                {error}
+              </div>
+            )}
+
+            <button type="submit" className="gx-cta" disabled={loading}>
+              {loading ? "Bezig met aanmelden…" : "Aanmelden"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );

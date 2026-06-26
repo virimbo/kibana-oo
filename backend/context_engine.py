@@ -274,7 +274,8 @@ _ENV_ALIASES = {
 }
 _KNOWN_ENVS = {"PROD", "ACC", "TEST"}  # only these are treated as action lines
 _CONDITION_LABEL = {"down": "Bij DOWN", "cert": "Bij certificaat bijna verlopen",
-                    "service": "Bij service down"}
+                    "service": "Bij service down",
+                    "service-unreachable": "Bij service unreachable"}
 
 
 def _normalize_env(env: str | None) -> str | None:
@@ -289,8 +290,11 @@ def _condition_from_heading(text: str) -> str | None:
     t = text.lower()
     if "cert" in t:  # certificaat / certificate(s)
         return "cert"
-    if "service" in t or "microservice" in t:  # backend services — checked before
-        return "service"                       # "down" so "Bij service down" → service
+    is_service = "service" in t or "microservice" in t
+    if is_service and ("unreachable" in t or "onbereikbaar" in t):  # checked first
+        return "service-unreachable"
+    if is_service:  # backend services — checked before "down" so the service
+        return "service"  # headings ("Bij service down") win over the website "down"
     if any(k in t for k in ("down", "environment", "environtmant", "omgeving",
                             "status", "beschikbaar", "uptime")):
         return "down"
@@ -379,8 +383,11 @@ def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, boo
     s = (status or "").strip().lower()
     if card_id.startswith("uptime:") and s in ("down", "degraded", "unreachable"):
         return "down", s == "down"
-    if card_id.startswith("card:service_health") and s in ("down", "degraded", "unreachable"):
-        return "service", s == "down"
+    if card_id.startswith("card:service_health"):
+        if s == "unreachable":
+            return "service-unreachable", False   # likely VPN/network, not urgent
+        if s in ("down", "degraded"):
+            return "service", s == "down"
     if card_id.startswith("cert:") and s in ("warning", "critical", "expired"):
         return "cert", s in ("critical", "expired")
     return None, False

@@ -98,7 +98,7 @@ export default function AlertsPage({
 
   if (status && status.enabled === false) {
     return <>{nav}<div className="chat-scroll"><div className="dash">
-      <section className="panel"><h3>🔔 Alerting (meldingen)</h3>
+      <section className="panel gx-panel"><h3 className="gx-h2">🔔 Alerting (meldingen)</h3>
         <div className="alerts-banner alerts-banner--off">
           ⚠ Alerting staat uit (<code>ALERTS_ENABLED=false</code>). Zet de functie aan
           in de omgeving om meldingen te beheren.
@@ -130,9 +130,9 @@ export default function AlertsPage({
 
         {/* ── Command-center hero ───────────────────────────── */}
         <section className={`alerts-hero-wrap${globalOn ? "" : " is-paused"}`}>
-          <div className="alerts-hero-main">
-            <span className="alerts-eyebrow">Beheer · Meldingen</span>
-            <h1 className="alerts-hero-h1">🔔 Alerting</h1>
+          <div className="alerts-hero-main gx-pagehead">
+            <span className="alerts-eyebrow gx-eyebrow">Beheer · Meldingen</span>
+            <h1 className="alerts-hero-h1 gx-h1">🔔 Alerting</h1>
             <p className="alerts-hero-lead">
               Eén melding zodra een kaart RED wordt — omgevingen, dead-letter queues
               en certificaten. Slim ontdubbeld: één keer DOWN, één keer hersteld.
@@ -162,9 +162,9 @@ export default function AlertsPage({
         </section>
 
         {/* ── Env scope control bar ─────────────────────────── */}
-        <section className="panel alerts-controlbar">
+        <section className="panel gx-panel alerts-controlbar">
           <div className="alerts-controlbar-text">
-            <span className="alerts-eyebrow">Bereik per omgeving</span>
+            <span className="alerts-eyebrow gx-eyebrow">Bereik per omgeving</span>
             <span className="muted">Dempt een hele omgeving — over alle categorieën heen.</span>
           </div>
           <div className="alerts-env-switches">
@@ -195,8 +195,8 @@ export default function AlertsPage({
               <header className="alerts-cat-head">
                 <span className="alerts-cat-icon" aria-hidden="true">{meta.icon}</span>
                 <div className="alerts-cat-titles">
-                  <span className="alerts-eyebrow">{meta.sub}</span>
-                  <h2 className="alerts-cat-title">{label}</h2>
+                  <span className="alerts-eyebrow gx-eyebrow">{meta.sub}</span>
+                  <h2 className="alerts-cat-title gx-h2">{label}</h2>
                 </div>
                 <div className="alerts-cat-roll">
                   {cc.critical > 0 && <span className="alerts-pill alerts-pill--crit"><b>{cc.critical}</b> kritiek</span>}
@@ -251,9 +251,9 @@ export default function AlertsPage({
         })}
 
         {/* ── Recipients + settings ─────────────────────────── */}
-        <section className="panel set-panel">
-          <span className="alerts-eyebrow">Bezorging</span>
-          <h3>Ontvangers &amp; instellingen</h3>
+        <section className="panel gx-panel set-panel">
+          <span className="alerts-eyebrow gx-eyebrow">Bezorging</span>
+          <h3 className="gx-h2">Ontvangers &amp; instellingen</h3>
           <div className="alerts-form">
             {(status.config.recipients || []).length > 0 && (
               <div className="alerts-chips">
@@ -264,7 +264,7 @@ export default function AlertsPage({
                       placeholder="ops@example.com, beheer@example.com"
                       onChange={(e) => setRecipients(e.target.value)} />
             <div className="alerts-save-row">
-              <button className="btn btn--primary" onClick={() => saveConfig({
+              <button className="btn btn--primary gx-cta" onClick={() => saveConfig({
                 recipients: recipients.split(",").map((s) => s.trim()).filter(Boolean),
               })}>Ontvangers opslaan</button>
               <span className={`alerts-saved${saved ? " is-shown" : ""}`}>✓ opgeslagen</span>
@@ -288,9 +288,9 @@ export default function AlertsPage({
         </section>
 
         {/* ── History ───────────────────────────────────────── */}
-        <section className="panel set-panel">
-          <span className="alerts-eyebrow">Spoor</span>
-          <h3>Alertgeschiedenis</h3>
+        <section className="panel gx-panel set-panel">
+          <span className="alerts-eyebrow gx-eyebrow">Spoor</span>
+          <h3 className="gx-h2">Alertgeschiedenis</h3>
           {history.length === 0 ? (
             <p className="alerts-empty">Nog geen meldingen verzonden.</p>
           ) : (

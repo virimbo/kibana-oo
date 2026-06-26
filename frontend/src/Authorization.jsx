@@ -80,8 +80,15 @@ export default function AuthorizationPage({
 
   return (
     <Shell {...{ username, onLogout, onNavigate, llmProvider, onProviderChange, can, isAdmin, stuckCount, aanleverCount, dlqCount }}>
-      <section className="panel">
-        <h3>🔐 Autorisatie — wie mag wat</h3>
+      <section className="page-hero gx-pagehead">
+        <div className="page-hero-main">
+          <span className="page-eyebrow gx-eyebrow">BEHEER · AUTORISATIE</span>
+          <h1 className="page-hero-h1 gx-h1">AUTORISATIE</h1>
+        </div>
+      </section>
+
+      <section className="panel gx-panel">
+        <h3 className="gx-h2">🔐 Autorisatie — wie mag wat</h3>
         <p className="muted set-intro">
           Vink een vakje aan om een gebruiker toegang te geven tot een kaart/tool; uitvinken om in te trekken.
           Nieuwe gebruikers staan standaard op <b>geen toegang</b> (behalve chat). Wijzigingen zijn direct actief.
@@ -143,8 +150,8 @@ export default function AuthorizationPage({
       </section>
 
       {audit.length > 0 && (
-        <section className="panel">
-          <h3>Wijzigingslog</h3>
+        <section className="panel gx-panel">
+          <h3 className="gx-h2">Wijzigingslog</h3>
           <ul className="authz-audit">
             {audit.slice(0, 25).map((a, i) => (
               <li key={i}>

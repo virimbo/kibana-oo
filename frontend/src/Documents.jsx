@@ -207,8 +207,8 @@ function PipelineHealth({ health, onTrace }) {
   const err = health.total_errors || 0;
   const clean = stuck.length === 0 && warn === 0 && err === 0;
   return (
-    <section className={`panel ${stuck.length ? "panel--alert" : ""}`}>
-      <h3>
+    <section className={`panel gx-panel ${stuck.length ? "panel--alert" : ""}`}>
+      <h3 className="gx-h2">
         🚦 Pipeline health
         <InfoTip text={`Scant proactief documenten die de laatste ${hours}u actief waren: welke stuck zitten in de pipeline, en waar problemen clusteren per stage. Klik op een stuck document om te tracen.`} />
       </h3>
@@ -453,6 +453,10 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
 
       <div className="chat-scroll">
         <div className="dash">
+          <header className="gx-pagehead">
+            <span className="gx-eyebrow">• DOCUMENTEN · TRACER</span>
+            <h1 className="gx-h1">DOCUMENTEN</h1>
+          </header>
           <div className="dash-controls">
             <label className="control">
               <span className="control-label">Period</span>
@@ -487,8 +491,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
 
           {data && (
             <>
-              <section className={`panel ${data.alert_level !== "ok" ? "panel--alert" : ""}`}>
-                <h3>
+              <section className={`panel gx-panel ${data.alert_level !== "ok" ? "panel--alert" : ""}`}>
+                <h3 className="gx-h2">
                   Documentstatus
                   <InfoTip text="Vroege waarschuwing: document-errors in dit venster vs de vorige periode. Een piek kleurt dit rood zodat je kunt handelen voordat gebruikers een kapot of ontbrekend document merken." />
                 </h3>
@@ -529,9 +533,9 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 )}
               </section>
 
-              <section className="panel">
+              <section className="panel gx-panel">
                 <div className="panel-head">
-                  <h3>
+                  <h3 className="gx-h2">
                     Een document tracen
                     <InfoTip text="Voer een Plooi/document-id (ronl-…) in om de volledige lifecycle over de services te zien — elke stap, status en eventuele errors — zodat je vindt waar de flow misging." />
                   </h3>
@@ -549,7 +553,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                     value={traceId}
                     onChange={(e) => setTraceId(e.target.value)}
                   />
-                  <button className="btn btn--primary" type="submit" disabled={traceLoading || !traceId.trim()}>
+                  <button className="btn btn--primary gx-cta" type="submit" disabled={traceLoading || !traceId.trim()}>
                     {traceLoading ? "Traceren…" : "Traceer"}
                   </button>
                 </form>
@@ -687,8 +691,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   ))}
               </section>
 
-              <section className="panel">
-                <h3>
+              <section className="panel gx-panel">
+                <h3 className="gx-h2">
                   Errors per bron
                   <InfoTip text="Processing- en mapping-issues gegroepeerd per document-bron in dit venster — zie welke feed faalt. Best-effort bron-detectie (instelbaar)." />
                 </h3>
@@ -753,8 +757,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 </div>
               </div>
 
-              <section className="panel">
-                <h3>Op actie <InfoTip text="Wat er met documenten gebeurde — geclassificeerd uit de log-tekst. 'other' = nog niet geclassificeerd (instelbaar)." /></h3>
+              <section className="panel gx-panel">
+                <h3 className="gx-h2">Op actie <InfoTip text="Wat er met documenten gebeurde — geclassificeerd uit de log-tekst. 'other' = nog niet geclassificeerd (instelbaar)." /></h3>
                 <div className="tiles">
                   {(data.by_action || []).map((a) => (
                     <div key={a.action} className="tile">
@@ -766,8 +770,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 </div>
               </section>
 
-              <section className="panel">
-                <h3>Op type <InfoTip text="Document-bestandstype, uit de bestandsnaam in de log (pdf, xml, …)." /></h3>
+              <section className="panel gx-panel">
+                <h3 className="gx-h2">Op type <InfoTip text="Document-bestandstype, uit de bestandsnaam in de log (pdf, xml, …)." /></h3>
                 <div className="tiles">
                   {(data.by_type || []).map((t) => (
                     <div key={t.type} className="tile">
@@ -779,8 +783,8 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 </div>
               </section>
 
-              <section className="panel">
-                <h3>Activiteit over tijd</h3>
+              <section className="panel gx-panel">
+                <h3 className="gx-h2">Activiteit over tijd</h3>
                 <div className="spark">
                   {(data.timeseries || []).map((b, i) => (
                     <div
@@ -793,9 +797,9 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 </div>
               </section>
 
-              <section className="panel">
+              <section className="panel gx-panel">
                 <div className="panel-head">
-                  <h3>Activiteitenfeed <InfoTip text="Recente document-events, nieuwste eerst. Klik op een document om het op open.overheid.nl te openen. Filter op tekst of actie." /></h3>
+                  <h3 className="gx-h2">Activiteitenfeed <InfoTip text="Recente document-events, nieuwste eerst. Klik op een document om het op open.overheid.nl te openen. Filter op tekst of actie." /></h3>
                   <div className="feed-filters">
                     <input
                       className="feed-search"

@@ -7,71 +7,60 @@
 }
 
 :root {
-  --bg-app: #0a0e14;
-  --bg-panel: #11161f;
-  --bg-elevated: #161c27;
-  --bg-input: #1b222e;
-  --border: #262d3a;
-  --border-strong: #323b4c;
+  /* OO-GX — Opera-GX magazine theme. Near-black surfaces, one crimson accent. */
+  --bg-app: #0e0a0f;
+  --bg-panel: #1a1216;
+  --bg-elevated: #221820;
+  --bg-input: #251a22;
+  --border: #3a2630;
+  --border-strong: #4d2f3c;
 
-  --text-primary: #e8edf4;
-  --text-secondary: #9aa6b8;
-  --text-faint: #6b7688;
+  --text-primary: #f5eef0;
+  --text-secondary: #b9a9b0;
+  --text-faint: #7d6b73;
 
-  --accent: #4d9fff;
-  --accent-hover: #6fb3ff;
-  --accent-soft: rgba(77, 159, 255, 0.12);
+  /* The one crimson accent — drives every interactive element + stat numbers. */
+  --accent: #ff1f4c;
+  --accent-hover: #ff4d6d;
+  --accent-soft: rgba(255, 31, 76, 0.12);
+  --accent-glow: rgba(255, 31, 76, 0.35);
 
-  --user-bubble: #1f6feb;
-  --error: #ff6b66;
-  --error-soft: rgba(255, 107, 102, 0.1);
-  --success: #46c97a;
-  --warn: #e3b341;
-  --warn-soft: rgba(227, 179, 65, 0.12);
+  --user-bubble: #b3163b;
+  --error: #ff3b4e;
+  --error-soft: rgba(255, 59, 78, 0.10);
+  --success: #3ad07a;
+  --warn: #ffb020;
+  --warn-soft: rgba(255, 176, 32, 0.12);
 
-  /* Environment accents (PROD / ACC / TEST) — one source of truth, reused by the
-     uptime board and the certificate cards so the two stay perfectly consistent.
-     PROD reuses the app accent (blue) and ACC the warn gold, so the env palette
-     is harmonious with the rest of the UI; TEST adds a refined teal. */
-  --env-prod: #4d9fff;  --env-prod-soft: rgba(77, 159, 255, 0.10);
-  --env-acc:  #e3b341;  --env-acc-soft:  rgba(227, 179, 65, 0.10);
+  --env-prod: #ff1f4c;  --env-prod-soft: rgba(255, 31, 76, 0.10);
+  --env-acc:  #ffb020;  --env-acc-soft:  rgba(255, 176, 32, 0.10);
   --env-test: #2db6a6;  --env-test-soft: rgba(45, 182, 166, 0.12);
-  --env-col-min: 300px;       /* min column width before the grid wraps */
+  --env-col-min: 300px;
 
-  /* Active AI-model accent — defaults to Ollama (emerald). Overridden per
-     provider on :root[data-provider=...] so every header is themed to match. */
-  --provider-accent: #10b981;
-  --provider-accent-2: #34d399;
-  --provider-glow: rgba(16, 185, 129, 0.18);
-  --provider-name: "Ollama";
+  /* Provider tokens RETIRED from theming: remapped to the crimson accent so the
+     existing var(--provider-accent) usages render crimson with no edits. The
+     active AI model is still shown as a text label by ProviderSwitcher. */
+  --provider-accent: var(--accent);
+  --provider-accent-2: var(--accent-hover);
+  --provider-glow: var(--accent-glow);
+  --provider-name: "AI";
 
-  --radius: 12px;
-  --radius-sm: 8px;
-  --shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
-  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, sans-serif;
-  --mono: "SFMono-Regular", "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  --radius: 6px;
+  --radius-sm: 4px;
+  --shadow: 0 10px 34px rgba(0, 0, 0, 0.5);
+
+  --display: "Chakra Petch", "Oswald", system-ui, sans-serif;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
-/* Mistral = warm amber/orange (brand-adjacent). Ollama keeps the :root default. */
-:root[data-provider="mistral"] {
-  --provider-accent: #fb6f3d;
-  --provider-accent-2: #ffa94d;
-  --provider-glow: rgba(251, 111, 61, 0.2);
-  --provider-name: "Mistral";
-}
-
-/* AI off = neutral grey — the header de-emphasises so it's obvious AI is idle. */
-:root[data-provider="none"] {
-  --provider-accent: #6b7688;
-  --provider-accent-2: #8a94a6;
-  --provider-glow: rgba(107, 118, 136, 0.16);
-  --provider-name: "AI off";
-}
+/* OO-GX: provider no longer recolours the UI. The active model shows as a text
+   label only. data-provider stays on <html> for any non-colour logic. */
 
 body {
   font-family: var(--font);
   background:
-    radial-gradient(1200px 600px at 80% -10%, rgba(77, 159, 255, 0.08), transparent 60%),
+    radial-gradient(1200px 600px at 80% -10%, rgba(255, 31, 76, 0.07), transparent 60%),
     var(--bg-app);
   color: var(--text-primary);
   height: 100vh;
@@ -98,9 +87,9 @@ body {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), #2d6fd6);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #fff;
-  box-shadow: 0 4px 14px rgba(77, 159, 255, 0.4);
+  box-shadow: 0 4px 14px var(--accent-glow);
   flex-shrink: 0;
 }
 
@@ -541,9 +530,9 @@ body {
 }
 
 .avatar--ai {
-  background: linear-gradient(135deg, var(--accent), #2d6fd6);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #fff;
-  box-shadow: 0 3px 10px rgba(77, 159, 255, 0.35);
+  box-shadow: 0 3px 10px var(--accent-glow);
 }
 
 .avatar--error {
@@ -1356,7 +1345,7 @@ body {
 .spark-bar {
   flex: 1;
   min-height: 2px;
-  background: linear-gradient(180deg, var(--accent), #2d6fd6);
+  background: linear-gradient(180deg, var(--accent), var(--accent-hover));
   border-radius: 2px 2px 0 0;
 }
 
@@ -2200,8 +2189,10 @@ body {
   cursor: pointer;
   transition: border-color 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
 }
-.set-provider-card[data-provider="ollama"] { --pc: #10b981; }
-.set-provider-card[data-provider="mistral"] { --pc: #fb6f3d; }
+/* OO-GX: provider picker no longer carries a per-model colour — both use the one
+   crimson accent (the model is a text label only). data-provider stays for JS. */
+.set-provider-card[data-provider="ollama"] { --pc: var(--accent); }
+.set-provider-card[data-provider="mistral"] { --pc: var(--accent); }
 .set-provider-card:hover:not(:disabled) { border-color: var(--pc); }
 .set-provider-card.is-active {
   border-color: var(--pc);
@@ -2880,8 +2871,8 @@ body {
 .alerts-hero-wrap { position: relative; overflow: hidden; display: flex; align-items: center;
   justify-content: space-between; gap: 28px; flex-wrap: wrap; padding: 26px 28px;
   border-radius: var(--radius); border: 1px solid var(--border);
-  background: radial-gradient(120% 140% at 0% 0%, rgba(77,159,255,.10), transparent 55%),
-              radial-gradient(120% 160% at 100% 0%, rgba(70,201,122,.07), transparent 50%), var(--bg-panel); }
+  background: radial-gradient(120% 140% at 0% 0%, rgba(255,31,76,.10), transparent 55%),
+              radial-gradient(120% 160% at 100% 0%, rgba(255,31,76,.05), transparent 50%), var(--bg-panel); }
 .alerts-hero-wrap.is-paused { border-color: var(--warn);
   background: radial-gradient(120% 140% at 0% 0%, rgba(227,179,65,.12), transparent 55%), var(--bg-panel); }
 .alerts-hero-main { min-width: 280px; flex: 1 1 360px; }
@@ -2978,8 +2969,8 @@ body {
   justify-content: space-between; gap: 28px; flex-wrap: wrap; padding: 26px 28px;
   border-radius: var(--radius); border: 1px solid var(--border);
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(77,159,255,.10), transparent 55%),
-    radial-gradient(120% 160% at 100% 0%, rgba(70,201,122,.07), transparent 50%),
+    radial-gradient(120% 140% at 0% 0%, rgba(255,31,76,.10), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, rgba(255,31,76,.05), transparent 50%),
     var(--bg-panel);
 }
 .page-hero--accent-warn {
@@ -2990,14 +2981,14 @@ body {
 }
 .page-hero--accent-teal {
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(45,182,166,.10), transparent 55%),
-    radial-gradient(120% 160% at 100% 0%, rgba(77,159,255,.07), transparent 50%),
+    radial-gradient(120% 140% at 0% 0%, rgba(255,31,76,.10), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, rgba(255,31,76,.05), transparent 50%),
     var(--bg-panel);
 }
 .page-hero--accent-purple {
   background:
-    radial-gradient(120% 140% at 0% 0%, rgba(139,92,246,.10), transparent 55%),
-    radial-gradient(120% 160% at 100% 0%, rgba(77,159,255,.06), transparent 50%),
+    radial-gradient(120% 140% at 0% 0%, rgba(255,31,76,.10), transparent 55%),
+    radial-gradient(120% 160% at 100% 0%, rgba(255,31,76,.05), transparent 50%),
     var(--bg-panel);
 }
 .page-hero-main { min-width: 280px; flex: 1 1 360px; }
@@ -3339,3 +3330,158 @@ input:focus, select:focus, textarea:focus,
 .svch-ep-dot--down { background: var(--error); }
 .svch-ep-path { color: var(--text-secondary); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .svch-ep-meta { margin-left: auto; color: var(--text-faint); font-size: 10.5px; white-space: nowrap; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   OO-GX magazine kit — reusable, namespaced. Compose these on any page.
+   ════════════════════════════════════════════════════════════════════════ */
+
+.gx-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--display);
+  font-size: 11px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--accent);
+}
+.gx-eyebrow::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.gx-h1 {
+  font-family: var(--display); font-weight: 700; text-transform: uppercase;
+  font-size: clamp(34px, 5vw, 64px); line-height: 1.02; letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+.gx-h2 {
+  font-family: var(--display); font-weight: 700; text-transform: uppercase;
+  font-size: clamp(20px, 2.4vw, 28px); letter-spacing: 0.01em; color: var(--text-primary);
+}
+
+.gx-hero { display: flex; flex-direction: column; gap: 18px; max-width: 640px; }
+.gx-hero .gx-sub { color: var(--text-secondary); font-size: 15px; line-height: 1.55; }
+
+.gx-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  font-family: var(--display); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: 14px; padding: 14px 26px; border: 0; border-radius: var(--radius-sm);
+  color: #fff; background: var(--accent); cursor: pointer;
+  box-shadow: 0 0 0 rgba(255,31,76,0); transition: box-shadow .18s, background .18s, transform .18s;
+}
+.gx-cta:hover { background: var(--accent-hover); box-shadow: 0 0 24px var(--accent-glow); transform: translateY(-1px); }
+.gx-cta:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
+
+.gx-panel {
+  position: relative; background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow);
+}
+.gx-panel::before {
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), transparent 70%);
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.gx-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  text-transform: uppercase; padding: 4px 9px; border-radius: 3px;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid var(--border-strong);
+}
+.gx-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+
+.gx-stat-card { display: flex; flex-direction: column; gap: 14px; }
+.gx-stat-card .gx-stat-head { display: flex; align-items: center; justify-content: space-between; }
+.gx-stat-card .gx-stat-label { font-family: var(--display); font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; font-size: 13px; color: var(--text-secondary); }
+.gx-stat-card .gx-stat-num { font-family: var(--mono); font-weight: 700; font-size: clamp(30px, 4vw, 52px); color: var(--accent); line-height: 1; }
+.gx-stat-card .gx-stat-cap { font-family: var(--display); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-faint); }
+.gx-stat-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); }
+.gx-stat-row .gx-stat-rownum { font-family: var(--mono); color: var(--accent); font-weight: 700; }
+
+.gx-tag {
+  display: inline-flex; align-items: center; font-size: 12px; padding: 6px 12px;
+  border-radius: var(--radius-sm); background: var(--bg-elevated);
+  border: 1px solid var(--border); color: var(--text-secondary);
+}
+
+.gx-pagehead { display: flex; flex-direction: column; gap: 8px; margin-bottom: 22px; }
+
+/* ─── OO-GX · Login split hero ─────────────────────────────── */
+.login-page--gx {
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  height: auto;
+}
+
+.login-split {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 48px;
+  align-items: center;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.login-hero {
+  gap: 18px;
+}
+
+.login-hero-brand {
+  margin-bottom: 4px;
+  color: var(--text-secondary);
+}
+
+.login-hero-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+/* The card keeps its own .login-card rules; .gx-panel adds the
+   crimson top-accent. Override box-only props so the split reads well. */
+.login-page--gx .login-card {
+  max-width: none;
+  text-align: left;
+}
+
+.login-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 22px;
+}
+
+@media (max-width: 860px) {
+  .login-split {
+    grid-template-columns: 1fr;
+    gap: 32px;
+    max-width: 440px;
+  }
+
+  .login-hero {
+    text-align: left;
+  }
+}
+
+/* OO-GX — Chat welcome eyebrow centering (welcome block is a centered column) */
+.welcome .gx-eyebrow { align-self: center; margin-bottom: 2px; }
+
+/* ─── OO-GX · Dashboard restyle (additive, page-scoped) ─────────────────────
+   Magazine page header, plus tasteful adoption of the .gx-* kit on the
+   existing dashboard cards. Tone signalling (ok/warn/crit colours) is
+   preserved — the kit only lends the display/mono typography, never the
+   crimson value colour on the at-a-glance hero tiles. */
+.dash-pagehead { margin: 2px 2px 6px; }
+
+/* Hero stat tiles adopt the mono display number from .gx-stat-num, but must
+   keep their per-tone colour and their tight column rhythm. Re-assert both
+   here so the kit's defaults (crimson, gap:14px) don't flatten the signal. */
+.hero-stat.gx-stat-card { gap: 4px; }
+.hero-stat .hero-stat-value.gx-stat-num { font-size: 26px; }
+.hero-stat--ok   .hero-stat-value.gx-stat-num { color: var(--success); }
+.hero-stat--warn .hero-stat-value.gx-stat-num { color: var(--warn); }
+.hero-stat--crit .hero-stat-value.gx-stat-num { color: var(--error); }
+.hero-stat--muted .hero-stat-value.gx-stat-num { color: var(--text-secondary); }
+
+/* Card titles using the display font keep their inline InfoTip tidy. */
+.dash-card-title { display: flex; align-items: center; gap: 8px; }

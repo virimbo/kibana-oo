@@ -58,7 +58,7 @@ export default function ServiceHealthCard({ token }) {
              data-smartcard="card:service_health" data-smartlabel="Service health"
              data-smartstatus={s.verdict} data-smartenv="PROD">
       <h3>
-        🧩 Service health <InfoTip text={SVCH_INFO} />
+        <span className="gx-h2">🧩 Service health</span> <InfoTip text={SVCH_INFO} />
         <span className="svch-summary">
           {s.down > 0 && <span className="svch-pill svch-pill--down">⛔ {s.down} down</span>}
           {s.unreachable > 0 && <span className="svch-pill svch-pill--unk">? {s.unreachable} unreachable</span>}

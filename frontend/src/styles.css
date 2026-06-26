@@ -3222,21 +3222,17 @@ body {
 }
 .user-chip { border-color: color-mix(in srgb, var(--provider-accent) 14%, var(--border)); }
 
-/* ══ FULLY UNIFIED THEME — the whole app's accent follows the active AI model ══
-   Remap the generic accent tokens onto --provider-accent so every var(--accent)
-   (buttons, focus rings, links, suggestion cards, active states) re-themes with
-   the selected model. Semantic status colours (success/warn/error) and the user
-   chat bubble are separate tokens and stay unchanged. */
-:root {
-  --accent: var(--provider-accent);
-  --accent-hover: var(--provider-accent-2);
-  --accent-soft: color-mix(in srgb, var(--provider-accent) 14%, transparent);
-}
+/* ══ OO-GX — single crimson accent ════════════════════════════════════════════
+   The old "fully unified theme" remapped --accent onto --provider-accent so the
+   UI followed the active AI model. OO-GX inverts this: --accent IS the crimson
+   source (see :root top), and --provider-accent points AT it. The old remap is
+   removed here — re-adding it would create a circular var() reference (--accent ↔
+   --provider-accent) that resolves to empty and blanks the whole accent layer. */
 
 /* primary buttons → gradient + soft glow, themed to the model */
 .btn--primary {
   background: linear-gradient(135deg, var(--provider-accent), var(--provider-accent-2));
-  border: none; color: #08130d;
+  border: none; color: #fff;
   box-shadow: 0 4px 14px -7px var(--provider-glow);
   transition: transform .14s ease, box-shadow .14s ease, filter .14s ease;
 }
@@ -3485,3 +3481,14 @@ input:focus, select:focus, textarea:focus,
 
 /* Card titles using the display font keep their inline InfoTip tidy. */
 .dash-card-title { display: flex; align-items: center; gap: 8px; }
+
+/* OO-GX: keep browser-autofilled inputs on the dark theme (Chrome paints a pale
+   highlight by default). The long inset shadow repaints the field background. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg-input) inset;
+  caret-color: var(--text-primary);
+  transition: background-color 9999s ease-out 0s;
+}

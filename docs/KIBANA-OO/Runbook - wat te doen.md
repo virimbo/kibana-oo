@@ -42,6 +42,11 @@ Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en
 - ACC: Bel Firas/dev; controleer de service-logs in Kibana en herstart de pod.
 - TEST: Bel Anton; check de logs en herstart de service indien nodig.
 
+## Bij service unreachable
+- PROD: Eerst de VPN/het netwerk checken — kun jij de host wél bereiken? Zo niet, dan is het waarschijnlijk de monitoring-connectie (VPN/ingress), niet de service zelf. Controleer ingress/route en DNS; pas als de host echt onbereikbaar is, escaleer naar infra.
+- ACC: Check je VPN-verbinding en de ingress/route; bel Firas/infra als de host onbereikbaar blijft.
+- TEST: Check VPN en netwerk; bel Anton als het aanhoudt.
+
 ---
 
 # Procedures (stap voor stap)

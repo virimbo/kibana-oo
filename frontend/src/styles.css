@@ -3460,3 +3460,6 @@ input:focus, select:focus, textarea:focus,
     text-align: left;
   }
 }
+
+/* OO-GX — Chat welcome eyebrow centering (welcome block is a centered column) */
+.welcome .gx-eyebrow { align-self: center; margin-bottom: 2px; }

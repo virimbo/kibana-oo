@@ -633,7 +633,8 @@ function ChatPage({
                   <span className="welcome-mark">
                     <Icon.Spark />
                   </span>
-                  <h2>Stel gerust een vraag over je logs &amp; metrics</h2>
+                  <span className="gx-eyebrow">AI-LOGASSISTENT</span>
+                  <h2 className="gx-h2">Stel gerust een vraag over je logs &amp; metrics</h2>
                   <p>
                     Open Overheid - Monitoring doorzoekt je Elasticsearch-cluster en gebruikt een
                     AI-model om in natuurlijke taal te antwoorden — met de bron-log-entries erbij.
@@ -647,7 +648,7 @@ function ChatPage({
               )}
               {showSuggestions && (
                 <div className="quick-start">
-                  <span className="quick-start-label">Snelle vragen</span>
+                  <span className="quick-start-label gx-eyebrow">Snelle vragen</span>
                   <div className="suggestions">
                     {SUGGESTIONS.map((s) => (
                       <button
@@ -773,7 +774,7 @@ function ChatPage({
               </button>
             ) : (
               <button
-                className="btn btn--primary btn--send"
+                className="btn btn--primary btn--send gx-cta"
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() && !image}
                 title="Send"

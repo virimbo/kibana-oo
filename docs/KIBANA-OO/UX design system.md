@@ -234,7 +234,7 @@ animation: page-rise .42s cubic-bezier(.2,.7,.2,1) both;
 
 | Omgeving | Token | Hex | Gebruik |
 |----------|-------|-----|---------|
-| PROD | `--env-prod` | `#ff1f4c` (crimson) | Badges, kolom-accenten, borders |
+| PROD | `--env-prod` | `#7682e0` (indigo) | Badges, kolom-accenten, borders — bewust NIET rood (rood = alleen echte problemen) |
 | ACC | `--env-acc` | `#ffb020` (goud) | Badges, kolom-accenten |
 | TST | `--env-test` | `#2db6a6` (teal) | Badges, kolom-accenten |
 

@@ -33,7 +33,9 @@
   --warn: #ffb020;
   --warn-soft: rgba(255, 176, 32, 0.12);
 
-  --env-prod: #e11d48;  --env-prod-soft: rgba(225, 29, 72, 0.10);
+  /* PROD identity = refined indigo (professional "production" hue) — NOT red, so
+     crimson stays reserved for real problems. ACC=amber, TEST=teal complete the triad. */
+  --env-prod: #7682e0;  --env-prod-soft: rgba(118, 130, 224, 0.10);
   --env-acc:  #ffb020;  --env-acc-soft:  rgba(255, 176, 32, 0.10);
   --env-test: #2db6a6;  --env-test-soft: rgba(45, 182, 166, 0.12);
   --env-col-min: 300px;

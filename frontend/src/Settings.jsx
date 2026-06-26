@@ -96,10 +96,10 @@ export default function SettingsPage({
       <div className="chat-scroll">
         <div className="dash">
           {/* ── Command-center hero ───────────────────────────── */}
-          <section className="page-hero">
+          <section className="page-hero gx-pagehead">
             <div className="page-hero-main">
-              <span className="page-eyebrow">Beheer · Instellingen</span>
-              <h1 className="page-hero-h1">⚙ Instellingen</h1>
+              <span className="page-eyebrow gx-eyebrow">BEHEER · INSTELLINGEN</span>
+              <h1 className="page-hero-h1 gx-h1">INSTELLINGEN</h1>
               <p className="page-hero-lead">
                 AI-assistent, chatfuncties en dashboard-indeling beheren.
                 Wijzigingen worden direct toegepast en onthouden voor deze sessie.
@@ -108,8 +108,8 @@ export default function SettingsPage({
           </section>
 
           {/* ── AI model management ─────────────────────────────── */}
-          <section className="panel set-panel">
-            <span className="page-eyebrow">Model & provider</span>
+          <section className="panel set-panel gx-panel">
+            <span className="page-eyebrow gx-eyebrow">Model & provider</span>
             <h3>🤖 AI-assistent</h3>
             <p className="muted set-intro">
               Zet de AI aan of uit, of kies welk model antwoordt. Als deze uit staat,
@@ -158,8 +158,8 @@ export default function SettingsPage({
           </section>
 
           {/* ── Chat experience ─────────────────────────────────── */}
-          <section className="panel set-panel">
-            <span className="page-eyebrow">Gespreksinstellingen</span>
+          <section className="panel set-panel gx-panel">
+            <span className="page-eyebrow gx-eyebrow">Gespreksinstellingen</span>
             <h3>Chatfuncties</h3>
             <p className="muted set-intro">
               Functies aan- of uitzetten. Wijzigingen worden direct toegepast en onthouden voor deze sessie.
@@ -193,8 +193,8 @@ export default function SettingsPage({
           </section>
 
           {/* ── Dashboard experience ────────────────────────────── */}
-          <section className="panel set-panel">
-            <span className="page-eyebrow">Dashboard-indeling</span>
+          <section className="panel set-panel gx-panel">
+            <span className="page-eyebrow gx-eyebrow">Dashboard-indeling</span>
             <h3>Dashboard-weergave</h3>
             <p className="muted set-intro">
               Dashboard-functies aan- of uitzetten. Wijzigingen worden direct toegepast en onthouden voor deze sessie.

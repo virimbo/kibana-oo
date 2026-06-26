@@ -6,7 +6,7 @@ import { fetchDlqIntel } from "./api";
 // stuck in each dead-letter queue: smart verdict, reason breakdown, age, trend,
 // recommended action and a peeked sample. Built on the dashboard design system
 // (.panel, .up-tile, severity colours, .dash-table). Needs the `rabbitmq` grant.
-const SEV = { ok: "#3fb950", warn: "#d29922", critical: "#f85149" };
+const SEV = { ok: "var(--success)", warn: "var(--warn)", critical: "var(--error)" };
 const TILE = { ok: "up", warn: "warn", critical: "down" };
 
 function age(s) {

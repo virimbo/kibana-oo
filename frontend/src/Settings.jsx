@@ -110,7 +110,7 @@ export default function SettingsPage({
           {/* ── AI model management ─────────────────────────────── */}
           <section className="panel set-panel gx-panel">
             <span className="page-eyebrow gx-eyebrow">Model & provider</span>
-            <h3>🤖 AI-assistent</h3>
+            <h3 className="gx-h2">🤖 AI-assistent</h3>
             <p className="muted set-intro">
               Zet de AI aan of uit, of kies welk model antwoordt. Als deze uit staat,
               vallen het dashboard, de chat en de documentanalyse terug op
@@ -160,7 +160,7 @@ export default function SettingsPage({
           {/* ── Chat experience ─────────────────────────────────── */}
           <section className="panel set-panel gx-panel">
             <span className="page-eyebrow gx-eyebrow">Gespreksinstellingen</span>
-            <h3>Chatfuncties</h3>
+            <h3 className="gx-h2">Chatfuncties</h3>
             <p className="muted set-intro">
               Functies aan- of uitzetten. Wijzigingen worden direct toegepast en onthouden voor deze sessie.
             </p>
@@ -195,7 +195,7 @@ export default function SettingsPage({
           {/* ── Dashboard experience ────────────────────────────── */}
           <section className="panel set-panel gx-panel">
             <span className="page-eyebrow gx-eyebrow">Dashboard-indeling</span>
-            <h3>Dashboard-weergave</h3>
+            <h3 className="gx-h2">Dashboard-weergave</h3>
             <p className="muted set-intro">
               Dashboard-functies aan- of uitzetten. Wijzigingen worden direct toegepast en onthouden voor deze sessie.
             </p>

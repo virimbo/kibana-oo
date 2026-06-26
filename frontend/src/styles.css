@@ -86,10 +86,10 @@ body {
   place-items: center;
   width: 34px;
   height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: #fff;
-  box-shadow: 0 4px 14px var(--accent-glow);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
   flex-shrink: 0;
 }
 
@@ -189,27 +189,22 @@ body {
   padding: 5px 28px 5px 12px;
   border-radius: 999px;
   cursor: pointer;
-  border: 1px solid color-mix(in srgb, var(--provider-accent) 55%, var(--border));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--provider-accent) 16%, transparent), transparent),
-    var(--bg-elevated);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  transition: border-color 0.25s ease;
   user-select: none;
 }
 .provider-switch:hover {
-  border-color: var(--provider-accent);
-  box-shadow: 0 0 0 3px var(--provider-glow);
+  border-color: var(--border-strong);
 }
 .provider-switch:focus-within {
-  border-color: var(--provider-accent);
-  box-shadow: 0 0 0 3px var(--provider-glow);
+  border-color: var(--accent);
 }
 .provider-switch-dot {
   flex: none;
-  width: 9px; height: 9px;
+  width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--provider-accent);
-  box-shadow: 0 0 8px var(--provider-accent);
+  background: var(--accent);
 }
 .provider-switch-text { display: flex; flex-direction: column; line-height: 1.12; }
 .provider-switch-kicker {
@@ -219,12 +214,12 @@ body {
 .provider-switch-name { font-size: 12.5px; font-weight: 700; color: var(--text-primary); }
 .provider-switch-name em {
   font-style: normal; font-weight: 600; font-size: 10.5px;
-  color: var(--provider-accent); margin-left: 3px;
+  color: var(--text-faint); margin-left: 3px;
 }
 .provider-switch-caret {
   position: absolute; right: 9px; top: 50%;
   transform: translateY(-50%);
-  color: var(--provider-accent);
+  color: var(--text-faint);
   pointer-events: none;
 }
 /* The native select sits invisibly over the pill for accessible, native UX */
@@ -530,9 +525,9 @@ body {
 }
 
 .avatar--ai {
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: #fff;
-  box-shadow: 0 3px 10px var(--accent-glow);
+  background: var(--bg-elevated);
+  color: var(--accent);
+  border: 1px solid var(--border-strong);
 }
 
 .avatar--error {
@@ -3097,12 +3092,12 @@ body {
   box-shadow: 0 0 0 3px var(--provider-glow);
 }
 .control-label {
-  display: inline-flex; align-items: center; gap: 7px;
-  color: color-mix(in srgb, var(--provider-accent) 85%, var(--text-secondary));
+  display: inline-flex; align-items: center; gap: 9px;
+  color: var(--text-faint);
 }
 .control-label::before {
-  content: ""; width: 6px; height: 6px; border-radius: 50%; flex: none;
-  background: var(--provider-accent); box-shadow: 0 0 8px var(--provider-accent);
+  content: ""; width: 16px; height: 1px; border-radius: 0; flex: none;
+  background: var(--border-strong); box-shadow: none;
 }
 .control-select {
   font-weight: 650; padding-right: 22px;
@@ -3167,7 +3162,7 @@ body {
     linear-gradient(180deg, color-mix(in srgb, var(--provider-accent) 4%, transparent), transparent 46%),
     rgba(17, 22, 31, 0.9); }
 .control:focus-within { box-shadow: 0 0 0 2px color-mix(in srgb, var(--provider-glow) 60%, transparent); }
-.control-label::before { box-shadow: 0 0 5px color-mix(in srgb, var(--provider-accent) 55%, transparent); opacity: .8; }
+.control-label::before { box-shadow: none; opacity: 1; }
 .composer-field:focus-within {
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--provider-glow) 65%, transparent),
               0 10px 30px -20px var(--provider-glow);
@@ -3190,11 +3185,9 @@ body {
 }
 /* brand mark → soft glassy tile carrying the active-AI colour */
 .header .brand-mark {
-  background: linear-gradient(135deg,
-    color-mix(in srgb, var(--provider-accent) 22%, var(--bg-elevated)), var(--bg-input));
-  color: var(--provider-accent);
-  box-shadow: 0 4px 16px -8px var(--provider-glow),
-              inset 0 0 0 1px color-mix(in srgb, var(--provider-accent) 26%, transparent);
+  background: var(--bg-elevated);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 .brand--btn:hover .brand-name { color: var(--provider-accent); }
 
@@ -3215,12 +3208,13 @@ body {
 }
 .topnav-link.is-active svg { opacity: 1; }
 
-/* — user chip & avatar pick up the accent too — */
+/* — user chip & avatar → quiet monochrome monogram — */
 .user-avatar {
-  background: color-mix(in srgb, var(--provider-accent) 16%, transparent);
-  color: var(--provider-accent);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
 }
-.user-chip { border-color: color-mix(in srgb, var(--provider-accent) 14%, var(--border)); }
+.user-chip { border-color: var(--border); }
 
 /* ══ OO-GX — single crimson accent ════════════════════════════════════════════
    The old "fully unified theme" remapped --accent onto --provider-accent so the
@@ -3249,10 +3243,10 @@ body {
   color: var(--provider-accent);
 }
 
-/* brand mark (login / generic) → clean provider gradient */
+/* brand mark (login / generic) → quiet dark tile, crimson icon only */
 .brand-mark {
-  background: linear-gradient(135deg, var(--provider-accent), var(--provider-accent-2));
-  box-shadow: 0 4px 16px -5px var(--provider-glow);
+  background: var(--bg-elevated);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
 
 /* section eyebrows / kickers → calm muted label (crimson stays for true accents) */
@@ -3338,8 +3332,8 @@ input:focus, select:focus, textarea:focus,
   color: var(--text-faint);   /* calm label — the crimson lives only in the dot */
 }
 .gx-eyebrow::before {
-  content: ""; width: 6px; height: 6px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 0 8px var(--accent-glow);
+  content: ""; width: 18px; height: 1px; border-radius: 0;
+  background: var(--border-strong); box-shadow: none;
 }
 
 .gx-h1 {
@@ -3360,28 +3354,28 @@ input:focus, select:focus, textarea:focus,
   font-family: var(--display); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
   font-size: 14px; padding: 14px 26px; border: 0; border-radius: var(--radius-sm);
   color: #fff; background: var(--accent); cursor: pointer;
-  box-shadow: 0 0 0 rgba(255,31,76,0); transition: box-shadow .18s, background .18s, transform .18s;
+  transition: background .18s, transform .18s;
 }
-.gx-cta:hover { background: var(--accent-hover); box-shadow: 0 0 24px var(--accent-glow); transform: translateY(-1px); }
-.gx-cta:disabled { opacity: .5; cursor: not-allowed; box-shadow: none; transform: none; }
+.gx-cta:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.gx-cta:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 
 .gx-panel {
   position: relative; background: var(--bg-panel); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 22px 24px; box-shadow: var(--shadow);
 }
 .gx-panel::before {
-  content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
-  background: linear-gradient(90deg, var(--accent), transparent 70%);
+  content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+  background: linear-gradient(90deg, var(--border-strong), transparent 55%);
   border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .gx-pill {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--display); font-size: 10px; font-weight: 700; letter-spacing: 0.12em;
+  font-family: var(--display); font-size: 10px; font-weight: 600; letter-spacing: 0.14em;
   text-transform: uppercase; padding: 4px 9px; border-radius: 3px;
-  color: var(--accent); background: var(--accent-soft); border: 1px solid var(--border-strong);
+  color: var(--text-secondary); background: transparent; border: 1px solid var(--border-strong);
 }
-.gx-pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent-glow); }
+.gx-pill::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
 
 .gx-stat-card { display: flex; flex-direction: column; gap: 14px; }
 .gx-stat-card .gx-stat-head { display: flex; align-items: center; justify-content: space-between; }

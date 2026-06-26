@@ -3463,3 +3463,23 @@ input:focus, select:focus, textarea:focus,
 
 /* OO-GX — Chat welcome eyebrow centering (welcome block is a centered column) */
 .welcome .gx-eyebrow { align-self: center; margin-bottom: 2px; }
+
+/* ─── OO-GX · Dashboard restyle (additive, page-scoped) ─────────────────────
+   Magazine page header, plus tasteful adoption of the .gx-* kit on the
+   existing dashboard cards. Tone signalling (ok/warn/crit colours) is
+   preserved — the kit only lends the display/mono typography, never the
+   crimson value colour on the at-a-glance hero tiles. */
+.dash-pagehead { margin: 2px 2px 6px; }
+
+/* Hero stat tiles adopt the mono display number from .gx-stat-num, but must
+   keep their per-tone colour and their tight column rhythm. Re-assert both
+   here so the kit's defaults (crimson, gap:14px) don't flatten the signal. */
+.hero-stat.gx-stat-card { gap: 4px; }
+.hero-stat .hero-stat-value.gx-stat-num { font-size: 26px; }
+.hero-stat--ok   .hero-stat-value.gx-stat-num { color: var(--success); }
+.hero-stat--warn .hero-stat-value.gx-stat-num { color: var(--warn); }
+.hero-stat--crit .hero-stat-value.gx-stat-num { color: var(--error); }
+.hero-stat--muted .hero-stat-value.gx-stat-num { color: var(--text-secondary); }
+
+/* Card titles using the display font keep their inline InfoTip tidy. */
+.dash-card-title { display: flex; align-items: center; gap: 8px; }

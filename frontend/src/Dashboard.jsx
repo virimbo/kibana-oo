@@ -470,15 +470,15 @@ function AanleverfoutenCard({ data, onAck, onNavigate }) {
   }
   if (!data.count) {
     return (
-      <section className="panel" data-smartcard="card:aanleverfouten" data-smartlabel="Aanleverfouten" data-smartstatus="ok">
-        <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
+      <section className="panel gx-panel" data-smartcard="card:aanleverfouten" data-smartlabel="Aanleverfouten" data-smartstatus="ok">
+        <h3 className="gx-h2 dash-card-title">📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
         <p className="pipe-ok">✓ Geen openstaande aanleverfouten — alles is correct aangeleverd.</p>
       </section>
     );
   }
   return (
-    <section className="panel panel--alert" data-smartcard="card:aanleverfouten" data-smartlabel="Aanleverfouten" data-smartstatus="warn">
-      <h3>📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
+    <section className="panel panel--alert gx-panel" data-smartcard="card:aanleverfouten" data-smartlabel="Aanleverfouten" data-smartstatus="warn">
+      <h3 className="gx-h2 dash-card-title">📦 Aanleverfouten <InfoTip text={AANLEVER_INFO} /></h3>
       <p className="pipe-alert">{data.headline} — herstel en lever opnieuw aan.</p>
 
       {data.by_type && data.by_type.length > 0 && (
@@ -593,7 +593,7 @@ function DlqCard({ data, onNavigate }) {
   const shortName = (d) => (d.source || d.name).split("-in.")[0].split("msvc-").pop() || d.name;
 
   return (
-    <section className={`panel${hasProblem ? " panel--alert" : ""}`}
+    <section className={`panel gx-panel${hasProblem ? " panel--alert" : ""}`}
              data-smartcard="card:dlq" data-smartlabel="Dead-letter queues">
       <h3>
         🐰 Dead-letter queues <InfoTip text={DLQ_INFO} />
@@ -667,7 +667,7 @@ function DashZone({ id, title, eyebrow, alert = false, defaultCollapsed = false,
   return (
     <section className={`dash-zone${collapsed ? " is-collapsed" : ""}`}>
       <h2 className={`dash-section${alert ? " dash-section--alert" : ""}`}>
-        {eyebrow && <span className="dash-section-eyebrow">{eyebrow}</span>}
+        {eyebrow && <span className="dash-section-eyebrow gx-eyebrow">{eyebrow}</span>}
         <button
           type="button"
           className="dash-section-toggle"
@@ -706,10 +706,10 @@ function Sparkline({ points }) {
 function HeroStat({ tone, value, label, desc, hint, onClick, skeleton, spark, cardId }) {
   const Tag = onClick ? "button" : "div";
   return (
-    <Tag className={`hero-stat hero-stat--${tone}${onClick ? " hero-stat--clickable" : ""}`}
+    <Tag className={`hero-stat gx-stat-card hero-stat--${tone}${onClick ? " hero-stat--clickable" : ""}`}
          onClick={onClick} title={hint}
          {...(cardId ? { "data-smartcard": cardId, "data-smartlabel": label, "data-smartstatus": tone } : {})}>
-      <span className="hero-stat-value">
+      <span className="hero-stat-value gx-stat-num">
         {skeleton ? <span className="skel skel--value" /> : value}
       </span>
       <span className="hero-stat-label">{label}</span>
@@ -969,6 +969,10 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
       <div className="chat-scroll">
         <div className="dash">
+          <header className="gx-pagehead dash-pagehead">
+            <span className="gx-eyebrow">• MONITORING · LIVE</span>
+            <h1 className="gx-h1">DASHBOARD</h1>
+          </header>
           <div className="dash-controls">
             <span className="page-eyebrow" style={{ width: "100%", marginBottom: -4 }}>Bereik & databron</span>
             <label className="control">

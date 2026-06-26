@@ -39,7 +39,7 @@ export default function DlqIntelPage({
 
   if (data && data.enabled === false) {
     return <>{nav}<div className="chat-scroll"><div className="dash">
-      <section className="panel"><h3>🐰 DLQ Intelligentie</h3>
+      <section className="panel gx-panel"><h3 className="gx-h2">🐰 DLQ Intelligentie</h3>
         <p className="muted">Uitgeschakeld (<code>DLQ_INTEL_ENABLED=false</code>).</p></section>
     </div></div></>;
   }
@@ -49,8 +49,12 @@ export default function DlqIntelPage({
   const queues = (data.queues || []).filter((q) => q.depth > 0);
   return <>{nav}<div className="chat-scroll"><div className="dash">
     {error && <div className="error" role="alert">{error}</div>}
-    <section className="panel">
-      <h3>🐰 DLQ Intelligentie</h3>
+    <div className="gx-pagehead">
+      <span className="gx-eyebrow">RabbitMQ · DLQ</span>
+      <h1 className="gx-h1">DLQ Intelligentie</h1>
+    </div>
+    <section className="panel gx-panel">
+      <h3 className="gx-h2">🐰 DLQ Intelligentie</h3>
       <p className="muted set-intro">
         Waarom staan er berichten vast? Per queue: oorzaak, leeftijd, trend en
         aanbevolen actie. Alleen-lezen — berichten worden niet verwijderd of verplaatst.
@@ -58,11 +62,11 @@ export default function DlqIntelPage({
       {queues.length === 0 && <p className="muted">✓ Alle dead-letter queues zijn leeg — niets vastgelopen.</p>}
     </section>
     {queues.map((q) => (
-      <section key={q.name} className={`panel up-tile up-tile--${TILE[q.severity]}`} style={{ marginBottom: 12 }}>
-        <h3 style={{ color: SEV[q.severity], marginBottom: 10 }}>{q.headline}</h3>
+      <section key={q.name} className={`panel gx-panel gx-stat-card up-tile up-tile--${TILE[q.severity]}`} style={{ marginBottom: 12 }}>
+        <h3 className="gx-h2" style={{ color: SEV[q.severity], marginBottom: 10 }}>{q.headline}</h3>
         <div className="alerts-settings-row" style={{ gap: 28 }}>
           <div className="alerts-field"><label>Queue</label><b>{q.name}</b></div>
-          <div className="alerts-field"><label>Diepte</label><b>{q.depth.toLocaleString("nl-NL")}</b></div>
+          <div className="alerts-field"><label className="gx-stat-label">Diepte</label><b className="gx-stat-num">{q.depth.toLocaleString("nl-NL")}</b></div>
           <div className="alerts-field"><label>Trend</label><b>{q.trend}</b></div>
           <div className="alerts-field"><label>Oudste</label><b>{age(q.oldest_age_seconds)}</b></div>
           <div className="alerts-field"><label>Consumers</label><b>{q.source_consumers ?? "—"}</b></div>

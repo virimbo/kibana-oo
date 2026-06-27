@@ -885,6 +885,7 @@ export default function App() {
     () => sessionStorage.getItem("kibana_oo_user") || ""
   );
   const [view, setView] = useState("chat"); // "chat" | "dashboard" | "documents" | "settings"
+  const [chatNonce, setChatNonce] = useState(0); // bump → remount ChatPage = fresh conversation
   const [perms, setPerms] = useState(null); // { is_super, features[], catalog[] } | null
   const can = useCallback(
     (f) => !!perms && (perms.is_super || (perms.features || []).includes(f)),
@@ -897,6 +898,7 @@ export default function App() {
   const [pendingTrace, setPendingTrace] = useState(null);
   const navigate = useCallback((nextView, traceId = null) => {
     setPendingTrace(traceId);
+    if (nextView === "chat") setChatNonce((n) => n + 1);  // Chat/logo always opens a fresh chat
     setView(nextView);
   }, []);
   // LLM provider is global: visible + switchable from every page, persisted,
@@ -1236,6 +1238,7 @@ export default function App() {
 
   return (
     <ChatPage
+      key={chatNonce}
       token={token}
       username={username}
       onLogout={handleLogout}

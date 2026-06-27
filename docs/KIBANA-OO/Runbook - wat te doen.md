@@ -47,6 +47,11 @@ Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en
 - ACC: Check je VPN-verbinding en de ingress/route; bel Firas/infra als de host onbereikbaar blijft.
 - TEST: Check VPN en netwerk; bel Anton als het aanhoudt.
 
+## Bij Monitoring-target rood
+- PROD: Bepaal eerst het **type** target. **log-freshness** stale → de logging-pipeline staat stil: controleer of de Gateway/Envoy access-logs nog naar Elasticsearch verzonden worden (na de Ingress→Gateway-migratie) en check de index. **jaeger-traces** stale → trace-propagatie: controleer of de Gateway de trace-headers (`traceparent`/B3) doorgeeft en de OTel-collector → Jaeger. **prometheus-query** leeg/down → check of de Gateway nog een scrape-target is in Prometheus (ServiceMonitor/scrape-config). **http** down → controleer de HTTPRoute/Gateway, TLS en DNS. **unreachable** → de Prometheus/Jaeger-connectie of VPN ligt eruit. Escaleer naar het observability/dev-team als de pipeline echt stil ligt.
+- ACC: Bel Firas/dev; bepaal het type (logs/traces/metrics/http) en controleer het bijbehorende pad (log-shipping / OTel / Prometheus-scrape / HTTPRoute).
+- TEST: Bel Anton; check het type target en het bijbehorende observability-pad.
+
 ---
 
 # Procedures (stap voor stap)

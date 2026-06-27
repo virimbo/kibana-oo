@@ -266,6 +266,59 @@ async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[
         recipients=recipients, delivered=delivered, detail=item.get("status", ""))
 
 
+CATEGORY_MONITORING = "monitoring"
+
+
+def raise_external(category, key, env, title, detail):
+    """Additive bridge for the monitoring registry: raise an alert through the
+    EXISTING per-incident dedup + email→Mattermost dispatch path.
+
+    Reuses the same state machine as the built-in monitors (alerts_store
+    get_state/set_state + _decide) keyed by ``f"{category}:{key}"`` so the same
+    active incident notifies exactly ONCE until it recovers/clears. Dispatch goes
+    through the existing _dispatch (email → Mattermost + history). Fully wrapped:
+    a send failure is logged, never raised — the engine calls this in a loop.
+
+    The card is always treated as a red ("critical") incident; clearing it (e.g.
+    the monitor reporting healthy again) is the registry's job and would be a
+    separate recovery call, mirroring how the other monitors recover a card.
+    """
+    try:
+        card_id = f"{category}:{key}"
+        item = {
+            "card_id": card_id,
+            "category": CATEGORY_MONITORING,
+            "env": _norm_env(env),
+            "name": title,
+            "severity": "critical",
+            "status": detail or title,
+            "detail": detail or "",
+        }
+        cfg = alerts_store.get_config()
+        prev = alerts_store.get_state(card_id)
+        now = datetime.now(timezone.utc)
+        kind, nxt = _decide(item, prev, cfg["cooldown_minutes"], now)
+        if nxt is not None:
+            alerts_store.set_state(card_id, nxt["severity"], nxt["last_sent_at"],
+                                   nxt["last_kind"], nxt["red_since"])
+        if kind is None:
+            return  # same active incident already alerted → dedup, stay silent
+        prev_severity = (prev or {}).get("severity", "ok")
+        try:
+            asyncio.run(_dispatch(item, kind, prev_severity, cfg["recipients"]))
+        except RuntimeError:
+            # Already inside a running loop (rare for this sync bridge): run the
+            # coroutine on a dedicated loop so we never raise into the caller.
+            loop = asyncio.new_event_loop()
+            try:
+                loop.run_until_complete(
+                    _dispatch(item, kind, prev_severity, cfg["recipients"]))
+            finally:
+                loop.close()
+    except Exception as e:  # noqa: BLE001 — the engine calls this in a loop
+        logger.error("alerts: raise_external %s:%s failed: %s", category, key, e)
+
+
 async def run_alert_loop() -> None:
     """Background poll so alerts fire even when nobody is watching the dashboard."""
     interval = max(10, settings.alerts_interval)

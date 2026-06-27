@@ -284,7 +284,7 @@ class Settings(BaseSettings):
     uptime_targets: str = (
         "open.overheid.nl | PROD | https://open.overheid.nl | 2xx,3xx\n"
         "doculoket.overheid.nl | PROD | https://doculoket.overheid.nl | 2xx,3xx\n"
-        "admin (login) | PROD | http://admin-main-admin.koop-plooi-prd.prod5.s15m.nl/login | 2xx,3xx | internal\n"
+        "admin (login) | PROD | https://admin-main-admin.koop-plooi-prd.prod5.s15m.nl/login | 2xx,3xx | internal\n"
         "open-acc.overheid.nl | ACC | https://open-acc.overheid.nl | 2xx,3xx\n"
         "doculoket-acc.overheid.nl | ACC | https://doculoket-acc.overheid.nl | 2xx,3xx\n"
         "gateway-zoek (test) | TEST | https://gateway-zoek.koop-plooi-tst.test5.s15m.nl/ | 2xx,3xx,401,404 | internal\n"
@@ -326,6 +326,12 @@ class Settings(BaseSettings):
         "Keycloak | https://keycloak-admin.koop-plooi-prd.prod5.s15m.nl\n"
         "Documentopslag | https://msvc-documentopslag.koop-plooi-prd.prod5.s15m.nl"
     )
+
+    # Monitoring Targets registry (admin-configurable; additive, off by default)
+    monitor_enabled: bool = False
+    monitor_interval: int = 60        # seconds between poll cycles
+    monitor_timeout: int = 8          # per-check HTTP timeout
+    monitor_flap_threshold: int = 2   # consecutive reds before alerting
 
     # ── Unified alerting (admin-managed RED-state email alerts) ───────────────
     # Additive & OFF by default. When true, a background engine reads the existing

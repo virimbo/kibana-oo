@@ -3,7 +3,7 @@ Additive: own tables in the shared app db (db.py). Secrets are NEVER stored here
 only `secret_ref`, the NAME of an .env var read at check time."""
 import json
 from datetime import datetime, timezone
-from db import cursor
+from db import cursor as _db_cursor
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -23,8 +23,21 @@ CREATE TABLE IF NOT EXISTS monitor_results (
   status TEXT NOT NULL, detail TEXT, latency_ms INTEGER);
 CREATE INDEX IF NOT EXISTS ix_mon_results_target_ts ON monitor_results(target_id, ts);
 """
-with cursor() as _c:
-    _c.executescript(_SCHEMA)
+_schema_ready = False
+
+def _ensure_schema():
+    global _schema_ready
+    if not _schema_ready:
+        with _db_cursor() as c:
+            c.executescript(_SCHEMA)
+        _schema_ready = True
+
+def cursor():
+    """Schema-on-first-use wrapper (lazy, matching the other feature modules, e.g.
+    dlq_intel._conn) so merely importing this module never touches the DB — keeps
+    `import main` safe even before the data volume exists."""
+    _ensure_schema()
+    return _db_cursor()
 
 def _row(r): return dict(r) if r is not None else None
 

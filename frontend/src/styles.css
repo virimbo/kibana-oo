@@ -3507,3 +3507,15 @@ input:-webkit-autofill:focus {
   caret-color: var(--text-primary);
   transition: background-color 9999s ease-out 0s;
 }
+
+/* ── Authorization — approval gate (pending section + status column) ──────────── */
+.authz-pending { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 10px 0 0; padding: 0; }
+.authz-pending-row { display: flex; align-items: center; gap: 14px; padding: 10px 12px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.authz-pending-user { font-weight: 600; color: var(--text-primary); }
+.authz-pending-when { margin-left: auto; font-size: 12px; }
+.authz-approve { padding: 8px 16px; font-size: 12px; }
+.authz-status { white-space: nowrap; }
+.authz-status .switch { margin-left: 8px; vertical-align: middle; }
+.authz-status-h { white-space: nowrap; }
+.authz-suspended td.authz-cell:not(.authz-status) { opacity: 0.4; }

@@ -37,3 +37,13 @@ def test_document_activity_model_has_health_fields():
     from documents import DocumentActivity
     fields = DocumentActivity.model_fields
     assert "health" in fields and "events_prior" in fields and "events_pct_change" in fields
+
+def test_classify_prefers_structured_action_field():
+    import documents as d
+    assert d.classify_event_action({"event": {"action": "created"}}, "geen keyword hier") == "created"
+
+def test_classify_canonicalises_and_falls_back():
+    import documents as d
+    assert d.classify_event_action({"event": {"action": "create"}}, "x") == "created"   # canon
+    assert d.classify_event_action({}, "document deleted from index") == "deleted"        # keyword
+    assert d.classify_event_action({}, "willekeurige logregel") == "other"               # fallback

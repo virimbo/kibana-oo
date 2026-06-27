@@ -39,6 +39,32 @@ def classify_action(message: str | None) -> str:
     return "other"
 
 
+_STRUCTURED_ACTION_FIELDS = ("event.action", "action")
+_KNOWN_ACTIONS = {"created", "create", "updated", "update", "deleted", "delete",
+                  "retrieved", "indexed", "index"}
+_ACTION_CANON = {"create": "created", "update": "updated", "delete": "deleted", "index": "indexed"}
+
+
+def _dig(src, dotted):
+    cur = src
+    for part in dotted.split("."):
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+    return cur
+
+
+def classify_event_action(src, message):
+    """Prefer a structured action field on the event source; else keyword-classify the
+    message. `src` is the document _source dict (may be nested, e.g. event.action)."""
+    for f in _STRUCTURED_ACTION_FIELDS:
+        v = _dig(src, f)
+        if isinstance(v, str) and v.strip().lower() in _KNOWN_ACTIONS:
+            a = v.strip().lower()
+            return _ACTION_CANON.get(a, a)
+    return classify_action(message)
+
+
 def extract_file(message: str | None) -> tuple[str | None, str | None]:
     m = _FILE_RE.search(message or "")
     if not m:
@@ -70,7 +96,7 @@ def summarize_event(hit: dict) -> dict:
     )
     return {
         "timestamp": src.get("@timestamp"),
-        "action": classify_action(message),
+        "action": classify_event_action(src, message),
         "severity": severity,                       # ok | warning | error
         "status": "error" if severity == "error" else "ok",  # back-compat
         "problem": problem,                         # {key, severity, explanation} or None

@@ -42,3 +42,29 @@ def coverage(targets_with_status: list[dict]) -> dict:
         total = len(dims); ok = sum(1 for v in dims.values() if v == "ok")
         out[env] = {"score": round(ok / total, 2) if total else 1.0, **dims}
     return out
+
+async def _llm_summarize(prompt: str, sid: str) -> str:
+    """Best-effort: reuse the app's RAG path. Pull a little ES context + ask the LLM."""
+    import elastic, llm
+    ctx = ""
+    try:
+        hits = await elastic.search_logs(sid, prompt, size=20)
+        ctx = "\n".join((h.get("message", "") if isinstance(h, dict) else str(h)) for h in (hits or []))[:4000]
+    except Exception:  # noqa: BLE001
+        pass
+    return await llm.generate_answer(prompt, ctx)
+
+async def ai_rootcause(group: dict, sid: str | None) -> str | None:
+    """Dutch one-paragraph root-cause for a correlated incident. None on any failure /
+    AI off — callers must treat it as optional and never block on it."""
+    if not sid:
+        return None
+    tlist = ", ".join(f"{t['name']} ({t['type']}: {t['_status']})" for t in group["targets"])
+    prompt = (f"Korte root-cause analyse (Nederlands, max 3 zinnen) voor een monitoring-incident "
+              f"in omgeving {group['environment']} voor service '{group['service']}'. "
+              f"Rode signalen: {tlist}. Noem de meest waarschijnlijke oorzaak en 1 concrete actie.")
+    try:
+        out = await _llm_summarize(prompt, sid)
+        return (out or "").strip() or None
+    except Exception:  # noqa: BLE001 — AI is never allowed to break monitoring
+        return None

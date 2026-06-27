@@ -25,3 +25,24 @@ def test_coverage_score():
     ]
     cov = intel.coverage(targets)["prod"]
     assert cov["score"] == round(2/3, 2) and cov["metrics"] == "down"
+
+def test_ai_rootcause_is_best_effort(monkeypatch):
+    import monitor_intel as intel, asyncio
+    async def boom(*a, **k): raise RuntimeError("ai off")
+    monkeypatch.setattr(intel, "_llm_summarize", boom)
+    grp = {"environment": "prod", "service": "repo",
+           "targets": [{"name": "x", "type": "http", "_status": "down"}]}
+    assert asyncio.run(intel.ai_rootcause(grp, sid="s")) is None
+
+def test_ai_rootcause_none_without_sid():
+    import monitor_intel as intel, asyncio
+    grp = {"environment": "prod", "service": "repo", "targets": []}
+    assert asyncio.run(intel.ai_rootcause(grp, sid=None)) is None
+
+def test_ai_rootcause_returns_text(monkeypatch):
+    import monitor_intel as intel, asyncio
+    async def ok(prompt, sid): return "  Waarschijnlijk de Gateway-route.  "
+    monkeypatch.setattr(intel, "_llm_summarize", ok)
+    grp = {"environment": "prod", "service": "repo",
+           "targets": [{"name": "x", "type": "http", "_status": "down"}]}
+    assert asyncio.run(intel.ai_rootcause(grp, sid="s")) == "Waarschijnlijk de Gateway-route."

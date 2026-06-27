@@ -3,16 +3,36 @@
 Toegang is een **per-user × per-feature matrix**, beheerd door een **super admin**.
 Een feature is een card/page/tool; een gebruiker ziet en kan alleen de features
 gebruiken die aan hem zijn granted (deny-by-default), behalve de **Chat**-baseline die
-open is voor elke geauthenticeerde gebruiker.
+open is voor elke **goedgekeurde** gebruiker. Sinds de **approval gate** (zie onder)
+krijgt een nieuwe gebruiker echter **niets** — ook geen Chat — totdat de super admin
+hem goedkeurt.
+
+## Approval gate (goedkeuring van nieuwe gebruikers)
+
+Een gebruiker heeft een **status** in `app_users`: `pending` → `approved` → `suspended`.
+
+- **Auto-registratie:** wie inlogt en onbekend is, wordt automatisch `pending` (geen
+  handmatige invoer). Inloggen lukt; *autorisatie* wordt gegated, niet *authenticatie*.
+- **`pending` = nul toegang** (ook geen Chat). De frontend toont een wachtscherm.
+- **Goedkeuren** (super admin, Beheer → Autorisatie) → `approved` → Chat-baseline +
+  matrix-grants gelden. De active-toggle zet een gebruiker desgewenst op `suspended`
+  (toegang weg, grants bewaard).
+- **Afdwinging:** `permissions.has_feature()` én `user_features()` geven niets terug
+  voor een niet-goedgekeurde gebruiker (na de `is_super`-short-circuit); de `/chat`-
+  endpoint heeft een expliciete 403-guard.
+- **Fail-safe:** `is_super` → altijd `approved` (de super admin kan zich nooit
+  buitensluiten). **Grandfather** bij opstart: bestaande grant-houders + super admins
+  worden `approved`, dus niemand verliest toegang; alleen écht nieuwe users zijn `pending`.
+- API (super admin): `GET /admin/users`, `POST /admin/users/{u}/approve|suspend`.
 
 ## Rollen
 
 - **Super admin** — gedefinieerd in **config** (`SUPER_ADMINS`, komma-gescheiden
   e-mails; geseed met `anton.partono@koop.overheid.nl`). Bezit **elke** feature
-  impliciet en is de **enige** rol die de matrix kan beheren. Config-based zodat die
-  nooit via de UI ingetrokken kan worden (geen lock-out).
-- **Granted user** — elke ingelogde gebruiker met één of meer feature-grants.
-- **Iedereen anders** — alleen Chat.
+  impliciet, is **altijd approved**, en is de **enige** rol die de matrix + goedkeuring
+  beheert. Config-based zodat die nooit via de UI ingetrokken kan worden (geen lock-out).
+- **Granted user** — een **goedgekeurde** ingelogde gebruiker met één of meer grants.
+- **Pending/suspended user** — geen toegang (ook geen Chat) tot (her)goedkeuring.
 
 ## Feature-catalogus (matrix-kolommen)
 
@@ -27,8 +47,9 @@ Een card/tool toevoegen = één catalogus-entry toevoegen.
   `auth.require_feature("<key>")`; de matrix-manager-endpoints door
   `auth.require_super`. Een request voor een niet-granted feature → **403**.
 - **De frontend weerspiegelt het.** `GET /me/permissions` geeft
-  `{ is_super, features[], catalog }`; de UI rendert alleen granted pages/cards
-  (`can(feature)`), zodat niets niet-granted überhaupt getoond wordt.
+  `{ is_super, approved, features[], catalog }`; een niet-goedgekeurde gebruiker
+  (`approved: false`) krijgt het wachtscherm, anders rendert de UI alleen granted
+  pages/cards (`can(feature)`), zodat niets niet-granted getoond wordt.
 
 ## Beheer
 

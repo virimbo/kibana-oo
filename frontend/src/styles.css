@@ -2513,25 +2513,23 @@ body {
 }
 .brand--btn:hover .brand-name { color: var(--accent); }
 
+/* Clean, borderless nav — items float; the active item gets ONE calm treatment
+   (a soft crimson pill), no competing box/outline. */
 .topnav {
-  display: flex; align-items: center; gap: 2px;
-  padding: 3px; border-radius: 12px;
-  background: var(--bg-app); border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 4px;
 }
 .topnav-link {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 14px; border: none; border-radius: 9px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border: none; border-radius: var(--radius-sm);
   background: none; color: var(--text-secondary);
-  font: inherit; font-size: 13.5px; font-weight: 600; line-height: 1;
+  font: inherit; font-size: 13.5px; font-weight: 500; line-height: 1;
   cursor: pointer; white-space: nowrap;
-  transition: background 0.14s ease, color 0.14s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
-.topnav-link svg { opacity: 0.8; }
+.topnav-link svg { opacity: 0.65; transition: opacity 0.15s ease; }
 .topnav-link:hover { background: var(--bg-elevated); color: var(--text-primary); }
-.topnav-link.is-active {
-  background: var(--accent-soft); color: var(--accent);
-  box-shadow: inset 0 0 0 1px var(--accent-soft);
-}
+.topnav-link:hover svg { opacity: 1; }
+.topnav-link.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 .topnav-link.is-active svg { opacity: 1; }
 
 .user-chip {

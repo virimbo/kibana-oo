@@ -65,6 +65,13 @@ CREATE TABLE IF NOT EXISTS feature_grants_audit (
 );
 CREATE TABLE IF NOT EXISTS feature_grants_meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE INDEX IF NOT EXISTS idx_grants_user ON feature_grants(username);
+CREATE TABLE IF NOT EXISTS app_users (
+  username    TEXT PRIMARY KEY,
+  status      TEXT NOT NULL DEFAULT 'pending',
+  first_seen  TEXT NOT NULL,
+  approved_at TEXT,
+  approved_by TEXT
+);
 """
 
 
@@ -150,6 +157,81 @@ def revoke(username: str, feature: str, actor: str | None) -> bool:
             _audit(conn, actor, "revoke", u, feature)
         conn.commit()
     return True
+
+
+# ── User approval status (app_users) ──────────────────────────────────────────
+def record_login(username: str) -> str:
+    """Called on each successful login. Unknown user → registered 'pending'
+    (super-admins → 'approved'). Returns the current status. Idempotent."""
+    u = _norm(username)
+    if not u:
+        return "pending"
+    initial = "approved" if is_super(u) else "pending"
+    with closing(_conn()) as conn:
+        existing = conn.execute("SELECT status FROM app_users WHERE username=?", (u,)).fetchone()
+        if existing is None:
+            conn.execute(
+                "INSERT INTO app_users (username, status, first_seen, approved_at, approved_by) "
+                "VALUES (?,?,?,?,?)",
+                (u, initial, _now(), _now() if initial == "approved" else None,
+                 "auto" if initial == "approved" else None))
+            _audit(conn, "auto", "auto_register", u, "-")
+            conn.commit()
+            return initial
+        return existing["status"]
+
+
+def user_status(username: str) -> str:
+    """'approved' for super-admins (short-circuit); else the stored status, or
+    'pending' if unknown."""
+    u = _norm(username)
+    if is_super(u):
+        return "approved"
+    with closing(_conn()) as conn:
+        row = conn.execute("SELECT status FROM app_users WHERE username=?", (u,)).fetchone()
+    return row["status"] if row else "pending"
+
+
+def is_approved(username: str) -> bool:
+    return is_super(username) or user_status(username) == "approved"
+
+
+def _set_status(username: str, status: str, actor: str | None, action: str) -> None:
+    u = _norm(username)
+    with closing(_conn()) as conn:
+        conn.execute(
+            "INSERT INTO app_users (username, status, first_seen, approved_at, approved_by) "
+            "VALUES (?,?,?,?,?) "
+            "ON CONFLICT(username) DO UPDATE SET status=excluded.status, "
+            "approved_at=excluded.approved_at, approved_by=excluded.approved_by",
+            (u, status, _now(), _now(), actor))
+        _audit(conn, actor, action, u, "-")
+        conn.commit()
+
+
+def approve(username: str, actor: str | None) -> None:
+    _set_status(username, "approved", actor, "approve")
+
+
+def suspend(username: str, actor: str | None) -> None:
+    _set_status(username, "suspended", actor, "suspend")
+
+
+def list_users() -> list[dict]:
+    """Every known user + status, for the Authorization page. Super-admins always
+    shown approved."""
+    with closing(_conn()) as conn:
+        rows = conn.execute(
+            "SELECT username, status, first_seen, approved_at, approved_by FROM app_users "
+            "ORDER BY (status='pending') DESC, username").fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        if is_super(d["username"]):
+            d["status"] = "approved"
+        d["is_super"] = is_super(d["username"])
+        out.append(d)
+    return out
 
 
 def matrix() -> dict:

@@ -860,6 +860,23 @@ async function consumeSSE(body, signal, { onChunk, onSources, onError, onQuestio
 
 // ─── App (router) ───────────────────────────────────────────
 
+function PendingApproval({ username, onLogout }) {
+  return (
+    <div className="login-page login-page--gx">
+      <div className="gx-hero" style={{ textAlign: "center", margin: "auto", maxWidth: 520 }}>
+        <span className="gx-eyebrow">• TOEGANG</span>
+        <h1 className="gx-h1">In afwachting van goedkeuring</h1>
+        <p className="gx-sub">
+          Je account{username ? ` (${username})` : ""} is aangemaakt en wacht op goedkeuring
+          door de beheerder (anton.partono@koop.overheid.nl). Je krijgt toegang zodra je bent
+          goedgekeurd.
+        </p>
+        <button type="button" className="gx-cta" onClick={onLogout}>Afmelden</button>
+      </div>
+    </div>
+  );
+}
+
 export default function App() {
   const [token, setToken] = useState(
     () => sessionStorage.getItem("kibana_oo_token") || null
@@ -1044,6 +1061,10 @@ export default function App() {
 
   if (!token) {
     return <LoginPage onLogin={handleLogin} />;
+  }
+
+  if (perms && perms.approved === false && !perms.is_super) {
+    return <PendingApproval username={perms.username} onLogout={handleLogout} />;
   }
 
   if (view === "dashboard" && can("dashboard")) {

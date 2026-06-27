@@ -203,6 +203,7 @@ async def my_permissions(session: dict = Depends(require_session)):
         "is_super": permissions.is_super(username),
         "features": permissions.user_features(username),
         "catalog": permissions.CATALOG,
+        "approved": permissions.is_approved(username),
     }
 
 
@@ -228,6 +229,23 @@ async def remove_grant(body: GrantBody, session: dict = Depends(require_super)):
 @app.get("/admin/grants/audit")
 async def grants_audit(session: dict = Depends(require_super)):
     return {"audit": permissions.audit_log(200)}
+
+
+@app.get("/admin/users")
+async def admin_users(session: dict = Depends(require_super)):
+    return permissions.list_users()
+
+
+@app.post("/admin/users/{username}/approve")
+async def admin_user_approve(username: str, session: dict = Depends(require_super)):
+    permissions.approve(username, session.get("username"))
+    return {"ok": True, "status": "approved"}
+
+
+@app.post("/admin/users/{username}/suspend")
+async def admin_user_suspend(username: str, session: dict = Depends(require_super)):
+    permissions.suspend(username, session.get("username"))
+    return {"ok": True, "status": "suspended"}
 
 
 @app.post("/login")
@@ -266,6 +284,7 @@ async def login(request: LoginRequest):
 
     # Create session token
     token = create_session(username, sid)
+    permissions.record_login(username)
 
     logger.info(f"User {username} logged in successfully")
     return {
@@ -288,6 +307,8 @@ async def chat(
     session: dict = Depends(require_session),
 ):
     """Process a chat question: search ES via Kibana, generate answer with LLAMA."""
+    if not permissions.is_approved(session.get("username")):
+        raise HTTPException(status_code=403, detail="Account in afwachting van goedkeuring")
     sid = session["sid"]
     username = session["username"]
 

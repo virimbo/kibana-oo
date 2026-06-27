@@ -270,21 +270,41 @@ def ensure_seeded() -> None:
         seeded = conn.execute(
             "SELECT value FROM feature_grants_meta WHERE key = 'seeded'"
         ).fetchone()
-        if seeded:
-            return
-        for admin in settings.admin_list:
-            u = _norm(admin)
-            if is_super(u):
-                continue  # super admins don't need rows
-            for feature in GRANTABLE:
+        if not seeded:
+            for admin in settings.admin_list:
+                u = _norm(admin)
+                if is_super(u):
+                    continue  # super admins don't need rows
+                for feature in GRANTABLE:
+                    cur = conn.execute(
+                        "INSERT OR IGNORE INTO feature_grants (username, feature, granted_at, granted_by) "
+                        "VALUES (?,?,?,?)", (u, feature, _now(), "seed"),
+                    )
+                    if cur.rowcount:
+                        _audit(conn, "seed", "seed", u, feature)
+            conn.execute(
+                "INSERT OR REPLACE INTO feature_grants_meta (key, value) VALUES ('seeded', ?)", (_now(),)
+            )
+            conn.commit()
+            logger.info("Feature-grant seeding complete (existing admins granted all features).")
+    # Grandfather: existing grant-holders + super-admins → approved (own guard key,
+    # since 'seeded' may already be set on a live deployment). Idempotent.
+    with closing(_conn()) as conn:
+        done = conn.execute(
+            "SELECT value FROM feature_grants_meta WHERE key = 'users_grandfathered'").fetchone()
+        if not done:
+            users = {r["username"] for r in conn.execute(
+                "SELECT DISTINCT username FROM feature_grants").fetchall()}
+            users.update(_norm(a) for a in settings.super_admin_list)
+            for u in users:
+                if not u:
+                    continue
                 cur = conn.execute(
-                    "INSERT OR IGNORE INTO feature_grants (username, feature, granted_at, granted_by) "
-                    "VALUES (?,?,?,?)", (u, feature, _now(), "seed"),
-                )
+                    "INSERT OR IGNORE INTO app_users (username, status, first_seen, approved_at, approved_by) "
+                    "VALUES (?, 'approved', ?, ?, 'seed')", (u, _now(), _now()))
                 if cur.rowcount:
-                    _audit(conn, "seed", "seed", u, feature)
-        conn.execute(
-            "INSERT OR REPLACE INTO feature_grants_meta (key, value) VALUES ('seeded', ?)", (_now(),)
-        )
-        conn.commit()
-    logger.info("Feature-grant seeding complete (existing admins granted all features).")
+                    _audit(conn, "seed", "approve", u, "-")
+            conn.execute(
+                "INSERT OR REPLACE INTO feature_grants_meta (key, value) VALUES ('users_grandfathered', ?)",
+                (_now(),))
+            conn.commit()

@@ -50,3 +50,17 @@ def test_approved_user_gets_features_and_baseline():
 def test_super_admin_unaffected_by_gate():
     assert p.has_feature({"username": "boss@koop.nl"}, "chat") is True
     assert "dashboard" in p.user_features("boss@koop.nl")
+
+def test_grandfather_marks_existing_grant_holders_approved():
+    p.grant("legacy@koop.nl", "dashboard", actor="seed")   # a pre-existing user with a grant
+    p.ensure_seeded()
+    assert p.user_status("legacy@koop.nl") == "approved"    # grandfathered, not locked out
+    # a brand-new user (no grant) is NOT auto-approved by grandfather:
+    p.record_login("fresh@koop.nl")
+    assert p.user_status("fresh@koop.nl") == "pending"
+
+def test_grandfather_is_idempotent():
+    p.grant("legacy2@koop.nl", "uptime", actor="seed")
+    p.ensure_seeded()
+    p.ensure_seeded()   # second call must not error or change status
+    assert p.user_status("legacy2@koop.nl") == "approved"

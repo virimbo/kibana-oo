@@ -203,6 +203,7 @@ async def my_permissions(session: dict = Depends(require_session)):
         "is_super": permissions.is_super(username),
         "features": permissions.user_features(username),
         "catalog": permissions.CATALOG,
+        "approved": permissions.is_approved(username),
     }
 
 
@@ -266,6 +267,7 @@ async def login(request: LoginRequest):
 
     # Create session token
     token = create_session(username, sid)
+    permissions.record_login(username)
 
     logger.info(f"User {username} logged in successfully")
     return {

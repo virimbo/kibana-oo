@@ -165,7 +165,70 @@ betere keuze** — begin alleen aan agents als simpele RAG echt tekortschiet.
 
 ---
 
-## 7. Voor het team (de zin om te onthouden)
+## 7. Compliance & privacy (EU AI Act + AVG)
+
+> ⚖️ **Belangrijk — lees dit eerst.** Dit is een **engineering-inschatting**, géén
+> juridisch oordeel en géén certificering. Een uitspraak als *"100% compliant"* kan
+> alléén worden gedaan na een **DPIA** en akkoord van de **Functionaris
+> Gegevensbescherming (FG/DPO)**. Hieronder staat wat de app *technisch* doet en
+> welke keuzes bijdragen aan compliance — eerlijk, inclusief de aandachtspunten.
+
+### EU AI Act — risico-classificatie
+
+De app is een **intern monitoring-/observability-hulpmiddel**. Het valt **niet** onder
+de high-risk categorieën van **Annex III** (geen biometrie, geen beslissingen over
+personen, geen kredietscoring, geen werving/selectie, enz.). Inschatting:
+**minimal / limited risk**.
+
+De relevante plicht is **transparantie (Art. 50)**: gebruikers moeten weten dat ze
+met AI praten. **Dat is al ingevuld** — de chat toont:
+
+> *"Je communiceert met een AI-systeem. Antwoorden worden gegenereerd door een Llama-
+> of Mistral-taalmodel en kunnen onnauwkeurigheden bevatten. Verifieer kritieke
+> bevindingen altijd in Kibana."* (`frontend/src/App.jsx`)
+
+### Privacy-by-design — maatregelen die KLOPPEN ✅
+
+- **Local-first:** de **default provider is Ollama** (`llm_provider = "ollama"`), die
+  **on-prem** draait. In deze stand verlaat **geen logdata** de omgeving.
+- **Volledig achter authenticatie:** Keycloak/SP-login + **per-feature autorisatie**
+  (deny-by-default, super-admin + grant-matrix). Zie [[Autorisatie]].
+- **Read-only & veilig:** de monitors doen alleen-lezen checks op een **vaste
+  URL-lijst** (geen user-input → geen SSRF), geen credentials in de requests.
+- **Geen secrets in git** (`.env` is git-ignored); API-keys staan niet in de repo.
+- **AI-disclosure aanwezig** (transparantie, zie hierboven).
+
+### Aandachtspunten — eerlijk benoemd ⚠️
+
+- **Er wórden persoonsgegevens verwerkt.** Minimaal: **usernames** (login, sessies,
+  audit-logs `actor`). Daarnaast kúnnen **logs/documenten** persoonsgegevens bevatten.
+  → De claim *"gebruikt nooit persoonsgegevens"* is **niet juist**.
+- **Geen PII-redactie vóór de LLM.** De opgehaalde logs gaan **as-is** in de prompt.
+- **Mistral = cloud (derde partij).** Kies je Mistral, dan gaat de prompt-context
+  (incl. mogelijke persoonsgegevens) naar `api.mistral.ai` (Frankrijk/EU). Dat maakt
+  Mistral een **verwerker** → er is een **verwerkersovereenkomst (DPA)** nodig.
+
+### Aanbevolen formele stappen (zo wordt compliance écht aantoonbaar)
+
+1. **DPIA** (gegevensbeschermingseffectbeoordeling) uitvoeren en laten tekenen door de **FG/DPO**.
+2. **Grondslag** vastleggen (AVG Art. 6) en **doelbinding** documenteren.
+3. **Data-minimalisatie & bewaartermijnen** bepalen (audit-logs, incident-stores).
+4. **Mistral:** óf een **DPA** afsluiten, **óf** in productie **alleen Ollama (on-prem)**
+   toestaan → dan blijft alle AI-verwerking lokaal en is dit aandachtspunt weg.
+5. Optioneel: **PII-redactie/pseudonimisering** toevoegen vóór de prompt (data-minimalisatie).
+
+### De eerlijke samenvatting
+
+> *De app is **met privacy in gedachten ontworpen** (local-first AI, volledige
+> authenticatie, read-only monitors, AI-transparantie) en valt qua **AI Act**
+> waarschijnlijk onder **minimal/limited risk** met de transparantieplicht al
+> ingevuld. Hij verwerkt **wél** persoonsgegevens (o.a. usernames), dus volledige
+> **AVG-compliance vereist een DPIA + FG/DPO-akkoord** — dat is een organisatorische
+> stap, geen code-claim.*
+
+---
+
+## 8. Voor het team (de zin om te onthouden)
 
 > *"Onze app is een **RAG-applicatie**: hij haalt logs uit Elasticsearch en laat een
 > LLM (lokaal Llama of Mistral) die samenvatten, met bronnen. Daarnaast draaien er

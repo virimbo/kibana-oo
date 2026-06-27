@@ -36,9 +36,17 @@ const fmtDate = (iso) => {
     : new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(d);
 };
 
-// Honest display labels for action keys. The underlying data key is unchanged;
-// only the human-facing label differs (e.g. "other" → "niet-geclassificeerd").
-const ACTION_LABELS = { other: "niet-geclassificeerd" };
+// Honest Dutch display labels for action keys. The underlying data key is unchanged;
+// only the human-facing label differs. Covers every value classify_event_action can
+// produce (created/updated/deleted/retrieved/indexed/other) so no raw English leaks.
+const ACTION_LABELS = {
+  created: "aangemaakt",
+  updated: "bijgewerkt",
+  deleted: "verwijderd",
+  retrieved: "opgehaald",
+  indexed: "geïndexeerd",
+  other: "niet-geclassificeerd",
+};
 const actionLabel = (action) => ACTION_LABELS[action] || action;
 
 function ActionBadge({ action }) {
@@ -522,7 +530,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                     {data.failed.map((f, i) => (
                       <li key={i}>
                         <span className="doc-row">
-                          <span className={`act act--${f.action}`}>{f.action}</span>
+                          <ActionBadge action={f.action} />
                           {f.link ? (
                             <a href={f.link} target="_blank" rel="noreferrer" className="doc-link">
                               {f.doc_id || f.filename || "document"}
@@ -703,7 +711,9 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                 const icon = lvl === "critical" ? "⛔" : lvl === "warning" ? "▲" : "✓";
                 const headClass = lvl === "critical" ? "alerts-pill--crit" : lvl === "warning" ? "alerts-pill--warn" : "alerts-pill--ok";
                 return (
-                  <section className={`panel gx-panel doc-health${isOk ? "" : " panel--alert"}`}>
+                  <section className={`panel gx-panel doc-health${isOk ? "" : " panel--alert"}`}
+                           data-smartcard="card:documents" data-smartlabel="Documenten"
+                           data-smartstatus={lvl} data-smartenv="PROD">
                     <h3 className="gx-h2 doc-health-head">
                       <span className={`doc-health-icon ${headClass}`}>{icon}</span>
                       {data.health.headline}
@@ -815,8 +825,13 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   ))}
                   {(!data.by_action || data.by_action.length === 0) && <p className="muted">Geen events.</p>}
                 </div>
-                {data.by_action && data.by_action.length === 1 && data.by_action[0].action === "other" && (
-                  <p className="muted">Het actietype staat niet in de logtekst — alleen het aantal events is bekend.</p>
+                {(() => {
+                  const rows = data.by_action || [];
+                  const total = rows.reduce((s, a) => s + a.count, 0);
+                  const other = rows.find((a) => a.action === "other");
+                  return total > 0 && other && other.count / total >= 0.5;
+                })() && (
+                  <p className="muted">Het actietype is grotendeels niet uit de logtekst af te leiden — alleen het aantal events is bekend.</p>
                 )}
               </section>
 

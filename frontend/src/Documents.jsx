@@ -36,8 +36,13 @@ const fmtDate = (iso) => {
     : new Intl.DateTimeFormat(undefined, { day: "2-digit", month: "short" }).format(d);
 };
 
+// Honest display labels for action keys. The underlying data key is unchanged;
+// only the human-facing label differs (e.g. "other" → "niet-geclassificeerd").
+const ACTION_LABELS = { other: "niet-geclassificeerd" };
+const actionLabel = (action) => ACTION_LABELS[action] || action;
+
 function ActionBadge({ action }) {
-  return <span className={`act act--${action}`}>{action}</span>;
+  return <span className={`act act--${action}`}>{actionLabel(action)}</span>;
 }
 
 // Collapse runs of identical consecutive events (same service/action/status/message)
@@ -691,6 +696,38 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   ))}
               </section>
 
+              {data.health && (() => {
+                const lvl = data.health.level;
+                const isOk = lvl === "ok";
+                const sigs = Array.isArray(data.health.signals) ? data.health.signals : [];
+                const icon = lvl === "critical" ? "⛔" : lvl === "warning" ? "▲" : "✓";
+                const headClass = lvl === "critical" ? "alerts-pill--crit" : lvl === "warning" ? "alerts-pill--warn" : "alerts-pill--ok";
+                return (
+                  <section className={`panel gx-panel doc-health${isOk ? "" : " panel--alert"}`}>
+                    <h3 className="gx-h2 doc-health-head">
+                      <span className={`doc-health-icon ${headClass}`}>{icon}</span>
+                      {data.health.headline}
+                    </h3>
+                    {sigs.length > 0 && (
+                      <ul className="doc-health-signals">
+                        {sigs.map((s, i) => (
+                          <li key={i} className="doc-health-signal">
+                            <span className={`doc-health-dot ${s.severity === "critical" ? "alerts-pill--crit" : "alerts-pill--warn"}`} aria-hidden="true">●</span>
+                            <span className="doc-health-msg">{s.message}</span>
+                            {s.action && (
+                              <span className="doc-health-action muted">
+                                {s.action}
+                                <InfoTip text={s.action} />
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </section>
+                );
+              })()}
+
               <section className="panel gx-panel">
                 <h3 className="gx-h2">
                   Errors per bron
@@ -738,6 +775,11 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                     document events
                     <InfoTip text="Log events related to documents in the selected window (created, updated, deleted, retrieved)." />
                   </span>
+                  {data.events_pct_change != null && (
+                    <span className="kpi-delta muted">
+                      ({data.events_pct_change > 0 ? "+" : ""}{data.events_pct_change}% vs vorig venster)
+                    </span>
+                  )}
                 </div>
                 <div className="kpi">
                   <span className="kpi-value">{data.unique_documents}</span>
@@ -754,6 +796,11 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                     errors
                     <InfoTip text="Document events logged at ERROR level — failures worth investigating." />
                   </span>
+                  {data.error_pct_change != null && (
+                    <span className="kpi-delta muted">
+                      ({data.error_pct_change > 0 ? "+" : ""}{data.error_pct_change}% vs vorig venster)
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -768,6 +815,9 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   ))}
                   {(!data.by_action || data.by_action.length === 0) && <p className="muted">Geen events.</p>}
                 </div>
+                {data.by_action && data.by_action.length === 1 && data.by_action[0].action === "other" && (
+                  <p className="muted">Het actietype staat niet in de logtekst — alleen het aantal events is bekend.</p>
+                )}
               </section>
 
               <section className="panel gx-panel">

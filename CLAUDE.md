@@ -36,6 +36,11 @@ This is the KIBANA-OO project. Update this section with project description as i
   (config) + per-user × per-feature grant matrix; `require_feature` enforces server-side.
 - **RabbitMQ DLQ:** see [docs/rabbitmq-dlq.md](docs/rabbitmq-dlq.md) — dead-letter-queue
   monitor (Management API, read-only); background poll + alerts + `/dashboard/dlq`.
+- **AI architecture & compliance:** see [docs/KIBANA-OO/AI-architectuur.md](docs/KIBANA-OO/AI-architectuur.md)
+  (NL) — the app is **RAG** (Elasticsearch → prompt → LLM) + background monitors; **no
+  agents/sub-agents/MCP** (those are Claude Code build-time tooling). Includes Mermaid
+  diagrams and an honest EU AI Act / AVG privacy posture (not a "100% compliant" claim —
+  needs a DPIA + DPO sign-off).
 
 _Document further architecture decisions here as the project develops._
 

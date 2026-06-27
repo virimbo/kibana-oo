@@ -8,6 +8,9 @@ tags: [dashboard, admin]
 Back to [[Home]]. Admin-only (`DASHBOARD_ADMINS`). `frontend/src/Dashboard.jsx`,
 `backend/dashboard.py` + `monitoring.py` + `briefing.py`. Endpoints cached.
 
+> 🧠 Hoe werkt de AI hier? Zie [[AI-architectuur]] — RAG + achtergrond-monitors,
+> géén agents/sub-agents/MCP, plus de EU AI Act / AVG privacy-posture.
+
 ## Panels
 
 - **Critical issues** = error logs + HTTP 5xx + APM errors, with a per-data-view

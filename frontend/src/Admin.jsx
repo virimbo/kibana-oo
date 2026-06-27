@@ -41,14 +41,23 @@ const CARDS = [
   },
 ];
 
-// Super-admin-only card.
-const SUPER_CARD = {
-  view: "authorization",
-  icon: "🔐",
-  title: "Autorisatie",
-  subtitle: "Authorisation",
-  desc: "Beheer wie toegang heeft tot welke kaarten en tools (gebruiker × functie-matrix).",
-};
+// Super-admin-only cards.
+const SUPER_CARDS = [
+  {
+    view: "authorization",
+    icon: "🔐",
+    title: "Autorisatie",
+    subtitle: "Authorisation",
+    desc: "Beheer wie toegang heeft tot welke kaarten en tools (gebruiker × functie-matrix).",
+  },
+  {
+    view: "monitoring",
+    icon: "📡",
+    title: "Monitoring-config",
+    subtitle: "Monitoring",
+    desc: "Monitoring-targets en connections (Prometheus/Jaeger) beheren — secrets staan in .env.",
+  },
+];
 
 export default function AdminPage({
   username,
@@ -63,7 +72,7 @@ export default function AdminPage({
 }) {
   // Show only the cards this admin may use; super admin also gets Autorisatie.
   const cards = CARDS.filter((c) => can(c.view));
-  if (isSuper) cards.push(SUPER_CARD);
+  if (isSuper) cards.push(...SUPER_CARDS);
   return (
     <>
       <TopNav

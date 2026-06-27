@@ -136,5 +136,34 @@ async def _check_prometheus(target, connection):
     except (httpx.RequestError, KeyError, ValueError) as e:
         return {"status": "unreachable", "detail": {"error": type(e).__name__}, "latency_ms": None}
 
-register("jaeger-traces", _JAEGER_FIELDS, _check_jaeger)
-register("prometheus-query", _PROM_FIELDS, _check_prometheus)
+async def _discover_jaeger(connection):
+    """List Jaeger services → one jaeger-traces target suggestion each."""
+    url = f"{connection['base_url'].rstrip('/')}/api/services"
+    try:
+        async with httpx.AsyncClient(timeout=settings.monitor_timeout) as c:
+            resp = await c.get(url, headers=_auth_headers(connection))
+        services = (resp.json() or {}).get("data") or []
+    except Exception:  # noqa: BLE001
+        return []
+    return [{"name": f"traces: {s}", "type": "jaeger-traces", "environment": "na",
+             "connection_id": connection.get("id"),
+             "config": {"service": s, "lookback_minutes": 15, "min_traces": 1}}
+            for s in services]
+
+async def _discover_prometheus(connection):
+    """List Prometheus scrape jobs → an up{job=...} target suggestion each."""
+    url = f"{connection['base_url'].rstrip('/')}/api/v1/targets"
+    try:
+        async with httpx.AsyncClient(timeout=settings.monitor_timeout) as c:
+            resp = await c.get(url, headers=_auth_headers(connection))
+        targets = (((resp.json() or {}).get("data") or {}).get("activeTargets")) or []
+    except Exception:  # noqa: BLE001
+        return []
+    jobs = sorted({(t.get("labels") or {}).get("job") for t in targets if (t.get("labels") or {}).get("job")})
+    return [{"name": f"up: {job}", "type": "prometheus-query", "environment": "na",
+             "connection_id": connection.get("id"),
+             "config": {"query": f'up{{job="{job}"}}', "op": ">", "threshold": 0}}
+            for job in jobs]
+
+register("jaeger-traces", _JAEGER_FIELDS, _check_jaeger, discover=_discover_jaeger)
+register("prometheus-query", _PROM_FIELDS, _check_prometheus, discover=_discover_prometheus)

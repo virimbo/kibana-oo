@@ -112,3 +112,34 @@ def test_prometheus_query_empty_is_stale(monkeypatch):
     t = {"type": "prometheus-query", "config": {"query": "up", "op": "exists"}}
     conn = {"base_url": "http://prom:9090", "secret_ref": None}
     assert asyncio.run(mc.run_check(t, conn))["status"] == "stale"
+
+def test_jaeger_discover(monkeypatch):
+    import httpx, asyncio, monitor_checkers as mc
+    class R:
+        status_code = 200
+        def json(self): return {"data": ["repo", "search"]}
+    class C:
+        async def __aenter__(s): return s
+        async def __aexit__(s, *a): return False
+        async def get(s, u, **k): return R()
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: C())
+    sug = asyncio.run(mc.CHECKERS["jaeger-traces"]["discover"]({"id": 1, "base_url": "http://j", "secret_ref": None}))
+    services = [s["config"]["service"] for s in sug]
+    assert "repo" in services and "search" in services
+    assert sug[0]["type"] == "jaeger-traces" and sug[0]["connection_id"] == 1
+
+def test_prometheus_discover(monkeypatch):
+    import httpx, asyncio, monitor_checkers as mc
+    class R:
+        status_code = 200
+        def json(self): return {"data": {"activeTargets": [
+            {"labels": {"job": "gateway"}}, {"labels": {"job": "repo"}}]}}
+    class C:
+        async def __aenter__(s): return s
+        async def __aexit__(s, *a): return False
+        async def get(s, u, **k): return R()
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: C())
+    sug = asyncio.run(mc.CHECKERS["prometheus-query"]["discover"]({"id": 2, "base_url": "http://p", "secret_ref": None}))
+    jobs = [s["name"] for s in sug]
+    assert any("gateway" in j for j in jobs)
+    assert sug[0]["type"] == "prometheus-query" and sug[0]["connection_id"] == 2

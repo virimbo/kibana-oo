@@ -1,14 +1,13 @@
-import os, tempfile
-os.environ["APP_DB_PATH"] = os.path.join(tempfile.gettempdir(), "mon_eng_test.db")
-import importlib, config as _c; importlib.reload(_c)
+import pytest
 from config import settings
-settings.app_db_path = os.environ["APP_DB_PATH"]
 import asyncio, monitor_engine as eng, monitor_registry as reg
 
-def setup_function(_):
-    with reg.cursor() as c:
-        for t in ("monitor_results", "monitor_targets", "monitor_connections"):
-            c.execute(f"DELETE FROM {t}")
+
+@pytest.fixture(autouse=True)
+def _isolate_db(tmp_path, monkeypatch):
+    monkeypatch.setattr(settings, "app_db_path", str(tmp_path / "t.db"))
+    monkeypatch.setattr(reg, "_schema_ready", False)   # force schema re-create in the fresh db
+    yield
 
 def test_run_once_records_results_and_survives_bad_target(monkeypatch):
     good = reg.add_target(name="g", type="http", config={"url": "http://g"}, actor="a")

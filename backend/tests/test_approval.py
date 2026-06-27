@@ -31,3 +31,22 @@ def test_list_users_includes_status():
 
 def test_is_approved_failsafe_when_table_empty():
     assert p.is_approved("boss@koop.nl") is True
+
+def test_pending_user_has_no_features():
+    p.record_login("u@koop.nl")
+    p.grant("u@koop.nl", "dashboard", actor="boss@koop.nl")   # granted but NOT approved
+    assert p.user_features("u@koop.nl") == []                 # gate: nothing until approved
+    assert p.has_feature({"username": "u@koop.nl"}, "dashboard") is False
+    assert p.has_feature({"username": "u@koop.nl"}, "chat") is False   # baseline gated too
+
+def test_approved_user_gets_features_and_baseline():
+    p.record_login("u2@koop.nl")
+    p.approve("u2@koop.nl", actor="boss@koop.nl")
+    p.grant("u2@koop.nl", "dashboard", actor="boss@koop.nl")
+    assert "dashboard" in p.user_features("u2@koop.nl")
+    assert p.has_feature({"username": "u2@koop.nl"}, "chat") is True
+    assert p.has_feature({"username": "u2@koop.nl"}, "dashboard") is True
+
+def test_super_admin_unaffected_by_gate():
+    assert p.has_feature({"username": "boss@koop.nl"}, "chat") is True
+    assert "dashboard" in p.user_features("boss@koop.nl")

@@ -103,6 +103,8 @@ def has_feature(session: dict, feature: str) -> bool:
     username = (session or {}).get("username")
     if is_super(username):
         return True
+    if not is_approved(username):
+        return False
     if feature in BASELINE:
         return True
     if feature in SUPER_ONLY:
@@ -125,6 +127,8 @@ def user_features(username: str) -> list[str]:
     """The feature keys this user may use (super → all grantable)."""
     if is_super(username):
         return list(GRANTABLE)
+    if not is_approved(username):
+        return []
     with closing(_conn()) as conn:
         rows = conn.execute(
             "SELECT feature FROM feature_grants WHERE username = ?", (_norm(username),)

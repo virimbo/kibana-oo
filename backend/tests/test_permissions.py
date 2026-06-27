@@ -33,6 +33,7 @@ def test_super_has_every_feature():
 
 
 def test_chat_is_open_baseline():
+    P.approve(USER, actor=SUPER)                       # baseline requires approval (gate)
     assert P.has_feature(sess(USER), "chat")          # anyone authenticated
     assert P.has_feature(sess(SUPER), "chat")
 
@@ -43,6 +44,7 @@ def test_deny_by_default():
 
 
 def test_grant_then_revoke():
+    P.approve(USER, actor=SUPER)                        # grants only apply once approved (gate)
     assert P.grant(USER, "regression", actor=SUPER) is True
     assert P.has_feature(sess(USER), "regression") is True
     assert "regression" in P.user_features(USER)
@@ -62,6 +64,7 @@ def test_authorization_is_super_only():
 
 
 def test_seeding_grants_existing_admins_all_and_is_idempotent():
+    P.approve(ADMIN, actor=SUPER)                       # seeded grants surface once approved (gate)
     P.ensure_seeded()
     assert set(P.user_features(ADMIN)) == set(P.GRANTABLE)
     audit_after_first = len(P.audit_log(1000))

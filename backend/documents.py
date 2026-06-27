@@ -153,6 +153,38 @@ def _alert_level(errors: int, pct_change: float | None) -> str:
     return "warning" if errors > 0 else "ok"
 
 
+def _build_health(events, events_prior, errors, error_pct_change, events_pct_change):
+    """Plain-Dutch health verdict + proactive signals from the window's counts vs the
+    previous window. Pure — the single place push-alerts (Phase B) and a learned
+    baseline would later hook into. `events` = current event count, `events_prior` =
+    previous-window event count."""
+    signals = []
+    if events == 0 and events_prior >= settings.doc_stall_min_prior:
+        signals.append({
+            "kind": "stalled", "severity": "critical",
+            "message": f"Geen documentactiviteit (was {events_prior}) — verwerking mogelijk gestopt.",
+            "action": "Controleer de verwerkings-/pipeline-logs in Kibana; zie de runbook."})
+    if errors >= settings.doc_error_threshold or (errors > 0 and (error_pct_change or 0) >= 100):
+        sev = "critical" if errors >= settings.doc_error_threshold else "warning"
+        pct = f" (+{error_pct_change}%)" if error_pct_change else ""
+        signals.append({
+            "kind": "error_spike", "severity": sev,
+            "message": f"{errors} fouten{pct}.",
+            "action": "Bekijk 'Errors per bron' en de gefaalde documenten; zie de runbook."})
+    if events > 0 and events_prior > 0 and abs(events_pct_change or 0) >= settings.doc_volume_swing_pct:
+        direction = "hoog" if (events_pct_change or 0) > 0 else "laag"
+        signals.append({
+            "kind": "volume", "severity": "warning",
+            "message": f"Volume ongewoon {direction}: {events} vs {events_prior} (vorig venster).",
+            "action": "Controleer of dit verwacht is (bv. een batch-run of een storing)."})
+    level = ("critical" if any(s["severity"] == "critical" for s in signals)
+             else "warning" if signals else "ok")
+    headline = (next((s["message"] for s in signals if s["severity"] == "critical"), None)
+                or (signals[0]["message"] if signals else None)
+                or f"{events} documenten verwerkt, {errors} fouten (dit venster).")
+    return {"level": level, "headline": headline, "signals": signals}
+
+
 _WARN_ERROR_LEVELS = ["warn", "WARN", "warning", "WARNING"] + _ERROR_LEVELS
 
 

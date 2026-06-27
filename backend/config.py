@@ -327,6 +327,11 @@ class Settings(BaseSettings):
         "Documentopslag | https://msvc-documentopslag.koop-plooi-prd.prod5.s15m.nl"
     )
 
+    # Document health signals (Documents page intelligence)
+    doc_error_threshold: int = 10      # errors at/above this = critical spike
+    doc_stall_min_prior: int = 1       # prior-window events needed to call 0-now a "stall"
+    doc_volume_swing_pct: int = 60     # |events pct change| at/above this = volume signal
+
     # Monitoring Targets registry (admin-configurable; additive, off by default)
     monitor_enabled: bool = False
     monitor_interval: int = 60        # seconds between poll cycles

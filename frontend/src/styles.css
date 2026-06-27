@@ -1400,6 +1400,7 @@ body {
 .act--updated { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
 .act--deleted { color: var(--error); background: var(--error-soft); border-color: var(--error); }
 .act--retrieved { color: var(--text-secondary); background: var(--bg-input); }
+.act--indexed { color: var(--text-secondary); background: var(--bg-elevated); border-color: var(--border-strong); }
 .act--other { color: var(--text-faint); background: var(--bg-input); }
 
 .feed-filters { display: flex; gap: 8px; align-items: center; }

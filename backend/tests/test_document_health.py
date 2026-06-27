@@ -53,3 +53,23 @@ def test_documents_runbook_condition():
     assert ce._condition_from_heading("Bij document-verwerking gestopt") == "documents"
     assert ce._derive_condition("card:documents", "critical") == ("documents", True)
     assert ce._derive_condition("card:documents", "warning") == ("documents", False)
+
+
+# ── review fixes ──────────────────────────────────────────────────────────────
+def test_health_unreliable_suppresses_stall_and_volume():
+    # when the current count came from a degraded path, don't fire count-based signals
+    h = d._build_health(events=0, events_prior=20, errors=0, error_pct_change=None,
+                        events_pct_change=-100.0, reliable=False)
+    assert all(s["kind"] not in ("stalled", "volume") for s in h["signals"])
+    assert h["level"] == "ok"
+
+def test_health_error_spike_no_plus_for_negative_pct():
+    # errors over the count threshold but DROPPED vs prior → no malformed '(+-40%)'
+    h = d._build_health(events=50, events_prior=50, errors=12, error_pct_change=-40.0, events_pct_change=0.0)
+    msg = [s for s in h["signals"] if s["kind"] == "error_spike"][0]["message"]
+    assert "+-" not in msg and msg == "12 fouten."
+
+def test_pct_change_helper():
+    assert d._pct_change(12, 0) is None      # no baseline
+    assert d._pct_change(15, 10) == 50.0
+    assert d._pct_change(5, 10) == -50.0

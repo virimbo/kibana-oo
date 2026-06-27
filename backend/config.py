@@ -329,6 +329,7 @@ class Settings(BaseSettings):
 
     # Document health signals (Documents page intelligence)
     doc_error_threshold: int = 10      # errors at/above this = critical spike
+    doc_error_spike_pct: int = 100     # errors up by ≥ this % (and > 0) = warning spike
     doc_stall_min_prior: int = 1       # prior-window events needed to call 0-now a "stall"
     doc_volume_swing_pct: int = 60     # |events pct change| at/above this = volume signal
 

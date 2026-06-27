@@ -39,6 +39,7 @@ flowchart TD
 - [[Chat pipeline]] — how a question becomes an answer (doc-id trace, OCR, auto-correct, escalation)
 - [[Document tracer]] — trace one document's journey + AI explain
 - [[Document lifecycle (pipeline)]] — the canonical pipeline: how far a doc got, is it healthy, is it stuck (1-1 with the dashboard)
+- [[Documentgezondheid]] — plain-language verdict + proactive signals on the Documenten-pagina (stalled / foutpiek / volume)
 - [[Monitoring dashboard]] — daily critical-issue dashboard
 - [[Dashboard - statusoverzicht]] — 🇳🇱 de overzichtsrij (statustegels) + inklapbare zones, voor beheerders
 - [[Smart context paneel]] — 🇳🇱 hover een kaart → rechts paneel met uitleg, status, AI-analyse en TO DO's uit de vault

@@ -178,30 +178,39 @@ def _event_count_body(start, end):
 
 
 def _alert_level(errors: int, pct_change: float | None) -> str:
+    """Back-compat errors-only severity (drives the legacy alert panel). The
+    stall/volume-aware verdict lives in _build_health → health.level."""
     if errors >= 10 or (errors > 0 and pct_change is not None and pct_change >= 100):
         return "critical"
     return "warning" if errors > 0 else "ok"
 
 
-def _build_health(events, events_prior, errors, error_pct_change, events_pct_change):
+def _pct_change(curr: int, prior: int) -> float | None:
+    """Percentage change vs a prior count; None when there's no baseline (prior == 0)."""
+    return round((curr - prior) / prior * 100, 1) if prior else None
+
+
+def _build_health(events, events_prior, errors, error_pct_change, events_pct_change, reliable=True):
     """Plain-Dutch health verdict + proactive signals from the window's counts vs the
     previous window. Pure — the single place push-alerts (Phase B) and a learned
     baseline would later hook into. `events` = current event count, `events_prior` =
-    previous-window event count."""
+    previous-window event count. `reliable` is False when the current event count came
+    from a degraded path (timeseries-agg failure) — then the volume-/stall-signals that
+    depend on an accurate `events` are suppressed (errors come from a separate query)."""
     signals = []
-    if events == 0 and events_prior >= settings.doc_stall_min_prior:
+    if reliable and events == 0 and events_prior >= settings.doc_stall_min_prior:
         signals.append({
             "kind": "stalled", "severity": "critical",
             "message": f"Geen documentactiviteit (was {events_prior}) — verwerking mogelijk gestopt.",
             "action": "Controleer de verwerkings-/pipeline-logs in Kibana; zie de runbook."})
-    if errors >= settings.doc_error_threshold or (errors > 0 and (error_pct_change or 0) >= 100):
+    if errors >= settings.doc_error_threshold or (errors > 0 and (error_pct_change or 0) >= settings.doc_error_spike_pct):
         sev = "critical" if errors >= settings.doc_error_threshold else "warning"
-        pct = f" (+{error_pct_change}%)" if error_pct_change else ""
+        pct = f" (+{error_pct_change}%)" if (error_pct_change or 0) > 0 else ""  # only annotate a real increase
         signals.append({
             "kind": "error_spike", "severity": sev,
             "message": f"{errors} fouten{pct}.",
             "action": "Bekijk 'Errors per bron' en de gefaalde documenten; zie de runbook."})
-    if events > 0 and events_prior > 0 and abs(events_pct_change or 0) >= settings.doc_volume_swing_pct:
+    if reliable and events > 0 and events_prior > 0 and abs(events_pct_change or 0) >= settings.doc_volume_swing_pct:
         direction = "hoog" if (events_pct_change or 0) > 0 else "laag"
         signals.append({
             "kind": "volume", "severity": "warning",
@@ -468,12 +477,15 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
             seen.add(key)
             failed.append(ev)
     errors_prior = 0 if isinstance(prior_res, Exception) else prior_res.get("hits", {}).get("total", {}).get("value", 0)
-    error_pct_change = round((errors - errors_prior) / errors_prior * 100, 1) if errors_prior else None
-    alert_level = _alert_level(errors, error_pct_change)
+    error_pct_change = _pct_change(errors, errors_prior)
     events_prior = 0 if isinstance(prior_events_res, Exception) else \
         prior_events_res.get("hits", {}).get("total", {}).get("value", 0)
-    events_pct_change = round((total - events_prior) / events_prior * 100, 1) if events_prior else None
-    health = _build_health(total, events_prior, errors, error_pct_change, events_pct_change)
+    # `total` falls back to the (capped) feed length when the timeseries agg failed —
+    # don't compute a misleading volume delta / stall verdict off a degraded count.
+    total_reliable = not isinstance(ts_res, Exception)
+    events_pct_change = _pct_change(total, events_prior) if total_reliable else None
+    alert_level = _alert_level(errors, error_pct_change)
+    health = _build_health(total, events_prior, errors, error_pct_change, events_pct_change, reliable=total_reliable)
 
     by_action = [{"action": a, "count": c} for a, c in Counter(e["action"] for e in events).most_common()]
     by_type = [{"type": t, "count": c} for t, c in Counter(e["type"] for e in events if e["type"]).most_common()]

@@ -3333,6 +3333,14 @@ input:focus, select:focus, textarea:focus,
 .svch-ep-path { color: var(--text-secondary); font-family: var(--mono); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .svch-ep-meta { margin-left: auto; color: var(--text-faint); font-size: 10.5px; white-space: nowrap; }
 
+/* ─── Monitoring card (registry targets) — reuses the svch-* tile look ─── */
+.mon-coverage { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+.mon-cov-pill { font-size: 11px; }
+.mon-cov-dim { color: var(--text-secondary); font-weight: 500; }
+.mon-env { margin-top: 10px; }
+.mon-env-head { font-size: 10.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint); margin: 0 0 6px; }
+.mon-tile-type { font-size: 10.5px; font-weight: 500; color: var(--text-faint); }
+
 /* ════════════════════════════════════════════════════════════════════════
    OO-GX magazine kit — reusable, namespaced. Compose these on any page.
    ════════════════════════════════════════════════════════════════════════ */

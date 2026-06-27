@@ -44,6 +44,9 @@ export const fetchDlqIntel = (token) => getJSON("/dashboard/dlq/intel", token);
 // ─── Service health (backend microservices) ──────────────────────────────────
 export const fetchServiceHealth = (token) => getJSON("/dashboard/service-health", token);
 
+// ─── Monitoring registry dashboard card ──────────────────────────────────────
+export const fetchMonitoring = (token) => getJSON("/dashboard/monitoring", token);
+
 // ─── Monitoring Targets registry (Beheer → Monitoring) ───────────────────────
 export const fetchMonitorTypes = (token) => getJSON("/monitor/types", token);
 export const fetchMonitorConnections = (token) => getJSON("/monitor/connections", token);

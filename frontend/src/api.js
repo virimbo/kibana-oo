@@ -58,3 +58,8 @@ export const patchMonitorTarget = (token, id, patch) => sendJSON(`/monitor/targe
 export const deleteMonitorTarget = (token, id) => sendJSON(`/monitor/targets/${id}`, token, "DELETE");
 export const testMonitorTarget = (token, body) => sendJSON("/monitor/test", token, "POST", body);
 export const discoverMonitor = (token, connectionId) => getJSON(`/monitor/discover?connection_id=${connectionId}`, token);
+
+// ─── User approval (Beheer → Autorisatie) ────────────────────────────────────
+export const fetchUsers = (token) => getJSON("/admin/users", token);
+export const approveUser = (token, username) => sendJSON(`/admin/users/${encodeURIComponent(username)}/approve`, token, "POST", {});
+export const suspendUser = (token, username) => sendJSON(`/admin/users/${encodeURIComponent(username)}/suspend`, token, "POST", {});

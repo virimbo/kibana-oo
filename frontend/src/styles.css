@@ -3519,3 +3519,13 @@ input:-webkit-autofill:focus {
 .authz-status .switch { margin-left: 8px; vertical-align: middle; }
 .authz-status-h { white-space: nowrap; }
 .authz-suspended td.authz-cell:not(.authz-status) { opacity: 0.4; }
+
+/* Documents — proactive health banner + KPI delta (additive; reuses alerts-pill colours) */
+.doc-health-head { align-items: center; }
+.doc-health-icon { font-size: 12px; padding: 2px 8px; border-radius: 999px; line-height: 1.4; }
+.doc-health-signals { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.doc-health-signal { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.doc-health-dot { font-size: 9px; border-radius: 999px; padding: 1px 6px; flex: none; line-height: 1.6; }
+.doc-health-msg { color: var(--text-secondary); }
+.doc-health-action { margin-left: auto; font-size: 11.5px; white-space: nowrap; }
+.kpi-delta { font-size: 11px; margin-top: 2px; }

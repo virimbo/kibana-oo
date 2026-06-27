@@ -38,6 +38,7 @@ from dlq_intel_api import router as dlq_intel_router
 from dlq_intel import run_dlq_intel_loop
 from service_health_api import router as service_health_router
 from service_health import run_service_health_loop
+from monitor_api import router as monitor_router, results_router as monitor_results_router
 from monitor_engine import run_monitor_loop
 from auth import require_super
 import permissions
@@ -94,6 +95,8 @@ app.include_router(infra_router)
 app.include_router(alerts_router)
 app.include_router(dlq_intel_router)
 app.include_router(service_health_router)
+app.include_router(monitor_router)
+app.include_router(monitor_results_router)
 
 class LoginRequest(BaseModel):
     username: str

@@ -78,3 +78,63 @@ async def _check_log_freshness(target, connection):
     return {"status": status, "detail": {"age_min": round(age_min, 1), "threshold": threshold}, "latency_ms": None}
 
 register("log-freshness", _LOGFRESH_FIELDS, _check_log_freshness)
+
+import os
+
+def _auth_headers(connection):
+    ref = (connection or {}).get("secret_ref")
+    tok = os.environ.get(ref) if ref else None
+    return {"Authorization": f"Bearer {tok}"} if tok else {}
+
+_JAEGER_FIELDS = [
+    {"name": "service", "label": "Service", "kind": "text", "required": True},
+    {"name": "lookback_minutes", "label": "Lookback (min)", "kind": "int", "default": 15},
+    {"name": "min_traces", "label": "Min. traces", "kind": "int", "default": 1},
+]
+async def _check_jaeger(target, connection):
+    if not connection:
+        return {"status": "unreachable", "detail": {"error": "no connection"}, "latency_ms": None}
+    cfg = target["config"]; lb = cfg.get("lookback_minutes", 15)
+    url = f"{connection['base_url'].rstrip('/')}/api/traces"
+    params = {"service": cfg["service"], "lookback": f"{lb}m", "limit": 20}
+    t0 = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=settings.monitor_timeout) as c:
+            resp = await c.get(url, params=params, headers=_auth_headers(connection))
+        ms = int((time.monotonic() - t0) * 1000)
+        n = len((resp.json() or {}).get("data") or [])
+        status = "ok" if n >= cfg.get("min_traces", 1) else "stale"
+        return {"status": status, "detail": {"traces": n, "lookback_min": lb}, "latency_ms": ms}
+    except (httpx.RequestError,) as e:
+        return {"status": "unreachable", "detail": {"error": type(e).__name__}, "latency_ms": None}
+
+_PROM_FIELDS = [
+    {"name": "query", "label": "PromQL", "kind": "text", "required": True},
+    {"name": "op", "label": "Operator", "kind": "select", "options": [">", ">=", "<", "<=", "==", "exists"], "default": "exists"},
+    {"name": "threshold", "label": "Drempel", "kind": "float", "default": 0},
+]
+def _cmp(v, op, thr):
+    return {">": v > thr, ">=": v >= thr, "<": v < thr, "<=": v <= thr, "==": v == thr}.get(op, True)
+async def _check_prometheus(target, connection):
+    if not connection:
+        return {"status": "unreachable", "detail": {"error": "no connection"}, "latency_ms": None}
+    cfg = target["config"]; url = f"{connection['base_url'].rstrip('/')}/api/v1/query"
+    t0 = time.monotonic()
+    try:
+        async with httpx.AsyncClient(timeout=settings.monitor_timeout) as c:
+            resp = await c.get(url, params={"query": cfg["query"]}, headers=_auth_headers(connection))
+        ms = int((time.monotonic() - t0) * 1000)
+        result = ((resp.json() or {}).get("data") or {}).get("result") or []
+        if not result:
+            return {"status": "stale", "detail": {"reason": "empty result"}, "latency_ms": ms}
+        op = cfg.get("op", "exists")
+        if op == "exists":
+            return {"status": "ok", "detail": {"series": len(result)}, "latency_ms": ms}
+        val = float(result[0]["value"][1])
+        ok = _cmp(val, op, float(cfg.get("threshold", 0)))
+        return {"status": "ok" if ok else "down", "detail": {"value": val, "op": op}, "latency_ms": ms}
+    except (httpx.RequestError, KeyError, ValueError) as e:
+        return {"status": "unreachable", "detail": {"error": type(e).__name__}, "latency_ms": None}
+
+register("jaeger-traces", _JAEGER_FIELDS, _check_jaeger)
+register("prometheus-query", _PROM_FIELDS, _check_prometheus)

@@ -56,3 +56,59 @@ def test_log_freshness_no_data_is_unreachable(monkeypatch):
     monkeypatch.setattr(mc, "_es_max_timestamp", fake)
     t = {"type": "log-freshness", "config": {"index": "logs-*", "max_age_minutes": 10}}
     assert asyncio.run(mc.run_check(t, None))["status"] == "unreachable"
+
+def test_jaeger_traces_stale(monkeypatch):
+    import httpx, asyncio, monitor_checkers as mc
+    class R:
+        status_code = 200
+        def json(self): return {"data": []}
+    class C:
+        async def __aenter__(s): return s
+        async def __aexit__(s, *a): return False
+        async def get(s, u, **k): return R()
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: C())
+    t = {"type": "jaeger-traces", "config": {"service": "repo", "min_traces": 1}}
+    conn = {"base_url": "http://jaeger:16686", "secret_ref": None}
+    assert asyncio.run(mc.run_check(t, conn))["status"] == "stale"
+
+def test_jaeger_traces_ok(monkeypatch):
+    import httpx, asyncio, monitor_checkers as mc
+    class R:
+        status_code = 200
+        def json(self): return {"data": [{"traceID": "a"}, {"traceID": "b"}]}
+    class C:
+        async def __aenter__(s): return s
+        async def __aexit__(s, *a): return False
+        async def get(s, u, **k): return R()
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: C())
+    t = {"type": "jaeger-traces", "config": {"service": "repo", "min_traces": 1}}
+    conn = {"base_url": "http://jaeger:16686", "secret_ref": None}
+    assert asyncio.run(mc.run_check(t, conn))["status"] == "ok"
+
+def test_prometheus_query_ok(monkeypatch):
+    import httpx, asyncio, monitor_checkers as mc
+    class R:
+        status_code = 200
+        def json(self): return {"data": {"result": [{"value": [0, "1"]}]}}
+    class C:
+        async def __aenter__(s): return s
+        async def __aexit__(s, *a): return False
+        async def get(s, u, **k): return R()
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: C())
+    t = {"type": "prometheus-query", "config": {"query": "up", "op": ">", "threshold": 0}}
+    conn = {"base_url": "http://prom:9090", "secret_ref": None}
+    assert asyncio.run(mc.run_check(t, conn))["status"] == "ok"
+
+def test_prometheus_query_empty_is_stale(monkeypatch):
+    import httpx, asyncio, monitor_checkers as mc
+    class R:
+        status_code = 200
+        def json(self): return {"data": {"result": []}}
+    class C:
+        async def __aenter__(s): return s
+        async def __aexit__(s, *a): return False
+        async def get(s, u, **k): return R()
+    monkeypatch.setattr(httpx, "AsyncClient", lambda *a, **k: C())
+    t = {"type": "prometheus-query", "config": {"query": "up", "op": "exists"}}
+    conn = {"base_url": "http://prom:9090", "secret_ref": None}
+    assert asyncio.run(mc.run_check(t, conn))["status"] == "stale"

@@ -147,6 +147,10 @@ def _error_count_body(start: datetime, end: datetime) -> dict:
     return {"size": 0, "track_total_hits": True, "query": _error_query(start, end)}
 
 
+def _event_count_body(start, end):
+    return {"size": 0, "track_total_hits": True, "query": _event_query(start, end)}
+
+
 def _alert_level(errors: int, pct_change: float | None) -> str:
     if errors >= 10 or (errors > 0 and pct_change is not None and pct_change >= 100):
         return "critical"
@@ -376,6 +380,9 @@ class DocumentActivity(BaseModel):
     errors: int
     errors_prior: int = 0
     error_pct_change: float | None = None
+    events_prior: int = 0
+    events_pct_change: float | None = None
+    health: dict = {}
     alert_level: str = "ok"   # ok | warning | critical
     failed: list[dict] = []   # the specific documents that errored
     by_source: list[dict] = []  # errors per source (bron) x category
@@ -397,12 +404,13 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
         interval = timeseries_interval(period_minutes)
     prev_start = start - (end - start)
 
-    ts_res, feed_res, failed_res, prior_res, issues_res = await asyncio.gather(
+    ts_res, feed_res, failed_res, prior_res, issues_res, prior_events_res = await asyncio.gather(
         _es_search(sid, dv, _timeseries_body(start, end, interval)),
         _es_search(sid, dv, _feed_body(start, end)),
         _es_search(sid, dv, _failed_body(start, end)),
         _es_search(sid, dv, _error_count_body(prev_start, start)),
         _es_search(sid, dv, _issues_body(start, end)),
+        _es_search(sid, dv, _event_count_body(prev_start, start)),
         return_exceptions=True,
     )
     if isinstance(feed_res, Exception):
@@ -436,6 +444,10 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
     errors_prior = 0 if isinstance(prior_res, Exception) else prior_res.get("hits", {}).get("total", {}).get("value", 0)
     error_pct_change = round((errors - errors_prior) / errors_prior * 100, 1) if errors_prior else None
     alert_level = _alert_level(errors, error_pct_change)
+    events_prior = 0 if isinstance(prior_events_res, Exception) else \
+        prior_events_res.get("hits", {}).get("total", {}).get("value", 0)
+    events_pct_change = round((total - events_prior) / events_prior * 100, 1) if events_prior else None
+    health = _build_health(total, events_prior, errors, error_pct_change, events_pct_change)
 
     by_action = [{"action": a, "count": c} for a, c in Counter(e["action"] for e in events).most_common()]
     by_type = [{"type": t, "count": c} for t, c in Counter(e["type"] for e in events if e["type"]).most_common()]
@@ -453,6 +465,9 @@ async def build_document_activity(sid: str, period_minutes: int, data_view: str 
         errors=errors,
         errors_prior=errors_prior,
         error_pct_change=error_pct_change,
+        events_prior=events_prior,
+        events_pct_change=events_pct_change,
+        health=health,
         alert_level=alert_level,
         failed=failed,
         by_source=by_source,

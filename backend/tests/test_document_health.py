@@ -32,3 +32,8 @@ def test_health_volume_not_flagged_when_prior_zero():
 def test_every_signal_has_message_and_action():
     h = d._build_health(events=0, events_prior=20, errors=15, error_pct_change=200.0, events_pct_change=-100.0)
     assert h["signals"] and all(s.get("message") and s.get("action") for s in h["signals"])
+
+def test_document_activity_model_has_health_fields():
+    from documents import DocumentActivity
+    fields = DocumentActivity.model_fields
+    assert "health" in fields and "events_prior" in fields and "events_pct_change" in fields

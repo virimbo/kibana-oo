@@ -276,7 +276,8 @@ _ENV_ALIASES = {
 _KNOWN_ENVS = {"PROD", "ACC", "TEST"}  # only these are treated as action lines
 _CONDITION_LABEL = {"down": "Bij DOWN", "cert": "Bij certificaat bijna verlopen",
                     "service": "Bij service down",
-                    "service-unreachable": "Bij service unreachable"}
+                    "service-unreachable": "Bij service unreachable",
+                    "monitoring": "Bij Monitoring-target rood"}
 
 
 def _normalize_env(env: str | None) -> str | None:
@@ -291,6 +292,8 @@ def _condition_from_heading(text: str) -> str | None:
     t = text.lower()
     if "cert" in t:  # certificaat / certificate(s)
         return "cert"
+    if "monitoring" in t:  # "Bij Monitoring-target rood" — observability pipeline
+        return "monitoring"
     is_service = "service" in t or "microservice" in t
     if is_service and ("unreachable" in t or "onbereikbaar" in t):  # checked first
         return "service-unreachable"
@@ -390,7 +393,7 @@ def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, boo
         if s in ("down", "degraded"):
             return "service", s == "down"
     if card_id.startswith("card:monitoring") and s in ("down", "stale", "unreachable"):
-        return "service", s == "down"
+        return "monitoring", s == "down"
     if card_id.startswith("cert:") and s in ("warning", "critical", "expired"):
         return "cert", s in ("critical", "expired")
     return None, False

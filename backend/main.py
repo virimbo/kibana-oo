@@ -38,6 +38,7 @@ from dlq_intel_api import router as dlq_intel_router
 from dlq_intel import run_dlq_intel_loop
 from service_health_api import router as service_health_router
 from service_health import run_service_health_loop
+from monitor_engine import run_monitor_loop
 from auth import require_super
 import permissions
 import regression
@@ -59,11 +60,12 @@ async def lifespan(app: FastAPI):
     alerts_task = asyncio.create_task(run_alert_loop())
     dlq_intel_task = asyncio.create_task(run_dlq_intel_loop())
     service_health_task = asyncio.create_task(run_service_health_loop())
-    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime, alerting, DLQ intelligence, service health).")
+    monitor_task = asyncio.create_task(run_monitor_loop())
+    logger.info("Started background monitors (TLS certificates, RabbitMQ DLQ, uptime, alerting, DLQ intelligence, service health, monitoring registry).")
     try:
         yield
     finally:
-        for t in (cert_task, dlq_task, uptime_task, alerts_task, dlq_intel_task, service_health_task):
+        for t in (cert_task, dlq_task, uptime_task, alerts_task, dlq_intel_task, service_health_task, monitor_task):
             t.cancel()
             try:
                 await t

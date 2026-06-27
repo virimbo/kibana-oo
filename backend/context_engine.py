@@ -64,6 +64,7 @@ REGISTRY: dict[str, str] = {
     "card:grafana": "grafana",
     "card:service_health": "service-health",
     "card:monitoring": "monitoring",
+    "card:documents": "documents",
     # Uptime / availability board — every site tile resolves to the shared
     # availability component (the card supplies its own per-site label + state).
     "uptime:open.overheid.nl": "availability",
@@ -277,7 +278,8 @@ _KNOWN_ENVS = {"PROD", "ACC", "TEST"}  # only these are treated as action lines
 _CONDITION_LABEL = {"down": "Bij DOWN", "cert": "Bij certificaat bijna verlopen",
                     "service": "Bij service down",
                     "service-unreachable": "Bij service unreachable",
-                    "monitoring": "Bij Monitoring-target rood"}
+                    "monitoring": "Bij Monitoring-target rood",
+                    "documents": "Bij document-verwerking gestopt"}
 
 
 def _normalize_env(env: str | None) -> str | None:
@@ -294,6 +296,8 @@ def _condition_from_heading(text: str) -> str | None:
         return "cert"
     if "monitoring" in t:  # "Bij Monitoring-target rood" — observability pipeline
         return "monitoring"
+    if "document" in t and ("verwerking" in t or "gestopt" in t):
+        return "documents"
     is_service = "service" in t or "microservice" in t
     if is_service and ("unreachable" in t or "onbereikbaar" in t):  # checked first
         return "service-unreachable"
@@ -394,6 +398,8 @@ def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, boo
             return "service", s == "down"
     if card_id.startswith("card:monitoring") and s in ("down", "stale", "unreachable"):
         return "monitoring", s == "down"
+    if card_id.startswith("card:documents") and s in ("warning", "critical"):
+        return "documents", s == "critical"
     if card_id.startswith("cert:") and s in ("warning", "critical", "expired"):
         return "cert", s in ("critical", "expired")
     return None, False

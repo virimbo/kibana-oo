@@ -52,6 +52,11 @@ Terug naar [[Home]] · zie ook [[Beschikbaarheid (uptime)]] en [[Certificaten en
 - ACC: Bel Firas/dev; bepaal het type (logs/traces/metrics/http) en controleer het bijbehorende pad (log-shipping / OTel / Prometheus-scrape / HTTPRoute).
 - TEST: Bel Anton; check het type target en het bijbehorende observability-pad.
 
+## Bij document-verwerking gestopt
+- PROD: Geen documentactiviteit terwijl er normaal documenten binnenkomen → de verwerkings-pipeline ligt mogelijk stil. Controleer de harvester/ingest-pods in OpenShift en de logs in Kibana; herstart zo nodig en escaleer naar het dev-team. Bij een foutpiek: bekijk 'Errors per bron' en de gefaalde documenten.
+- ACC: Bel Firas/dev; check of de ingest draait en bekijk de document-logs in Kibana.
+- TEST: Bel Anton; check de pipeline en de logs.
+
 ---
 
 # Procedures (stap voor stap)

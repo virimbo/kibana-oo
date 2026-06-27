@@ -47,3 +47,9 @@ def test_classify_canonicalises_and_falls_back():
     assert d.classify_event_action({"event": {"action": "create"}}, "x") == "created"   # canon
     assert d.classify_event_action({}, "document deleted from index") == "deleted"        # keyword
     assert d.classify_event_action({}, "willekeurige logregel") == "other"               # fallback
+
+def test_documents_runbook_condition():
+    import context_engine as ce
+    assert ce._condition_from_heading("Bij document-verwerking gestopt") == "documents"
+    assert ce._derive_condition("card:documents", "critical") == ("documents", True)
+    assert ce._derive_condition("card:documents", "warning") == ("documents", False)

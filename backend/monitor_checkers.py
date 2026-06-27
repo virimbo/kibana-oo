@@ -44,3 +44,37 @@ async def _check_http(target, connection):
         return {"status": "unreachable", "detail": {"error": type(e).__name__}, "latency_ms": None}
 
 register("http", _HTTP_FIELDS, _check_http)
+
+from datetime import datetime, timezone
+
+_LOGFRESH_FIELDS = [
+    {"name": "index", "label": "Index / data-stream", "kind": "text", "required": True},
+    {"name": "timestamp_field", "label": "Timestamp-veld", "kind": "text", "default": "@timestamp"},
+    {"name": "max_age_minutes", "label": "Max leeftijd (min)", "kind": "int", "default": 10},
+    {"name": "adaptive", "label": "Adaptieve baseline", "kind": "bool", "default": True},
+    {"name": "service", "label": "Service-label (voor correlatie)", "kind": "text", "default": None},
+]
+
+async def _es_max_timestamp(index, field, sid):
+    """Newest timestamp in an index via the existing Kibana proxy (elastic._es_search).
+    Returns an ISO string or None. Reuses the same authenticated path chat uses."""
+    import elastic
+    body = {"size": 0, "aggs": {"m": {"max": {"field": field}}}}
+    try:
+        res = await elastic._es_search(sid, index, body)
+        return (((res or {}).get("aggregations") or {}).get("m") or {}).get("value_as_string")
+    except Exception:  # noqa: BLE001 — treat any ES failure as "no data"
+        return None
+
+async def _check_log_freshness(target, connection):
+    cfg = target["config"]
+    sid = (target.get("_ctx") or {}).get("sid")
+    ts = await _es_max_timestamp(cfg["index"], cfg.get("timestamp_field", "@timestamp"), sid)
+    if not ts:
+        return {"status": "unreachable", "detail": {"error": "no data / ES unreachable"}, "latency_ms": None}
+    age_min = (datetime.now(timezone.utc) - datetime.fromisoformat(ts)).total_seconds() / 60
+    threshold = cfg.get("_effective_threshold", cfg.get("max_age_minutes", 10))
+    status = "stale" if age_min > threshold else "ok"
+    return {"status": status, "detail": {"age_min": round(age_min, 1), "threshold": threshold}, "latency_ms": None}
+
+register("log-freshness", _LOGFRESH_FIELDS, _check_log_freshness)

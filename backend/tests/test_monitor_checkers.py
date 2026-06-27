@@ -32,3 +32,27 @@ def test_http_checker_connfail_is_unreachable(monkeypatch):
 def test_types_schema_lists_http_fields():
     schema = mc.types_schema()
     assert "http" in schema and any(f["name"] == "url" for f in schema["http"]["fields"])
+
+def test_log_freshness_stale(monkeypatch):
+    import monitor_checkers as mc, asyncio
+    from datetime import datetime, timezone, timedelta
+    old = (datetime.now(timezone.utc) - timedelta(minutes=30)).isoformat()
+    async def fake(index, field, sid): return old
+    monkeypatch.setattr(mc, "_es_max_timestamp", fake)
+    t = {"type": "log-freshness", "config": {"index": "logs-*", "max_age_minutes": 10}}
+    assert asyncio.run(mc.run_check(t, None))["status"] == "stale"
+
+def test_log_freshness_ok(monkeypatch):
+    import monitor_checkers as mc, asyncio
+    from datetime import datetime, timezone
+    async def fake(index, field, sid): return datetime.now(timezone.utc).isoformat()
+    monkeypatch.setattr(mc, "_es_max_timestamp", fake)
+    t = {"type": "log-freshness", "config": {"index": "logs-*", "max_age_minutes": 10}}
+    assert asyncio.run(mc.run_check(t, None))["status"] == "ok"
+
+def test_log_freshness_no_data_is_unreachable(monkeypatch):
+    import monitor_checkers as mc, asyncio
+    async def fake(index, field, sid): return None
+    monkeypatch.setattr(mc, "_es_max_timestamp", fake)
+    t = {"type": "log-freshness", "config": {"index": "logs-*", "max_age_minutes": 10}}
+    assert asyncio.run(mc.run_check(t, None))["status"] == "unreachable"

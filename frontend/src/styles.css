@@ -3907,3 +3907,36 @@ input:-webkit-autofill:focus {
 }
 .set-scope-field { display: flex; flex-direction: column; gap: 5px; }
 .set-scope-select { margin-top: 6px; width: 100%; }
+
+/* ── Composer polish: quieter, professional scope controls + a send button that
+   never reads as an empty box (disabled state keeps a clearly-visible arrow) ──── */
+.composer-controls { gap: 10px; }
+.control {
+  padding: 5px 11px 5px 13px;
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  box-shadow: none;
+}
+.control:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: color-mix(in srgb, var(--provider-accent) 35%, var(--border-strong));
+}
+.control:focus-within {
+  border-color: var(--provider-accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--provider-glow) 55%, transparent);
+}
+.control-label {
+  font-size: 10px; letter-spacing: 0.11em; text-transform: uppercase;
+  color: var(--text-faint);
+}
+.control-label::before { display: none; }   /* drop the little dash — cleaner */
+.control-select { font-weight: 600; font-size: 13px; color: var(--text-secondary); }
+
+/* send button: visible, intentional in every state */
+.btn--send:disabled {
+  background: color-mix(in srgb, var(--provider-accent) 10%, var(--bg-elevated));
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  box-shadow: none; opacity: 1; cursor: not-allowed;
+}

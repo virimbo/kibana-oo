@@ -119,11 +119,23 @@ const Icon = {
 
 // ─── Login Page ─────────────────────────────────────────────
 
+// Minimal inline icons for the login fields/badges (stroke = currentColor).
+const Li = {
+  user: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>),
+  lock: (p) => (<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>),
+  eye: (p) => (<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>),
+  eyeOff: (p) => (<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.2 4.2"/><path d="M9.4 5.2A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-3 3.6M6.3 6.3A17 17 0 0 0 2 12s3.5 7 10 7a10 10 0 0 0 3.3-.6"/></svg>),
+  pulse: (p) => (<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>),
+  heart: (p) => (<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20.8 7.6a4.6 4.6 0 0 0-8-3 4.6 4.6 0 0 0-8 3c0 4 4.5 7 8 10 3.5-3 8-6 8-10Z"/></svg>),
+  bell: (p) => (<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>),
+};
+
 function LoginPage({ onLogin }) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPw, setShowPw] = useState(false);
 
   async function handleLogin(e) {
     e.preventDefault();
@@ -157,6 +169,18 @@ function LoginPage({ onLogin }) {
 
   return (
     <div className="login-page login-page--gx">
+      {/* Cinematic, CSS-only background: radar rings · ambient glow · synthwave
+          horizon grid · particle field · thin geometric accents. No images/JS. */}
+      <div className="login-bg" aria-hidden="true">
+        <span className="login-bg-radar" />
+        <span className="login-bg-glow" />
+        <span className="login-bg-grid" />
+        <span className="login-bg-horizon" />
+        <span className="login-bg-particles" />
+        <span className="login-bg-ring login-bg-ring--1" />
+        <span className="login-bg-ring login-bg-ring--2" />
+      </div>
+
       <div className="login-split">
         <div className="gx-hero login-hero">
           <div className="brand login-hero-brand">
@@ -169,16 +193,16 @@ function LoginPage({ onLogin }) {
           <h1 className="gx-h1">
             OPEN OVERHEID
             <br />
-            MONITORING.
+            MONITORING<span className="gx-h1-dot">.</span>
           </h1>
           <p className="gx-sub">
             Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om
             toegang te krijgen tot de monitoringomgeving.
           </p>
           <div className="login-hero-tags">
-            <span className="gx-tag">Uptime</span>
-            <span className="gx-tag">Service health</span>
-            <span className="gx-tag">Alerts</span>
+            <span className="gx-tag"><Li.pulse /> Uptime</span>
+            <span className="gx-tag"><Li.heart /> Service health</span>
+            <span className="gx-tag"><Li.bell /> Alerts</span>
           </div>
         </div>
 
@@ -191,24 +215,39 @@ function LoginPage({ onLogin }) {
           <form onSubmit={handleLogin}>
             <label>
               <span>Gebruikersnaam</span>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="uw.naam@koop.overheid.nl"
-                autoFocus
-                required
-              />
+              <div className="login-field">
+                <Li.user className="login-field-icon" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="uw.naam@koop.overheid.nl"
+                  autoFocus
+                  required
+                />
+              </div>
             </label>
             <label>
               <span>Wachtwoord</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Uw SP-wachtwoord"
-                required
-              />
+              <div className="login-field">
+                <Li.lock className="login-field-icon" />
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Uw SP-wachtwoord"
+                  required
+                />
+                <button
+                  type="button"
+                  className="login-eye"
+                  onClick={() => setShowPw((v) => !v)}
+                  aria-label={showPw ? "Verberg wachtwoord" : "Toon wachtwoord"}
+                  tabIndex={-1}
+                >
+                  {showPw ? <Li.eyeOff /> : <Li.eye />}
+                </button>
+              </div>
             </label>
 
             {error && (

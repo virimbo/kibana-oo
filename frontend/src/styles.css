@@ -3705,3 +3705,115 @@ input:-webkit-autofill:focus {
   border-radius: var(--radius-sm);
   font-size: 13px;
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   Cinematic login — CSS-only enterprise-observability background + glass card.
+   Radar rings · ambient glow · synthwave horizon grid · particle field. No images.
+   ════════════════════════════════════════════════════════════════════════════ */
+.login-page--gx {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(130% 95% at 50% -15%, #1B1829 0%, #12101F 46%, #0D0B16 100%);
+}
+.login-bg { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; }
+.login-bg > span { position: absolute; display: block; }
+.login-page--gx .login-split { position: relative; z-index: 2; }
+
+/* radar — faint concentric crimson rings + a soft sweep, top-left */
+.login-bg-radar {
+  top: -240px; left: -240px; width: 660px; height: 660px; border-radius: 50%;
+  background: repeating-radial-gradient(circle at center,
+    transparent 0 40px, rgba(255, 36, 92, 0.11) 40px 41px);
+  -webkit-mask-image: radial-gradient(circle at center, #000 58%, transparent 73%);
+          mask-image: radial-gradient(circle at center, #000 58%, transparent 73%);
+  opacity: 0.8;
+}
+.login-bg-radar::after {
+  content: ""; position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 205deg, transparent 0 68%, rgba(255, 51, 102, 0.16) 86%, transparent 100%);
+}
+
+/* ambient bloom behind the card + a soft purple counter-glow */
+.login-bg-glow {
+  top: 6%; right: -140px; width: 600px; height: 600px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 36, 92, 0.16), transparent 60%);
+  filter: blur(26px);
+}
+
+/* synthwave perspective grid — the "digital terrain" along the bottom */
+.login-bg-grid {
+  left: -12%; right: -12%; bottom: -2px; height: 48%;
+  background-image:
+    linear-gradient(to right, rgba(255, 51, 102, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 51, 102, 0.16) 1px, transparent 1px);
+  background-size: 48px 48px;
+  transform: perspective(440px) rotateX(73deg);
+  transform-origin: bottom center;
+  -webkit-mask-image: linear-gradient(to top, #000 6%, transparent 82%);
+          mask-image: linear-gradient(to top, #000 6%, transparent 82%);
+  opacity: 0.5;
+}
+
+/* the bright crimson horizon light bar */
+.login-bg-horizon {
+  left: 0; right: 0; bottom: 31%; height: 220px;
+  background: radial-gradient(58% 90px at 30% 100%,
+    rgba(255, 64, 112, 0.55), rgba(255, 36, 92, 0.10) 44%, transparent 70%);
+  filter: blur(3px);
+}
+
+/* particle field — scattered crimson/white nodes (corners + right) */
+.login-bg-particles {
+  inset: 0;
+  background-image:
+    radial-gradient(1.6px 1.6px at 78% 17%, rgba(255, 255, 255, 0.55), transparent),
+    radial-gradient(1.6px 1.6px at 88% 41%, rgba(255, 51, 102, 0.70), transparent),
+    radial-gradient(1px 1px at 70% 9%, rgba(255, 255, 255, 0.40), transparent),
+    radial-gradient(2px 2px at 93% 69%, rgba(255, 51, 102, 0.55), transparent),
+    radial-gradient(1px 1px at 61% 58%, rgba(255, 255, 255, 0.28), transparent),
+    radial-gradient(1.6px 1.6px at 11% 82%, rgba(255, 51, 102, 0.45), transparent),
+    radial-gradient(1px 1px at 31% 21%, rgba(255, 255, 255, 0.22), transparent),
+    radial-gradient(1.6px 1.6px at 96% 13%, rgba(255, 255, 255, 0.45), transparent),
+    radial-gradient(1.4px 1.4px at 84% 88%, rgba(255, 51, 102, 0.45), transparent);
+}
+
+/* thin geometric ring accents */
+.login-bg-ring { border-radius: 50%; }
+.login-bg-ring--1 { top: 15%; right: 25%; width: 92px; height: 92px; border: 1px solid rgba(255, 51, 102, 0.12); }
+.login-bg-ring--2 { bottom: 28%; right: 7%; width: 170px; height: 170px; border: 1px solid rgba(91, 77, 141, 0.20); }
+
+/* ── glassmorphism login card ────────────────────────────────────────────── */
+.login-page--gx .login-card {
+  background: linear-gradient(180deg, rgba(27, 24, 41, 0.74), rgba(18, 16, 31, 0.66));
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+          backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: 0 34px 90px -34px rgba(0, 0, 0, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.login-page--gx .login-card::before { display: none; }  /* drop the gx-panel top hairline */
+
+/* input fields with a leading icon + the password reveal toggle */
+.login-field { position: relative; display: flex; align-items: center; }
+.login-field-icon { position: absolute; left: 13px; color: var(--text-faint); pointer-events: none; }
+.login-card .login-field input {
+  width: 100%; padding-left: 40px;
+  background: rgba(13, 11, 22, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+.login-card .login-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255, 36, 92, 0.18);
+}
+.login-field:focus-within .login-field-icon { color: var(--accent); }
+.login-eye {
+  position: absolute; right: 8px; display: inline-flex; align-items: center;
+  padding: 6px; background: none; border: 0; color: var(--text-faint); cursor: pointer;
+  border-radius: var(--radius-sm); transition: color 0.15s ease;
+}
+.login-eye:hover { color: var(--text-secondary); }
+
+/* the crimson dot after the headline + icon-bearing tags */
+.gx-h1-dot { color: var(--accent); }
+.login-hero-tags .gx-tag { display: inline-flex; align-items: center; gap: 7px; }
+.login-hero-tags .gx-tag svg { color: var(--accent); flex: none; }

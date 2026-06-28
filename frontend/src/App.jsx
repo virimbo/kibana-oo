@@ -618,10 +618,10 @@ function ChatPage({
             <div className="ai-off-banner">
               <span className="ai-off-dot" aria-hidden="true" />
               <span>
-                <b>AI is switched off.</b> Answers are deterministic, data-only
-                summaries — no model is queried. Turn it back on in{" "}
+                <b>AI staat uit.</b> Antwoorden zijn deterministische, data-only
+                samenvattingen — er wordt geen model bevraagd. Zet het weer aan in{" "}
                 <button type="button" className="link-btn" onClick={() => onNavigate("settings")}>
-                  Settings
+                  Instellingen
                 </button>
                 .
               </span>
@@ -719,7 +719,7 @@ function ChatPage({
             <div className="attach-preview">
               <img src={image.dataUrl} alt={image.name} className="attach-thumb" />
               <span className="attach-name">{image.name}</span>
-              <span className="attach-hint">— I'll read the text from this image</span>
+              <span className="attach-hint">— ik lees de tekst uit deze afbeelding</span>
               <button
                 type="button"
                 className="attach-remove"

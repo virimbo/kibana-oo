@@ -352,7 +352,7 @@ export default function MonitoringConfig({
               <table className="mon-table">
                 <thead>
                   <tr>
-                    <th>Kind</th><th>Name</th><th>Base URL</th><th>Secret</th><th></th>
+                    <th>Soort</th><th>Naam</th><th>Base URL</th><th>Secret</th><th></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -503,8 +503,8 @@ export default function MonitoringConfig({
                   <table className="mon-table">
                     <thead>
                       <tr>
-                        <th>Name</th><th>Type</th><th>Status</th>
-                        <th>Enabled</th><th>Alert</th><th></th><th></th>
+                        <th>Naam</th><th>Type</th><th>Status</th>
+                        <th>Aan</th><th>Alert</th><th></th><th></th>
                       </tr>
                     </thead>
                     <tbody>

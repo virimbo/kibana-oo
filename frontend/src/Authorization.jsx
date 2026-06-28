@@ -114,7 +114,7 @@ export default function AuthorizationPage({
 
   const addUser = () => {
     const e = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(e)) { setError("Enter a valid email address."); return; }
+    if (!EMAIL_RE.test(e)) { setError("Voer een geldig e-mailadres in."); return; }
     const known = (data?.users || []).some((u) => u.username === e) || extra.includes(e);
     if (!known) setExtra((x) => [...x, e]);
     setEmail("");

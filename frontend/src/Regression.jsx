@@ -368,8 +368,8 @@ export default function RegressionPage({
               <div>
                 <h3 className="gx-h2" style={{ marginBottom: 4 }}>🧪 Regressietest — open.overheid.nl</h3>
                 <p className="muted" style={{ margin: 0 }}>
-                  Run this after a prod release to confirm the public portal still works:
-                  availability, key journeys, content via the openbaarmakingen API, and TLS.
+                  Draai dit na een prod-release om te bevestigen dat het publieke portaal nog werkt:
+                  availability, kernflows, content via de openbaarmakingen-API en TLS.
                 </p>
               </div>
               <button className="btn gx-cta" onClick={runNow} disabled={running}>
@@ -380,19 +380,19 @@ export default function RegressionPage({
             {error && <div className="alert alert--error">{error}</div>}
 
             {viewingId && (
-              <button className="btn btn--ghost reg-back" onClick={backToLatest}>← Back to latest</button>
+              <button className="btn btn--ghost reg-back" onClick={backToLatest}>← Terug naar laatste</button>
             )}
 
             {run ? (
               <RunDetail run={run} rel={rel} />
             ) : (
-              <p className="muted">No runs yet — click “Run regression test” to start the first one.</p>
+              <p className="muted">Nog geen runs — klik op “Run regression test” om de eerste te starten.</p>
             )}
           </section>
 
           {history.length > 0 && (
             <section className="panel gx-panel">
-              <h3 className="gx-h2">Run history</h3>
+              <h3 className="gx-h2">Runhistorie</h3>
               <ul className="reg-history">
                 {history.map((h) => (
                   <li

@@ -39,12 +39,30 @@ flowchart LR
     class mi warn;
 ```
 
-## The header switcher (every page)
+## Waar je het model kiest — Beheer → Instellingen
 
-A colour-coded pill in **every** header (Chat / Dashboard / Documents). The whole
-header is themed via `data-provider` on `:root`:
+> [!note] Verplaatst (één bron van waarheid)
+> De model-keuze zat eerst óók als pill in elke header. Die **redundante pill is
+> verwijderd**; het model beheer je nu op één plek: **Beheer → Instellingen →
+> 🤖 AI-assistent** (`frontend/src/Settings.jsx`). Dit is admin-only, want het is
+> een globale instelling. De header blijft via `data-provider` op `:root` getint
+> (Ollama → emerald, Mistral → amber).
 
-- **Ollama → emerald**, **Mistral → amber**. Accent bar + pill + brand mark.
+De Instellingen-pagina toont een **intelligente statusstrip** boven de keuze:
+actief model, **privacy-postuur** (lokaal = geen data verlaat het netwerk · cloud =
+prompts gaan naar buiten) en een context-advies (bij Mistral een waarschuwing voor
+gevoelige data). De keuze zelf (de Ollama/Mistral-kaarten) is **ongewijzigd** —
+Rule 2b blijft gerespecteerd.
+
+## Standaard chat-zoekbereik (Beheer → Instellingen)
+
+Naast het model stelt de admin hier het **standaard zoekbereik** in waarmee elke
+nieuwe chat opent — **Standaard dataweergave** (Elasticsearch index) +
+**Standaard tijdsbereik**. Gebruikers kunnen dit per vraag nog overschrijven via de
+Dataweergave-/Tijdsbereik-keuzes onder het berichtenvak (hybride: admin zet de
+default, gebruiker houdt controle). Opgeslagen per sessie
+(`kibana_oo_default_dataview` / `kibana_oo_default_timerange`); presets gedeeld via
+`frontend/src/scope.js`.
 
 ## Installing / rotating a Mistral key
 

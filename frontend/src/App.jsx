@@ -36,23 +36,14 @@ const SUGGESTIONS = [
   },
 ];
 
-const TIME_RANGES = [
-  { value: 15, label: "Laatste 15 min" },
-  { value: 30, label: "Laatste 30 min" },
-  { value: 60, label: "Laatste 1 uur" },
-  { value: 360, label: "Laatste 6 uur" },
-  { value: 1440, label: "Laatste 24 uur" },
-];
+import { TIME_RANGES, FALLBACK_DATA_VIEWS } from "./scope";
 
 // Fallback used only if the backend's /data-views endpoint is unreachable.
-const DEFAULT_DATA_VIEWS = [
-  { id: "logs-*", label: "Alle logs" },
-  { id: "ds-prod5-koop-plooi*", label: "KOOP Plooi (prod5)" },
-  { id: "ds-prod5-koop-sp", label: "KOOP SP (prod5)" },
-  { id: "apm-*", label: "APM" },
-];
+const DEFAULT_DATA_VIEWS = FALLBACK_DATA_VIEWS;
 
 const DATA_VIEW_KEY = "kibana_oo_dataview";
+const DEFAULT_DATA_VIEW_KEY = "kibana_oo_default_dataview";
+const DEFAULT_TIME_RANGE_KEY = "kibana_oo_default_timerange";
 const LLM_PROVIDER_KEY = "kibana_oo_llm_provider";
 const AI_ENABLED_KEY = "kibana_oo_ai_enabled";
 const AUTOCORRECT_KEY = "kibana_oo_autocorrect";
@@ -408,13 +399,16 @@ function ChatPage({
   token, username, onLogout, isAdmin, can = () => false, onNavigate,
   llmProvider, onProviderChange, aiEnabled = true,
   autocorrect, showWelcome, showHint, showSuggestions, stuckCount, aanleverCount, dlqCount,
+  defaultDataView, defaultTimeRange,
 }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [timeRange, setTimeRange] = useState(60);
+  // Each fresh chat opens at the admin-configured default scope (Beheer →
+  // Instellingen); the user can still override either control per question.
+  const [timeRange, setTimeRange] = useState(() => defaultTimeRange || 60);
   const [dataViews, setDataViews] = useState(DEFAULT_DATA_VIEWS);
   const [dataView, setDataView] = useState(
-    () => sessionStorage.getItem(DATA_VIEW_KEY) || DEFAULT_DATA_VIEWS[0].id
+    () => sessionStorage.getItem(DATA_VIEW_KEY) || defaultDataView || DEFAULT_DATA_VIEWS[0].id
   );
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(null); // null = unknown
@@ -477,7 +471,9 @@ function ChatPage({
         // Keep the saved choice if still valid, otherwise fall back to the default.
         setDataView((current) => {
           const ids = data.data_views.map((v) => v.id);
-          return ids.includes(current) ? current : data.default || ids[0];
+          if (ids.includes(current)) return current;
+          if (defaultDataView && ids.includes(defaultDataView)) return defaultDataView;
+          return data.default || ids[0];
         });
       } catch {
         /* keep the fallback list */
@@ -1046,6 +1042,17 @@ export default function App() {
   useEffect(() => sessionStorage.setItem(DASH_SECTIONS_KEY, JSON.stringify(dashSections)), [dashSections]);
   const setDashSection = useCallback((key, val) => setDashSections((s) => ({ ...s, [key]: val })), []);
 
+  // Admin-configured default chat scope — the data view + time window every new
+  // chat opens with (still overridable per question). Set in Beheer → Instellingen.
+  const [defaultDataView, setDefaultDataView] = useState(
+    () => sessionStorage.getItem(DEFAULT_DATA_VIEW_KEY) || DEFAULT_DATA_VIEWS[0].id
+  );
+  const [defaultTimeRange, setDefaultTimeRange] = useState(
+    () => Number(sessionStorage.getItem(DEFAULT_TIME_RANGE_KEY)) || 60
+  );
+  useEffect(() => sessionStorage.setItem(DEFAULT_DATA_VIEW_KEY, defaultDataView), [defaultDataView]);
+  useEffect(() => sessionStorage.setItem(DEFAULT_TIME_RANGE_KEY, String(defaultTimeRange)), [defaultTimeRange]);
+
   const settings = {
     aiEnabled, setAiEnabled,
     autocorrect, setAutocorrect,
@@ -1054,6 +1061,8 @@ export default function App() {
     showSuggestions, setShowSuggestions,
     showCardDetails, setShowCardDetails,
     dashSections, setDashSection,
+    defaultDataView, setDefaultDataView,
+    defaultTimeRange, setDefaultTimeRange,
   };
 
   // Global proactive alert: how many documents are stuck in the pipeline. Polled
@@ -1316,6 +1325,8 @@ export default function App() {
       showWelcome={showWelcome}
       showHint={showHint}
       showSuggestions={showSuggestions}
+      defaultDataView={defaultDataView}
+      defaultTimeRange={defaultTimeRange}
       stuckCount={stuckCount}
       aanleverCount={aanleverCount}
       dlqCount={dlqCount}

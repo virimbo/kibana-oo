@@ -1,4 +1,8 @@
+import { useState, useEffect } from "react";
 import TopNav from "./Nav";
+import { TIME_RANGES, FALLBACK_DATA_VIEWS } from "./scope";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
 
 // A reusable on/off switch.
 function Toggle({ checked, onChange, label, hint, disabled = false }) {
@@ -61,7 +65,33 @@ export default function SettingsPage({
     showSuggestions, setShowSuggestions,
     showCardDetails, setShowCardDetails,
     dashSections = {}, setDashSection = () => {},
+    defaultDataView, setDefaultDataView = () => {},
+    defaultTimeRange, setDefaultTimeRange = () => {},
   } = settings;
+
+  // Available data views for the default-scope picker — same source the chat
+  // composer uses (/data-views); falls back to the static list when offline.
+  const [scopeViews, setScopeViews] = useState(FALLBACK_DATA_VIEWS);
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/data-views`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && Array.isArray(data.data_views) && data.data_views.length) {
+          setScopeViews(data.data_views);
+        }
+      } catch {
+        /* keep the fallback list */
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+
+  // The active provider's metadata, for the at-a-glance "intelligent" status strip.
+  const providerMeta = PROVIDERS.find((p) => p.value === selectedProvider) || PROVIDERS[0];
+  const isLocal = providerMeta.kind === "local";
 
   // Dashboard blocks the admin can show/hide (all default on).
   const DASH_SECTIONS = [
@@ -117,6 +147,41 @@ export default function SettingsPage({
               deterministische, data-only weergaven — er wordt niets naar een model gestuurd.
             </p>
 
+            {/* At-a-glance status: which model answers, the privacy posture, and a
+                context-aware advice line. Read-only summary of the choice below. */}
+            <div className="set-ai-status" data-provider={aiEnabled ? selectedProvider : "none"}>
+              <div className="set-ai-status-grid">
+                <div className="set-ai-status-cell">
+                  <span className="set-ai-status-key">Actief model</span>
+                  <span className="set-ai-status-val">
+                    <span className="set-ai-status-dot" aria-hidden="true" />
+                    {aiEnabled ? <>{providerMeta.name} <em>{providerMeta.kind}</em></> : "AI uitgeschakeld"}
+                  </span>
+                </div>
+                <div className="set-ai-status-cell">
+                  <span className="set-ai-status-key">Privacy</span>
+                  <span className="set-ai-status-val">
+                    {!aiEnabled
+                      ? "n.v.t. — geen model actief"
+                      : isLocal
+                      ? "Lokaal — geen data verlaat het netwerk"
+                      : "Cloud — prompts gaan naar een externe API"}
+                  </span>
+                </div>
+                <div className="set-ai-status-cell">
+                  <span className="set-ai-status-key">Bereik</span>
+                  <span className="set-ai-status-val">Chat · dashboard-triage · documentanalyse</span>
+                </div>
+              </div>
+              <p className="set-ai-status-advice" data-tone={!aiEnabled ? "off" : isLocal ? "ok" : "warn"}>
+                {!aiEnabled
+                  ? "AI staat uit — alle monitoring blijft werken; alleen de AI-duiding ontbreekt."
+                  : isLocal
+                  ? "Privacyvriendelijke keuze: alle analyse blijft lokaal. Voor zwaardere modellen kun je Mistral (cloud) overwegen."
+                  : "Let op: bij Mistral (cloud) verlaten loggegevens je netwerk. Voor gevoelige data is Ollama (lokaal) veiliger."}
+              </p>
+            </div>
+
             <Toggle
               checked={aiEnabled}
               onChange={setAiEnabled}
@@ -154,6 +219,51 @@ export default function SettingsPage({
                   AI staat uit — schakel deze hierboven in om een model te kiezen.
                 </p>
               )}
+            </div>
+          </section>
+
+          {/* ── Default chat scope ──────────────────────────────── */}
+          <section className="panel set-panel gx-panel">
+            <span className="page-eyebrow gx-eyebrow">Standaard zoekbereik</span>
+            <h3 className="gx-h2">🔎 Chat-zoekbereik</h3>
+            <p className="muted set-intro">
+              Het standaard bereik waarmee elke nieuwe chat opent. Gebruikers kunnen
+              dit per vraag nog aanpassen via de Dataweergave- en Tijdsbereik-keuzes
+              onder het berichtenvak.
+            </p>
+
+            <div className="set-scope-grid">
+              <label className="set-scope-field">
+                <span className="set-row-label">Standaard dataweergave</span>
+                <span className="set-row-hint">Welke Elasticsearch data view (index) standaard wordt doorzocht.</span>
+                <select
+                  className="control-select set-scope-select"
+                  value={defaultDataView}
+                  onChange={(e) => setDefaultDataView(e.target.value)}
+                  aria-label="Standaard dataweergave"
+                >
+                  {scopeViews.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.label && v.label !== v.id ? `${v.id} — ${v.label}` : v.id}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="set-scope-field">
+                <span className="set-row-label">Standaard tijdsbereik</span>
+                <span className="set-row-hint">Het tijdvenster waarover een nieuwe chat begint te zoeken.</span>
+                <select
+                  className="control-select set-scope-select"
+                  value={defaultTimeRange}
+                  onChange={(e) => setDefaultTimeRange(Number(e.target.value))}
+                  aria-label="Standaard tijdsbereik"
+                >
+                  {TIME_RANGES.map((t) => (
+                    <option key={t.value} value={t.value}>{t.label}</option>
+                  ))}
+                </select>
+              </label>
             </div>
           </section>
 

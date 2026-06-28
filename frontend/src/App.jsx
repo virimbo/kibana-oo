@@ -169,11 +169,36 @@ function LoginPage({ onLogin }) {
 
   return (
     <div className="login-page login-page--gx">
-      {/* Cinematic, CSS-only background: radar rings · ambient glow · synthwave
-          horizon grid · particle field · thin geometric accents. No images/JS. */}
+      {/* Cinematic, CSS/SVG-only animated background: dynamic gradient mesh · animated
+          radar sweep · node network with flowing telemetry traces + pulsing nodes ·
+          drifting dot-wave terrain · glowing horizon · particle field · hex wireframes.
+          No images/JS libs; honours prefers-reduced-motion. */}
       <div className="login-bg" aria-hidden="true">
+        <span className="login-bg-mesh" />
         <span className="login-bg-radar" />
         <span className="login-bg-glow" />
+        <svg className="login-bg-net" viewBox="0 0 480 360" preserveAspectRatio="xMidYMid slice">
+          <g className="net-lines" stroke="rgba(255,51,102,0.16)" strokeWidth="1" fill="none">
+            <line x1="60" y1="40" x2="150" y2="90" /><line x1="150" y1="90" x2="250" y2="60" />
+            <line x1="250" y1="60" x2="360" y2="120" /><line x1="150" y1="90" x2="210" y2="180" />
+            <line x1="210" y1="180" x2="320" y2="200" /><line x1="320" y1="200" x2="360" y2="120" />
+            <line x1="60" y1="40" x2="210" y2="180" /><line x1="320" y1="200" x2="420" y2="280" />
+            <line x1="250" y1="60" x2="430" y2="50" /><line x1="360" y1="120" x2="455" y2="170" />
+          </g>
+          <path className="net-trace" d="M40 60 L150 90 L250 60 L360 120 L455 170" stroke="rgba(255,90,125,0.95)" strokeWidth="1.4" fill="none" />
+          <path className="net-trace net-trace--2" d="M80 210 L210 180 L320 200 L420 280" stroke="rgba(255,51,102,0.85)" strokeWidth="1.4" fill="none" />
+          <g className="net-nodes" fill="#FF3366">
+            <circle cx="60" cy="40" r="2.4" /><circle cx="150" cy="90" r="3" className="pulse" />
+            <circle cx="250" cy="60" r="2.4" /><circle cx="360" cy="120" r="3" className="pulse pulse--2" />
+            <circle cx="210" cy="180" r="2.4" /><circle cx="320" cy="200" r="3" className="pulse pulse--3" />
+            <circle cx="430" cy="50" r="2" /><circle cx="420" cy="280" r="2.4" className="pulse pulse--2" />
+          </g>
+          <g className="net-hex" stroke="rgba(91,77,141,0.30)" strokeWidth="1" fill="none">
+            <polygon points="398,150 413,158 413,176 398,184 383,176 383,158" />
+            <polygon points="55,250 70,258 70,276 55,284 40,276 40,258" />
+          </g>
+        </svg>
+        <span className="login-bg-dots" />
         <span className="login-bg-grid" />
         <span className="login-bg-horizon" />
         <span className="login-bg-particles" />

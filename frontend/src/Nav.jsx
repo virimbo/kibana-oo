@@ -1,4 +1,3 @@
-import ProviderSwitcher from "./ProviderSwitcher";
 import AanleverBadge from "./AanleverBadge";
 import DlqBadge from "./DlqBadge";
 
@@ -126,9 +125,8 @@ export default function TopNav({
         )}
         <DlqBadge count={dlqCount} onNavigate={onNavigate} />
         <AanleverBadge count={aanleverCount} onNavigate={onNavigate} />
-        {onProviderChange && (
-          <ProviderSwitcher value={llmProvider} onChange={onProviderChange} />
-        )}
+        {/* AI-model selection now lives in Beheer → Instellingen (single source of
+            truth); the redundant header pill was removed to declutter the bar. */}
         <div className="user-chip" title={username}>
           <span className="user-avatar" aria-hidden="true">{initials(username)}</span>
           <span className="user-name">{username}</span>

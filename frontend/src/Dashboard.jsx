@@ -288,20 +288,20 @@ function Pipelines({ nvs, nvsDocs, onNavigate }) {
     <section className="panel" data-smartcard="card:nvs" data-smartlabel="Verwerkingsstraat — NVS">
       <h3>
         Verwerkingsstraat — NVS (new pipeline)
-        <InfoTip text="Documents processed via the new pipeline (NVS, nieuwe verwerkingsstraat) in this window. The old pipeline (OVS) is not present in this monitoring data. Open the Documents tab for the full per-document flow." />
+        <InfoTip text="Documenten verwerkt via de nieuwe pipeline (NVS, nieuwe verwerkingsstraat) in dit venster. De oude pipeline (OVS) zit niet in deze monitoring-data. Open het Documenten-tabblad voor de volledige flow per document." />
       </h3>
       <div className="pipe-row">
         <div className="pipe pipe--nvs">
-          <span className="pipe-label">NVS · documents processed</span>
+          <span className="pipe-label">NVS · documenten verwerkt</span>
           <span className="pipe-count">{nvs}</span>
         </div>
       </div>
       {nvs === 0 && (
-        <p className="muted">No documents processed via NVS in this window.</p>
+        <p className="muted">Geen documenten verwerkt via NVS in dit venster.</p>
       )}
       {nvsDocs && nvsDocs.length > 0 && (
         <div className="pipe-docs">
-          <p className="pipe-docs-title">Recent NVS documents — click to open on open.overheid.nl:</p>
+          <p className="pipe-docs-title">Recente NVS-documenten — klik om te openen op open.overheid.nl:</p>
           <ul className="doc-list">
             {nvsDocs.slice(0, 10).map((d, i) => (
               <li key={i}>
@@ -1238,7 +1238,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               <CollapsiblePanel
                 id="bysystem"
                 cardId="card:bysystem"
-                title="By system"
+                title="Per systeem"
                 info={'Critical issues per data view (system). The highlighted tile is the one you\u2019re currently viewing; \u201Cunavailable\u201D means that system couldn\u2019t be reached this load.'}
               >
                 <div className="tiles">
@@ -1251,7 +1251,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     >
                       <span className="tile-name">{s.label}</span>
                       <span className="tile-count">
-                        {s.available ? s.count : "unavailable"}
+                        {s.available ? s.count : "niet beschikbaar"}
                       </span>
                     </div>
                   ))}
@@ -1271,11 +1271,11 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 }
               >
                 {snap.top_signatures.length === 0 ? (
-                  <p className="muted">None.</p>
+                  <p className="muted">Geen.</p>
                 ) : (
                   <table className="dash-table">
                     <thead>
-                      <tr><th>Signature</th><th>Count</th><th>First</th><th>Last</th></tr>
+                      <tr><th>Signature</th><th>Aantal</th><th>Eerst gezien</th><th>Laatst gezien</th></tr>
                     </thead>
                     <tbody>
                       {snap.top_signatures.map((s) => (
@@ -1294,7 +1294,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               <CollapsiblePanel
                 id="services"
                 cardId="card:services"
-                title="Affected services"
+                title="Getroffen services"
                 info="De services (applicaties) die de meeste kritieke issues uitzenden in dit venster — waar je eerst moet kijken."
                 summary={
                   <span className="panel-collapsed-summary--inline">
@@ -1304,7 +1304,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 }
               >
                 {snap.affected_services.length === 0 ? (
-                  <p className="muted">None.</p>
+                  <p className="muted">Geen.</p>
                 ) : (
                   <div className="tiles">
                     {snap.affected_services.map((s) => (
@@ -1337,7 +1337,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 }
               >
                 {snap.status_codes.length === 0 ? (
-                  <p className="muted">No server errors.</p>
+                  <p className="muted">Geen server-errors.</p>
                 ) : (
                   <>
                     <div className="tiles">
@@ -1363,9 +1363,9 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 const atRisk = health.stuck || [];
                 const critical = atRisk.filter((d) => d.verdict === "problem").length;
                 return atRisk.length > 0 ? (
-                  <section className="panel panel--alert" data-smartcard="card:pipeline-health" data-smartlabel="Documents needing attention" data-smartstatus="crit">
+                  <section className="panel panel--alert" data-smartcard="card:pipeline-health" data-smartlabel="Documenten die aandacht nodig hebben" data-smartstatus="crit">
                     <h3>
-                      🚨 Documents needing attention
+                      🚨 Documenten die aandacht nodig hebben
                       <InfoTip text="Documenten die nog NIET live staan op open.overheid.nl — errored (kunnen niet gepubliceerd worden) of stuck/hangend in een service. Proactief getoond zodat je handelt voordat gebruikers het melden. Klik op een document om precies te tracen waar het misging." />
                     </h3>
                     <p className="pipe-alert">
@@ -1406,10 +1406,10 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                     )}
                   </section>
                 ) : (
-                  <section className="panel" data-smartcard="card:pipeline-health" data-smartlabel="Documents pipeline" data-smartstatus="ok">
+                  <section className="panel" data-smartcard="card:pipeline-health" data-smartlabel="Documenten-pipeline" data-smartstatus="ok">
                     <h3>
-                      🚦 Documents pipeline
-                      <InfoTip text="Proactive check: are any documents failing to reach open.overheid.nl? Updates automatically." />
+                      🚦 Documenten-pipeline
+                      <InfoTip text="Proactieve check: lukt het alle documenten om open.overheid.nl te bereiken? Wordt automatisch bijgewerkt." />
                     </h3>
                     <p className="pipe-ok">✓ Geen documenten met risico — alles bereikt open.overheid.nl.</p>
                   </section>

@@ -3976,3 +3976,56 @@ input:-webkit-autofill:focus {
   width: 100%;
   min-width: 0;
 }
+
+/* ── Alerting · ontvangers-beheer (CRUD) ─────────────────────────────────────
+   Compact recipient manager: header (title + count pill + drempel inline), an add
+   row with a test-mail action, and a responsive grid of editable recipient chips.
+   Built to fill the width — replaces the old empty textarea block. */
+.alerts-rcpt-head { display: flex; align-items: center; gap: 12px 16px; flex-wrap: wrap; margin-bottom: 14px; }
+.alerts-rcpt-titles { display: flex; flex-direction: column; gap: 1px; margin-right: auto; }
+.alerts-rcpt-count { white-space: nowrap; }
+.alerts-rcpt-threshold { display: inline-flex; align-items: center; gap: 8px; }
+.alerts-rcpt-threshold label { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .08em; }
+
+.alerts-rcpt-add { display: flex; gap: 10px; flex-wrap: wrap; align-items: stretch; }
+.alerts-rcpt-add input {
+  flex: 1 1 240px; min-width: 0;
+  background: var(--bg-input); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm); color: var(--text-primary);
+  padding: 10px 13px; font: inherit; font-size: 14px;
+}
+.alerts-rcpt-add input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.alerts-rcpt-test { flex: 0 0 auto; }
+
+.alerts-rcpt-err { color: var(--error); font-size: 13px; margin: 8px 0 0; }
+.alerts-rcpt-msg { font-size: 13px; margin: 8px 0 0; padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+.alerts-rcpt-msg--ok   { color: var(--success); border-color: color-mix(in srgb, var(--success) 40%, var(--border)); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.alerts-rcpt-msg--warn { color: var(--warn);    border-color: color-mix(in srgb, var(--warn) 40%, var(--border));    background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.alerts-rcpt-msg--err  { color: var(--error);   border-color: color-mix(in srgb, var(--error) 40%, var(--border));   background: color-mix(in srgb, var(--error) 8%, transparent); }
+
+.alerts-rcpt-empty {
+  margin: 14px 0 0; padding: 12px 14px; border-radius: var(--radius-sm); font-size: 13.5px;
+  color: var(--warn); border: 1px dashed color-mix(in srgb, var(--warn) 50%, var(--border));
+  background: color-mix(in srgb, var(--warn) 7%, transparent);
+}
+
+.alerts-rcpt-list { list-style: none; margin: 14px 0 0; padding: 0;
+  display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+.alerts-rcpt-item { display: flex; align-items: center; gap: 6px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 7px 8px 7px 12px; }
+.alerts-rcpt-mail { flex: 1 1 auto; min-width: 0; font-size: 13.5px; color: var(--text-primary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alerts-rcpt-edit { flex: 1 1 auto; min-width: 0; background: var(--bg-app);
+  border: 1px solid var(--accent); border-radius: var(--radius-sm);
+  color: var(--text-primary); padding: 5px 8px; font: inherit; font-size: 13px; }
+.alerts-rcpt-edit:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-glow); }
+.alerts-rcpt-iconbtn { flex: 0 0 auto; width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; border: 1px solid transparent; border-radius: var(--radius-sm);
+  color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: all .14s ease; }
+.alerts-rcpt-iconbtn:hover { background: var(--bg-elevated); color: var(--text-primary); border-color: var(--border-strong); }
+.alerts-rcpt-iconbtn--del:hover { color: var(--error); border-color: color-mix(in srgb, var(--error) 50%, var(--border-strong)); }
+
+.alerts-rcpt-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+.alerts-rcpt-hint { margin: 0; font-size: 12.5px; flex: 1 1 280px; }

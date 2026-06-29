@@ -1,6 +1,7 @@
 """Unified-alerting API. Viewing requires the `alerts` feature grant; every
 mutation is super-admin-only. All inputs validated server-side; no secrets are
 ever returned. Inert (200 {enabled:false}) when settings.alerts_enabled is off."""
+import asyncio
 import logging
 import re
 
@@ -8,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 import alerts
+import alerts_send
 import alerts_store
 from auth import require_feature, require_super
 from config import settings
@@ -36,6 +38,10 @@ class ConfigBody(BaseModel):
     cooldown_minutes: int | None = None
     severity_threshold: str | None = None
     global_enabled: bool | None = None
+
+
+class TestBody(BaseModel):
+    recipients: list[str] | None = None
 
 
 @router.get("/status")
@@ -99,3 +105,32 @@ async def set_config(body: ConfigBody, session: dict = Depends(require_super)):
     if body.global_enabled is not None:
         alerts_store.set_config("global_enabled", body.global_enabled, actor)
     return {"ok": True, "config": alerts_store.get_config()}
+
+
+@router.post("/test")
+async def send_test(body: TestBody, session: dict = Depends(require_super)):
+    """Send a one-off test email to verify SMTP + the recipient addresses, so an
+    admin never discovers a broken delivery only during a real incident. Uses the
+    given recipients, else the saved config. Never raises on delivery failure —
+    reports a structured reason the UI can show in plain Dutch."""
+    recips = body.recipients if body.recipients is not None \
+        else alerts_store.get_config().get("recipients", [])
+    cleaned = [e.strip() for e in (recips or []) if e and e.strip()]
+    bad = [e for e in cleaned if not _valid_email(e)]
+    if bad:
+        raise HTTPException(400, f"invalid email(s): {', '.join(bad[:3])}")
+    if not cleaned:
+        return {"delivered": False, "reason": "no_recipients", "count": 0}
+    if not (settings.smtp_host and settings.smtp_from):
+        return {"delivered": False, "reason": "smtp_unconfigured", "count": len(cleaned)}
+    subject = "Testmelding — Open Overheid - Monitoring"
+    text = ("Dit is een testmelding van Open Overheid - Monitoring (Alerting). "
+            "Ontvang je deze mail, dan werkt de e-mailbezorging.")
+    html = ("<p>Dit is een <b>testmelding</b> van Open Overheid - Monitoring "
+            "(Alerting).</p><p>Ontvang je deze mail, dan werkt de e-mailbezorging "
+            "correct en bereiken echte alerts deze ontvanger(s).</p>")
+    delivered = await asyncio.to_thread(
+        alerts_send.send_email_to, cleaned, subject, html, text)
+    return {"delivered": delivered,
+            "reason": "sent" if delivered else "send_failed",
+            "count": len(cleaned)}

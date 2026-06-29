@@ -273,3 +273,29 @@ Snelle controle zonder UI (API, met een super-admin-token):
 curl -s localhost:8000/alerts/status  -H "Authorization: Bearer <token>" | jq .items
 curl -s localhost:8000/alerts/history -H "Authorization: Bearer <token>" | jq '.history[0]'
 ```
+
+## Ontvangers beheren (CRUD) + testmail
+
+In **Beheer → Alerting → Ontvangers & instellingen** beheer je de e-mailontvangers
+nu per adres (geen komma-tekstvak meer):
+
+- **Toevoegen** — typ een adres en klik **➕ Toevoegen** (of Enter). Het adres wordt
+  gevalideerd (formaat), genormaliseerd (lowercase/trim) en ontdubbeld.
+- **Bewerken** — klik **✎** bij een adres, pas het inline aan, Enter = opslaan,
+  Esc = annuleren.
+- **Verwijderen** — klik **🗑**.
+- Elke wijziging wordt **direct opgeslagen** (auto-save, met een `✓ opgeslagen`-flash);
+  achterliggend is het nog steeds `PUT /alerts/config` met de volledige `recipients`-lijst
+  (max 50, server-side gevalideerd).
+- Staat de lijst leeg, dan toont de kaart een **waarschuwing** — zonder ontvangers
+  kunnen alerts niet bezorgd worden.
+
+**✉ Stuur testmail** — verstuurt één testmail naar alle ontvangers, zodat je SMTP +
+de adressen verifieert vóór een echt incident. Endpoint: `POST /alerts/test`
+(super-admin). De UI toont een duidelijke melding:
+
+- ✓ verzonden naar N ontvanger(s) · ⚠ SMTP niet geconfigureerd · ⚠ geen ontvangers ·
+  ✗ versturen mislukt (zie logs).
+
+> Bezorging is best-effort: `send_email_to` gooit nooit een error — bij een
+> niet-geconfigureerde of falende SMTP krijg je een nette reden terug, geen 500.

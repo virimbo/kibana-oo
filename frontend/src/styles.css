@@ -2921,7 +2921,23 @@ body {
 
 /* the env-matrix */
 .alerts-envcols { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(232px, 1fr)); }
-.alerts-envcols[data-cols="1"] { grid-template-columns: minmax(232px, 380px); }
+.alerts-envcols[data-cols="1"] { grid-template-columns: 1fr; }
+/* Single-environment category (e.g. DLQ = PROD only): don't trap the tiles in a
+   narrow 380px column with a dead right half — flow them across the full width in
+   a responsive grid (also gives long queue names more room). Two-env categories
+   get a denser tile grid per column too. */
+.alerts-envcols[data-cols="1"] .alerts-envcol-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
+.alerts-envcols[data-cols="2"] .alerts-envcol-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px;
+  align-items: start;
+}
 .alerts-envcol { background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius);
   border-top: 3px solid var(--col-accent, var(--border-strong)); padding: 12px; }
 .alerts-envcol--prod { --col-accent: var(--env-prod); }

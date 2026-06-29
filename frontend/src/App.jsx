@@ -209,7 +209,7 @@ function LoginPage({ onLogin }) {
           <h1 className="gx-h1">
             OPEN OVERHEID
             <br />
-            MONITORING<span className="gx-h1-dot">.</span>
+            MONITORING
           </h1>
           <p className="gx-sub">
             Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om

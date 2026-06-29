@@ -3942,3 +3942,21 @@ input:-webkit-autofill:focus {
   border: 1px solid var(--border-strong);
   box-shadow: none; opacity: 1; cursor: not-allowed;
 }
+
+/* ── Page-header polish: hug the content ───────────────────────────────────────
+   .page-hero (flex ROW, for a right-side element) + .gx-pagehead (flex COLUMN)
+   combine so the column wins — which turned .page-hero-main's `flex: 1 1 360px`
+   into a 360px *height*, leaving a tall dead band under every page title
+   (Settings, Authorization, Regression, Monitoring). Reset it so the header
+   sizes to its content and stays left-aligned. */
+.page-hero.gx-pagehead {
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 6px;
+  padding: 22px 26px;
+}
+.page-hero.gx-pagehead .page-hero-main {
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+}

@@ -466,13 +466,13 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
 
       <div className="chat-scroll">
         <div className="dash">
-          <header className="gx-pagehead">
-            <span className="gx-eyebrow">• DOCUMENTEN · TRACER</span>
+          <header className="gx-pagehead dash-pagehead">
+            <span className="gx-eyebrow">• PIPELINE · TRACER</span>
             <h1 className="gx-h1">DOCUMENTEN</h1>
           </header>
           <div className="dash-controls">
             <label className="control">
-              <span className="control-label">Period</span>
+              <span className="control-label">Periode</span>
               <TimeRange value={range} onChange={onRangeChange} disabled={loading} />
             </label>
             <label className="control">
@@ -510,10 +510,10 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   <InfoTip text="Vroege waarschuwing: document-errors in dit venster vs de vorige periode. Een piek kleurt dit rood zodat je kunt handelen voordat gebruikers een kapot of ontbrekend document merken." />
                 </h3>
                 {data.alert_level === "ok" ? (
-                  <p className="pipe-ok">✓ No document errors in this window.</p>
+                  <p className="pipe-ok">✓ Geen document-errors in dit venster.</p>
                 ) : (
                   <p className="pipe-alert">
-                    ⚠ {data.errors} document error{data.errors === 1 ? "" : "s"} in this window
+                    ⚠ {data.errors} document-error{data.errors === 1 ? "" : "s"} in dit venster
                     {data.error_pct_change != null && (
                       <>
                         {" · "}
@@ -522,7 +522,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                         </span>
                       </>
                     )}
-                    {" — fix the failed documents below before users hit them."}
+                    {" — herstel de mislukte documenten hieronder voordat gebruikers ze raken."}
                   </p>
                 )}
                 {data.failed && data.failed.length > 0 && (
@@ -892,11 +892,11 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   <table className="dash-table feed-table">
                     <thead>
                       <tr>
-                        <th>Date</th>
-                        <th>Time</th>
-                        <th>Action</th>
+                        <th>Datum</th>
+                        <th>Tijd</th>
+                        <th>Actie</th>
                         <th>Type</th>
-                        <th>Organization</th>
+                        <th>Organisatie</th>
                         <th>Document</th>
                         <th>Status</th>
                         <th>Message</th>
@@ -930,8 +930,7 @@ export default function DocumentsPage({ token, username, onLogout, onNavigate, l
                   </table>
                 )}
                 <p className="muted feed-foot">
-                  Showing {filtered.length} of {events.length} recent events. Action classification is
-                  best-effort — tell me which labels look wrong and I'll tune it.
+                  {filtered.length} van {events.length} recente events getoond. Actie-classificatie is best-effort.
                 </p>
               </section>
             </>

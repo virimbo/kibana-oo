@@ -8,7 +8,7 @@ const CARDS = [
     view: "settings",
     icon: "⚙",
     title: "Instellingen",
-    subtitle: "Settings",
+    subtitle: "Instellingen",
     desc: "AI-assistent aan/uit, model kiezen (Ollama / Mistral) en chat-functies beheren.",
   },
   {
@@ -22,21 +22,21 @@ const CARDS = [
     view: "documents",
     icon: "📄",
     title: "Documenten",
-    subtitle: "Documents",
+    subtitle: "Documenten",
     desc: "Documenten traceren (OVS/NVS), zoeken en vastgelopen publicaties opsporen.",
   },
   {
     view: "regression",
     icon: "🧪",
     title: "Regressietest",
-    subtitle: "Regression",
+    subtitle: "Regressietest",
     desc: "Na een release: controleer of open.overheid.nl nog werkt — beschikbaarheid, journeys, API en TLS.",
   },
   {
     view: "alerts",
     icon: "🔔",
     title: "Alerting",
-    subtitle: "Meldingen",
+    subtitle: "Alerting",
     desc: "E-mailmeldingen bij RED-status (omgevingen, DLQ, certificaten): aan/uit per kaart, ontvangers, cooldown en geschiedenis.",
   },
 ];
@@ -47,7 +47,7 @@ const SUPER_CARDS = [
     view: "authorization",
     icon: "🔐",
     title: "Autorisatie",
-    subtitle: "Authorisation",
+    subtitle: "Autorisatie",
     desc: "Beheer wie toegang heeft tot welke kaarten en tools (gebruiker × functie-matrix).",
   },
   {
@@ -95,7 +95,10 @@ export default function AdminPage({
       <div className="chat-scroll">
         <div className="dash">
           <section className="panel">
-            <h3>🛠 Beheer</h3>
+            <div>
+              <span className="page-eyebrow gx-eyebrow">Beheer</span>
+              <h2 className="gx-h2">Beheercentrum</h2>
+            </div>
             <p className="muted set-intro">
               Beheercentrum (admin). Kies een onderdeel om te beheren.
             </p>

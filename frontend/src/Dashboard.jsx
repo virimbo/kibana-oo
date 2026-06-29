@@ -647,7 +647,7 @@ function DlqCard({ data, onNavigate }) {
 // open/closed choice is remembered per `id` across reloads, like
 // CollapsiblePanel but one level up — so power users can fold away what they
 // don't watch and the page remembers their layout.
-function DashZone({ id, title, eyebrow, alert = false, defaultCollapsed = false, children }) {
+function DashZone({ id, title, eyebrow, alert = false, defaultCollapsed = false, hidden = false, children }) {
   const key = `dash.zone.${id}`;
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -664,6 +664,8 @@ function DashZone({ id, title, eyebrow, alert = false, defaultCollapsed = false,
       /* storage unavailable — non-fatal */
     }
   }, [key, collapsed]);
+
+  if (hidden) return null;   // toggled off via the dashboard customize panel
 
   return (
     <section className={`dash-zone${collapsed ? " is-collapsed" : ""}`}>
@@ -775,9 +777,27 @@ function HeroStrip({ snap, health, aanlever, dlq, can, onNavigate }) {
   );
 }
 
-export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, showCardDetails = true, dashSections = {}, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
+// Every toggleable dashboard block, in render order — drives the admin customize
+// panel. Keys match the dashSections state (App.jsx) and the showSec() gates.
+const DASH_ITEMS = [
+  { key: "uptime", label: "Beschikbaarheid (uptime)" },
+  { key: "service_health", label: "Service health" },
+  { key: "infra", label: "Grafana & servers" },
+  { key: "hero", label: "Overzichtstegels" },
+  { key: "attention", label: "Vereist aandacht" },
+  { key: "aanlever", label: "Aanleverfouten" },
+  { key: "dlq", label: "Dead-letter queues" },
+  { key: "certs", label: "Certificaten & TLS" },
+  { key: "throughput", label: "Throughput & outcomes" },
+  { key: "overview", label: "Logs & fouten" },
+  { key: "ai", label: "AI insights" },
+];
+
+export default function DashboardPage({ token, username, onLogout, onNavigate, llmProvider, onProviderChange, aiEnabled = true, showCardDetails = true, dashSections = {}, setDashSection = () => {}, can = () => true, isAdmin = false, stuckCount, aanleverCount, dlqCount }) {
   // A dashboard section is visible unless explicitly switched off in Settings.
   const showSec = (key) => dashSections[key] !== false;
+  // Admin-only "Aanpassen" (customize) mode: reveals per-item on/off switches.
+  const [customize, setCustomize] = useState(false);
   const [range, setRange] = useState(loadRange);
   const onRangeChange = (r) => { setRange(r); saveRange(r); };
   const [dataView, setDataView] = useState(DEFAULT_DATA_VIEW);
@@ -1010,7 +1030,46 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
                 data as of {loadedAt.toLocaleTimeString()}
               </span>
             )}
+            {isAdmin && (
+              <button
+                type="button"
+                className={`btn btn--ghost dash-customize-btn${customize ? " is-on" : ""}`}
+                onClick={() => setCustomize((c) => !c)}
+                title="Dashboard-onderdelen aan/uit zetten"
+              >
+                ⚙ {customize ? "Klaar" : "Aanpassen"}
+              </button>
+            )}
           </div>
+
+          {isAdmin && customize && (
+            <section className="panel gx-panel dash-customize">
+              <span className="page-eyebrow gx-eyebrow">Dashboard aanpassen</span>
+              <h3 className="gx-h2">Onderdelen tonen of verbergen</h3>
+              <p className="muted set-intro">
+                Zet hieronder elk onderdeel aan of uit. Je keuze wordt onthouden op dit
+                apparaat. (Dezelfde schakelaars staan ook in Beheer → Instellingen.)
+              </p>
+              <div className="dash-customize-grid">
+                {DASH_ITEMS.map((it) => {
+                  const on = showSec(it.key);
+                  return (
+                    <div key={it.key} className={`dash-customize-row${on ? "" : " is-off"}`}>
+                      <span className="dash-customize-label">{it.label}</span>
+                      <button
+                        type="button" role="switch" aria-checked={on}
+                        aria-label={`${it.label} ${on ? "verbergen" : "tonen"}`}
+                        className={`switch${on ? " is-on" : ""}`}
+                        onClick={() => setDashSection(it.key, !on)}
+                      >
+                        <span className="switch-knob" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
 
           {error && <div className="alert alert--error">{error}</div>}
 
@@ -1028,7 +1087,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             <HeroStrip snap={snap} health={health} aanlever={aanlever} dlq={dlq} can={can} onNavigate={onNavigate} />
           )}
 
-          <DashZone id="attention" title="Vereist aandacht" eyebrow="Actie vereist" alert>
+          <DashZone id="attention" title="Vereist aandacht" eyebrow="Actie vereist" alert hidden={!showSec("attention")}>
 
           {showSec("aanlever") && can("aanleverfouten") && <AanleverfoutenCard data={aanlever} onAck={ackAanlever} onNavigate={onNavigate} />}
 
@@ -1115,13 +1174,13 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
           )}
           </DashZone>
 
-          <DashZone id="throughput" title="Throughput & outcomes" eyebrow="Documentverwerking">
+          <DashZone id="throughput" title="Throughput & outcomes" eyebrow="Documentverwerking" hidden={!showSec("throughput")}>
           {can("outcomes") && <OutcomesCard data={outcomes} onNavigate={onNavigate} />}
           </DashZone>
 
           {snap && (
             <>
-              <DashZone id="overview" title="Overzicht & diagnostiek" eyebrow="Logs & fouten">
+              <DashZone id="overview" title="Overzicht & diagnostiek" eyebrow="Logs & fouten" hidden={!showSec("overview")}>
               <div className={`status-banner status-banner--${snap.status_level}`}>
                 <strong>
                   {snap.status_level === "ok"
@@ -1419,7 +1478,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
               </DashZone>
 
               {aiEnabled && (
-              <DashZone id="ai" title="AI insights" eyebrow="Kunstmatige intelligentie">
+              <DashZone id="ai" title="AI insights" eyebrow="Kunstmatige intelligentie" hidden={!showSec("ai")}>
               <CollapsiblePanel
                 id="aitriage"
                 cardId="card:aitriage"

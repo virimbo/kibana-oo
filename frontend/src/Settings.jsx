@@ -102,6 +102,10 @@ export default function SettingsPage({
     { key: "certs", label: "Certificaten & TLS", hint: "De cards voor certificaatvervaldatum / TLS-status." },
     { key: "dlq", label: "Dead-letter queues", hint: "De RabbitMQ DLQ queue-cards." },
     { key: "aanlever", label: "Aanleverfouten", hint: "De card voor afgewezen aanleveringen." },
+    { key: "attention", label: "Vereist aandacht", hint: "De zone met documenten die NIET live staan (errored/stuck)." },
+    { key: "throughput", label: "Throughput & outcomes", hint: "De documentverwerking-zone (gepubliceerd/bijgewerkt/mislukt)." },
+    { key: "overview", label: "Logs & fouten", hint: "De diagnostiek-zone (per systeem, error-signatures, services)." },
+    { key: "ai", label: "AI insights", hint: "De zone met AI-gegenereerde analyse." },
   ];
 
   return (

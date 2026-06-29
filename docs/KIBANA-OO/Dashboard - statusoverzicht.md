@@ -140,3 +140,21 @@ zetten met schakelaars (los van autorisatie; per sessie onthouden):
 ## Gerelateerd
 
 - [[Navigatie]] · [[Monitoring dashboard]] · [[Document tracer]] · [[Document lifecycle (pipeline)]]
+
+## Onderdelen tonen/verbergen (admin · ⚙ Aanpassen)
+
+Een beheerder kan elk dashboard-onderdeel aan- of uitzetten — rechtstreeks op het
+dashboard. Klik rechtsboven (bij Vernieuwen) op **⚙ Aanpassen**: er verschijnt een
+paneel met een schakelaar per onderdeel:
+
+- Beschikbaarheid (uptime) · Service health · Grafana & servers · Overzichtstegels ·
+  Vereist aandacht · Aanleverfouten · Dead-letter queues · Certificaten & TLS ·
+  Throughput & outcomes · Logs & fouten · AI insights.
+
+Zet je iets uit, dan verdwijnt het blok meteen; weer aan = terug. Klik **⚙ Klaar**
+om het paneel te sluiten — daarbuiten blijft het dashboard schoon (geen schakelaars
+in beeld). Alleen zichtbaar voor admins; gewone gebruikers zien alleen het resultaat.
+
+> **Onthouden (durable):** je keuze staat in `localStorage` (`kibana_oo_dash_sections`)
+> en blijft bewaard, ook na het sluiten van de tab. Dezelfde schakelaars staan ook in
+> **Beheer → Instellingen → Dashboard-weergave** — beide sturen dezelfde status aan.

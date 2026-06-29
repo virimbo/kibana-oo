@@ -56,6 +56,7 @@ const DASH_SECTIONS_KEY = "kibana_oo_dash_sections";
 // nothing disappears unexpectedly; uptime/certs/dlq are core monitoring.
 const DASH_SECTION_DEFAULTS = {
   uptime: true, service_health: true, infra: true, hero: true, certs: true, dlq: true, aanlever: true,
+  attention: true, throughput: true, overview: true, ai: true,
 };
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "";
@@ -1034,12 +1035,16 @@ export default function App() {
   // Dashboard section visibility (show/hide whole blocks) — one object, default all on.
   const [dashSections, setDashSections] = useState(() => {
     try {
-      return { ...DASH_SECTION_DEFAULTS, ...JSON.parse(sessionStorage.getItem(DASH_SECTIONS_KEY) || "{}") };
+      // Durable: persists across sessions (localStorage). Migrate any older
+      // per-session value so a returning admin keeps their layout.
+      const stored = localStorage.getItem(DASH_SECTIONS_KEY)
+        || sessionStorage.getItem(DASH_SECTIONS_KEY) || "{}";
+      return { ...DASH_SECTION_DEFAULTS, ...JSON.parse(stored) };
     } catch {
       return { ...DASH_SECTION_DEFAULTS };
     }
   });
-  useEffect(() => sessionStorage.setItem(DASH_SECTIONS_KEY, JSON.stringify(dashSections)), [dashSections]);
+  useEffect(() => localStorage.setItem(DASH_SECTIONS_KEY, JSON.stringify(dashSections)), [dashSections]);
   const setDashSection = useCallback((key, val) => setDashSections((s) => ({ ...s, [key]: val })), []);
 
   // Admin-configured default chat scope — the data view + time window every new
@@ -1154,6 +1159,7 @@ export default function App() {
         aiEnabled={aiEnabled}
         showCardDetails={showCardDetails}
         dashSections={dashSections}
+        setDashSection={setDashSection}
         can={can}
         stuckCount={stuckCount}
         aanleverCount={aanleverCount}

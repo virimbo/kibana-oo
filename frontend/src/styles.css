@@ -4029,3 +4029,16 @@ input:-webkit-autofill:focus {
 
 .alerts-rcpt-foot { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
 .alerts-rcpt-hint { margin: 0; font-size: 12.5px; flex: 1 1 280px; }
+
+/* ── Dashboard customize (admin) — per-item show/hide ─────────────────────────
+   The "⚙ Aanpassen" panel: a responsive grid of labelled .switch toggles, one per
+   dashboard block. Reuses the global .switch; durable via dashSections. */
+.dash-customize-btn.is-on { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, var(--border-strong)); }
+.dash-customize { margin-bottom: 6px; }
+.dash-customize-grid { display: grid; gap: 8px; margin-top: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.dash-customize-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 9px 12px; transition: opacity .14s ease; }
+.dash-customize-row.is-off { opacity: .58; }
+.dash-customize-label { font-size: 13.5px; color: var(--text-primary); }

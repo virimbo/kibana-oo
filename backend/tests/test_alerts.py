@@ -264,6 +264,50 @@ def test_email_validation():
     assert alerts_api._valid_email("x" * 300 + "@e.com") is False
 
 
+def test_send_test_no_recipients():
+    import alerts_api
+    res = asyncio.run(alerts_api.send_test(
+        alerts_api.TestBody(recipients=[]), session={"username": "a@x"}))
+    assert res == {"delivered": False, "reason": "no_recipients", "count": 0}
+
+
+def test_send_test_rejects_invalid_email():
+    import alerts_api
+    with pytest.raises(HTTPException) as ei:
+        asyncio.run(alerts_api.send_test(
+            alerts_api.TestBody(recipients=["not-an-email"]), session={"username": "a@x"}))
+    assert ei.value.status_code == 400
+
+
+def test_send_test_smtp_unconfigured(monkeypatch):
+    import alerts_api
+    from config import settings
+    monkeypatch.setattr(settings, "smtp_host", "")
+    res = asyncio.run(alerts_api.send_test(
+        alerts_api.TestBody(recipients=["ops@example.com"]), session={"username": "a@x"}))
+    assert res["delivered"] is False
+    assert res["reason"] == "smtp_unconfigured"
+    assert res["count"] == 1
+
+
+def test_send_test_delivers(monkeypatch):
+    import alerts_api
+    import alerts_send
+    from config import settings
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from", "no-reply@example.com")
+    sent = {}
+    def _fake_send(recipients, subject, html, text):
+        sent["to"] = recipients
+        return True
+    monkeypatch.setattr(alerts_send, "send_email_to", _fake_send)
+    res = asyncio.run(alerts_api.send_test(
+        alerts_api.TestBody(recipients=["ops@example.com", "beheer@example.com"]),
+        session={"username": "a@x"}))
+    assert res == {"delivered": True, "reason": "sent", "count": 2}
+    assert sent["to"] == ["ops@example.com", "beheer@example.com"]
+
+
 def test_api_requires_super(monkeypatch):
     import permissions
     monkeypatch.setattr(permissions, "is_super", lambda u: False)

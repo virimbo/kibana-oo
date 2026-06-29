@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import TopNav from "./Nav";
 import {
-  fetchAlertsStatus, fetchAlertsHistory, putAlertToggle, putAlertConfig,
+  fetchAlertsStatus, fetchAlertsHistory, putAlertToggle, putAlertConfig, testAlertEmail,
 } from "./api";
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 // Beheer → Alerting (meldingen). Editorial "command center": a status hero, an
 // env-scope control bar, and per-category env-matrices (PROD/ACC/TST columns) of
@@ -51,15 +53,20 @@ export default function AlertsPage({
   const [status, setStatus] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(null);
-  const [recipients, setRecipients] = useState("");
   const [saved, setSaved] = useState(false);
   const savedTimer = useRef(null);
+  // Recipient CRUD (add / inline-edit / delete) + one-off test mail.
+  const [newEmail, setNewEmail] = useState("");
+  const [rcptError, setRcptError] = useState("");
+  const [editing, setEditing] = useState(null);   // email being edited, or null
+  const [editVal, setEditVal] = useState("");
+  const [testMsg, setTestMsg] = useState(null);    // { tone, text } | null
+  const [testing, setTesting] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const s = await fetchAlertsStatus(token);
       setStatus(s);
-      if (s?.config?.recipients) setRecipients(s.config.recipients.join(", "));
       if (s?.enabled !== false) {
         const h = await fetchAlertsHistory(token);
         setHistory(h.history || []);
@@ -87,6 +94,55 @@ export default function AlertsPage({
   const saveConfig = async (patch) => {
     try { await putAlertConfig(token, patch); await load(); flashSaved(); }
     catch (e) { setError(String(e.message || e)); }
+  };
+
+  // ── Recipient CRUD (add / inline-edit / delete) ──────────────────────────
+  const recipientList = () => status?.config?.recipients || [];
+
+  const addRecipient = async () => {
+    const e = newEmail.trim().toLowerCase();
+    if (!EMAIL_RE.test(e)) { setRcptError("Voer een geldig e-mailadres in."); return; }
+    if (recipientList().some((r) => r.toLowerCase() === e)) {
+      setRcptError("Dit adres staat al in de lijst."); return;
+    }
+    setRcptError(""); setNewEmail(""); setTestMsg(null);
+    await saveConfig({ recipients: [...recipientList(), e] });
+  };
+
+  const removeRecipient = async (email) => {
+    setTestMsg(null);
+    await saveConfig({ recipients: recipientList().filter((r) => r !== email) });
+  };
+
+  const commitEdit = async (oldEmail) => {
+    const e = editVal.trim().toLowerCase();
+    if (!EMAIL_RE.test(e)) { setRcptError("Voer een geldig e-mailadres in."); return; }
+    if (e !== oldEmail && recipientList().some((r) => r.toLowerCase() === e)) {
+      setRcptError("Dit adres staat al in de lijst."); return;
+    }
+    setRcptError(""); setEditing(null); setTestMsg(null);
+    await saveConfig({ recipients: recipientList().map((r) => (r === oldEmail ? e : r)) });
+  };
+
+  const sendTest = async () => {
+    setTesting(true); setTestMsg(null);
+    try {
+      const res = await testAlertEmail(token, { recipients: recipientList() });
+      const n = res.count ?? recipientList().length;
+      if (res.delivered) {
+        setTestMsg({ tone: "ok", text: `✓ Testmail verzonden naar ${n} ontvanger(s) — controleer de inbox.` });
+      } else if (res.reason === "no_recipients") {
+        setTestMsg({ tone: "warn", text: "Geen ontvangers — voeg eerst een e-mailadres toe." });
+      } else if (res.reason === "smtp_unconfigured") {
+        setTestMsg({ tone: "warn", text: "SMTP is niet geconfigureerd in deze omgeving — bezorging is uitgeschakeld." });
+      } else {
+        setTestMsg({ tone: "err", text: "Versturen mislukt — controleer de SMTP-instellingen en de logs." });
+      }
+    } catch (e) {
+      setTestMsg({ tone: "err", text: String(e.message || e) });
+    } finally {
+      setTesting(false);
+    }
   };
 
   const nav = (
@@ -250,36 +306,82 @@ export default function AlertsPage({
           );
         })}
 
-        {/* ── Recipients + settings ─────────────────────────── */}
-        <section className="panel gx-panel set-panel">
-          <span className="alerts-eyebrow gx-eyebrow">Bezorging</span>
-          <h3 className="gx-h2">Ontvangers &amp; instellingen</h3>
-          <div className="alerts-form">
-            {(status.config.recipients || []).length > 0 && (
-              <div className="alerts-chips">
-                {status.config.recipients.map((r) => <span key={r} className="alerts-chip">{r}</span>)}
-              </div>
-            )}
-            <textarea className="alerts-textarea" rows={2} value={recipients}
-                      placeholder="ops@example.com, beheer@example.com"
-                      onChange={(e) => setRecipients(e.target.value)} />
-            <div className="alerts-save-row">
-              <button className="btn btn--primary gx-cta" onClick={() => saveConfig({
-                recipients: recipients.split(",").map((s) => s.trim()).filter(Boolean),
-              })}>Ontvangers opslaan</button>
-              <span className={`alerts-saved${saved ? " is-shown" : ""}`}>✓ opgeslagen</span>
+        {/* ── Ontvangers-beheer (CRUD) + drempel ────────────── */}
+        <section className="panel gx-panel set-panel alerts-rcpt">
+          <header className="alerts-rcpt-head">
+            <div className="alerts-rcpt-titles">
+              <span className="alerts-eyebrow gx-eyebrow">Bezorging</span>
+              <h3 className="gx-h2">Ontvangers &amp; instellingen</h3>
             </div>
-            <div className="alerts-settings-row">
-              <div className="alerts-field">
-                <label htmlFor="al-th">Drempel</label>
-                <select id="al-th" className="alerts-select" value={status.config.severity_threshold}
-                        onChange={(e) => saveConfig({ severity_threshold: e.target.value })}>
-                  <option value="critical">critical · alleen rood</option>
-                  <option value="warn">warn · waarschuwing + rood</option>
-                </select>
-              </div>
+            <span className="alerts-pill alerts-pill--ok alerts-rcpt-count">
+              <b>{recipientList().length}</b> ontvanger{recipientList().length === 1 ? "" : "s"}
+            </span>
+            <div className="alerts-rcpt-threshold">
+              <label htmlFor="al-th">Drempel</label>
+              <select id="al-th" className="alerts-select" value={status.config.severity_threshold}
+                      onChange={(e) => saveConfig({ severity_threshold: e.target.value })}>
+                <option value="critical">critical · alleen rood</option>
+                <option value="warn">warn · waarschuwing + rood</option>
+              </select>
             </div>
-            <p className="muted set-intro" style={{ marginTop: 4 }}>
+          </header>
+
+          <div className="alerts-rcpt-add">
+            <input type="email" inputMode="email" placeholder="naam@organisatie.nl"
+                   value={newEmail}
+                   onChange={(e) => { setNewEmail(e.target.value); setRcptError(""); }}
+                   onKeyDown={(e) => e.key === "Enter" && addRecipient()} />
+            <button type="button" className="btn btn--primary gx-cta" onClick={addRecipient}>
+              ➕ Toevoegen
+            </button>
+            <button type="button" className="btn btn--ghost alerts-rcpt-test"
+                    disabled={testing || recipientList().length === 0} onClick={sendTest}
+                    title="Stuur een eenmalige testmail naar alle ontvangers">
+              {testing ? "Versturen…" : "✉ Stuur testmail"}
+            </button>
+          </div>
+
+          {rcptError && <p className="alerts-rcpt-err">{rcptError}</p>}
+          {testMsg && <p className={`alerts-rcpt-msg alerts-rcpt-msg--${testMsg.tone}`}>{testMsg.text}</p>}
+
+          {recipientList().length === 0 ? (
+            <p className="alerts-rcpt-empty">
+              ⚠ Nog geen ontvangers — alerts kunnen niet bezorgd worden. Voeg een e-mailadres toe.
+            </p>
+          ) : (
+            <ul className="alerts-rcpt-list">
+              {recipientList().map((r) => (
+                <li key={r} className="alerts-rcpt-item">
+                  {editing === r ? (
+                    <>
+                      <input className="alerts-rcpt-edit" type="email" value={editVal} autoFocus
+                             onChange={(e) => { setEditVal(e.target.value); setRcptError(""); }}
+                             onKeyDown={(e) => {
+                               if (e.key === "Enter") commitEdit(r);
+                               if (e.key === "Escape") setEditing(null);
+                             }} />
+                      <button type="button" className="alerts-rcpt-iconbtn" title="Opslaan"
+                              onClick={() => commitEdit(r)}>✓</button>
+                      <button type="button" className="alerts-rcpt-iconbtn" title="Annuleren"
+                              onClick={() => setEditing(null)}>×</button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="alerts-rcpt-mail" title={r}>{r}</span>
+                      <button type="button" className="alerts-rcpt-iconbtn" title="Bewerken"
+                              onClick={() => { setEditing(r); setEditVal(r); setRcptError(""); }}>✎</button>
+                      <button type="button" className="alerts-rcpt-iconbtn alerts-rcpt-iconbtn--del"
+                              title="Verwijderen" onClick={() => removeRecipient(r)}>🗑</button>
+                    </>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="alerts-rcpt-foot">
+            <span className={`alerts-saved${saved ? " is-shown" : ""}`}>✓ opgeslagen</span>
+            <p className="muted alerts-rcpt-hint">
               📨 Eén melding zodra iets stuk gaat, daarna stilte zolang het stuk blijft,
               en één herstelmelding zodra het weer OK is. (Bij verergering naar
               <em> critical</em> volgt eenmalig een escalatie.)

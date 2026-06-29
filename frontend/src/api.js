@@ -37,6 +37,7 @@ export const fetchAlertsStatus = (token) => getJSON("/alerts/status", token);
 export const fetchAlertsHistory = (token) => getJSON("/alerts/history", token);
 export const putAlertToggle = (token, body) => sendJSON("/alerts/toggle", token, "PUT", body);
 export const putAlertConfig = (token, body) => sendJSON("/alerts/config", token, "PUT", body);
+export const testAlertEmail = (token, body) => sendJSON("/alerts/test", token, "POST", body);
 
 // ─── DLQ Intelligence (Beheer/Dashboard → 🔍 Intelligentie) ──────────────────
 export const fetchDlqIntel = (token) => getJSON("/dashboard/dlq/intel", token);

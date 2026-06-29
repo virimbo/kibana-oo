@@ -54,7 +54,6 @@ export default function DlqIntelPage({
       <h1 className="gx-h1">DLQ Intelligentie</h1>
     </div>
     <section className="panel gx-panel">
-      <h3 className="gx-h2">🐰 DLQ Intelligentie</h3>
       <p className="muted set-intro">
         Waarom staan er berichten vast? Per queue: oorzaak, leeftijd, trend en
         aanbevolen actie. Alleen-lezen — berichten worden niet verwijderd of verplaatst.

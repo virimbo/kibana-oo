@@ -626,7 +626,7 @@ function ChatPage({
               : err.message;
           updateLast({
             status: "error",
-            content: `**Connection error**\n\n${detail}`,
+            content: `**Verbindingsfout**\n\n${detail}`,
             sources: [],
           });
         }
@@ -829,7 +829,7 @@ function ChatPage({
             </div>
 
             {loading ? (
-              <button className="btn btn--stop" onClick={stop} title="Stop generating">
+              <button className="btn btn--stop" onClick={stop} title="Stoppen met genereren">
                 <Icon.Stop />
                 Stop
               </button>
@@ -838,7 +838,7 @@ function ChatPage({
                 className="btn btn--primary btn--send gx-cta"
                 onClick={() => sendMessage(input)}
                 disabled={!input.trim() && !image}
-                title="Send"
+                title="Versturen"
               >
                 <Icon.Send />
               </button>

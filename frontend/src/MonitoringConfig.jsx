@@ -339,7 +339,7 @@ export default function MonitoringConfig({
 
           {/* ── Connections ─────────────────────────────────────── */}
           <section className="panel gx-panel">
-            <span className="page-eyebrow gx-eyebrow">Connections</span>
+            <span className="page-eyebrow gx-eyebrow">Prometheus · Jaeger</span>
             <h3 className="gx-h2">🔌 Connections</h3>
             <p className="muted set-intro">
               Endpoints van Prometheus/Jaeger. Een credential hoort in <code>.env</code> —
@@ -403,7 +403,7 @@ export default function MonitoringConfig({
           <section className="panel gx-panel">
             <div className="mon-panel-head">
               <div>
-                <span className="page-eyebrow gx-eyebrow">Targets</span>
+                <span className="page-eyebrow gx-eyebrow">Wat we monitoren</span>
                 <h3 className="gx-h2">🎯 Targets</h3>
               </div>
               <button

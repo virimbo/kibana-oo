@@ -15,6 +15,7 @@ from sse_starlette.sse import EventSourceResponse
 
 import ratelimit
 
+import redact
 from config import settings
 from elastic import (
     extract_doc_ids,
@@ -770,6 +771,16 @@ def _is_health_question(text: str) -> bool:
     return bool(_GENERIC_TROUBLE_RE.search(t) and _BROAD_SCOPE_RE.search(t))
 
 
+def _redact_context(context: str) -> str:
+    """Mask obvious PII (emails/IPs/tokens) from the assembled LLM context when
+    the flag is on — the single shared choke point so BOTH Ollama and Mistral get
+    the redacted string. Document ids, service names, HTTP codes, timestamps and
+    *.overheid.nl hosts are preserved by redact.redact_pii. Never raises."""
+    if settings.llm_redact_pii:
+        return redact.redact_pii(context)
+    return context
+
+
 def _build_health_context(snap: dict | None, health: dict | None) -> str:
     """Ground-truth health context: the dashboard cluster snapshot (worst-affected
     services, error signatures, status codes) plus the document-pipeline health
@@ -857,7 +868,7 @@ def _build_health_context(snap: dict | None, health: dict | None) -> str:
         "worst-affected services or pipeline stages first and say briefly what is "
         "going wrong for each. If everything is at zero, say the system looks healthy."
     )
-    return "\n".join(parts)
+    return _redact_context("\n".join(parts))
 
 
 # Shown between the instant facts and the streamed AI prose.
@@ -982,4 +993,4 @@ def _build_context(
             msg = entry.get("message", "")[:300]
             parts.append(f"- [{ts}] {msg}")
 
-    return "\n".join(parts)
+    return _redact_context("\n".join(parts))

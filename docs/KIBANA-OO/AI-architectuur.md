@@ -275,3 +275,20 @@ Naar aanleiding van de security-review zijn deze hardening-maatregelen doorgevoe
 
 Zichtbaar in **Beheer → Compliance & Beveiliging**. Openstaand (bewust later):
 PII-redactie vóór de Mistral-context (nu gemitigeerd doordat Ollama lokaal draait).
+
+## PII-redactie + achtergrond service-sessie (nieuw)
+
+- **PII-redactie vóór de LLM-context** (`backend/redact.py`, vlag `LLM_REDACT_PII=true`):
+  e-mails → `[email]`, IP's → `[ip]`, tokens/JWT → `[token]` worden gemaskeerd in de
+  context die naar het model gaat (Ollama én Mistral), in één gedeeld choke-point.
+  **Behouden** voor analyse: `ronl-…` document-id's, servicenamen, HTTP-codes,
+  timestamps, `*.overheid.nl`-hosts. De gebruiker ziet in de UI nog steeds de echte
+  data; alleen de model-prompt is geschoond. Restrisico blijft bij Mistral (cloud) →
+  Ollama of een DPA voor maximale zekerheid.
+- **Achtergrond service-sessie** (`backend/service_session.py`, config-gated): de
+  achtergrond-monitorloop draaide met `sid=None` (ES-checks sliepen). Zet
+  `MONITOR_SERVICE_USER` + `MONITOR_SERVICE_PASSWORD` in `.env` (een **alleen-lezen**
+  Keycloak/SP-serviceaccount) → de loop logt onbewaakt in en ES-monitors zoals
+  **log-freshness** draaien 24/7. Leeg = uit (gedrag onveranderd); een mislukte login
+  degradeert stil naar `sid=None`. Dit is de sleutel voor achtergrond-alerting van de
+  [[Observability]]-signalen. Zie ook [[stuck-document-alert-deferred]].

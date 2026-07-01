@@ -250,6 +250,14 @@ class Settings(BaseSettings):
     # LLM Provider selection: "ollama" or "mistral"
     llm_provider: str = "ollama"
 
+    # ── PII redaction (before the LLM) ────────────────────────────────────────
+    # When true, the SHARED context builders mask obvious personal data (emails,
+    # IP addresses, JWT/bearer-like tokens) from the log context BEFORE it reaches
+    # any provider — especially the Mistral cloud. Document ids, service names,
+    # HTTP status codes, ISO timestamps and *.overheid.nl hostnames are preserved
+    # for analysis. See redact.py. Flip to false to roll back instantly.
+    llm_redact_pii: bool = True
+
     # ── Notifications / daily digest ──────────────────────────
     # Email (SMTP). For Gmail use an app password (plain login is blocked).
     smtp_host: str = ""
@@ -345,6 +353,17 @@ class Settings(BaseSettings):
     monitor_interval: int = 60        # seconds between poll cycles
     monitor_timeout: int = 8          # per-check HTTP timeout
     monitor_flap_threshold: int = 2   # consecutive reds before alerting
+
+    # ── Background monitor service-session (unattended ES-based checks) ────────
+    # Additive & DORMANT by default. When BOTH user + password are set, the
+    # background poll loop logs in via Keycloak once (cached for
+    # service_sid_ttl_minutes) and passes the resulting `sid` into run_once so
+    # ES-based checks (e.g. log-freshness) actually run unattended. Empty =
+    # unchanged behaviour (sid=None, ES checks dormant). Use a READ-ONLY service
+    # account. Never raises into the loop. See service_session.py.
+    monitor_service_user: str = ""
+    monitor_service_password: str = ""
+    service_sid_ttl_minutes: int = 30   # re-login when the cached sid is older than this
 
     # ── Unified alerting (admin-managed RED-state email alerts) ───────────────
     # Additive & OFF by default. When true, a background engine reads the existing

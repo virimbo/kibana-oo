@@ -83,6 +83,21 @@ export default function CompliancePage({
             </div>
           </section>
 
+          {/* ── Read-only (RAG) ───────────────────────────────── */}
+          <section className="panel gx-panel">
+            <span className="page-eyebrow gx-eyebrow">Werking</span>
+            <h3 className="gx-h2">🔒 Alleen-lezen (RAG)</h3>
+            <p className="muted set-intro">
+              Dit is een <b>RAG</b>-systeem (Retrieval-Augmented Generation): het{" "}
+              <b>leest</b> log- en metricdata uit Elasticsearch via de Kibana-proxy
+              (<b>alleen-lezen</b>) en stuurt die als context naar het taalmodel. Het{" "}
+              <b>schrijft niet</b> naar de logs, indices of bronsystemen — alle monitors
+              zijn read-only. De app houdt uitsluitend een <b>eigen lokale</b> audit- en
+              incident-opslag bij voor zijn eigen werking; aan de bewaakte systemen wordt
+              niets gewijzigd.
+            </p>
+          </section>
+
           {/* ── EU AI Act ─────────────────────────────────────── */}
           <section className="panel gx-panel">
             <span className="page-eyebrow gx-eyebrow">Regelgeving</span>
@@ -100,6 +115,17 @@ export default function CompliancePage({
                 </li>
               ))}
             </ul>
+            <p className="cmpl-links">
+              Controleer bij de officiële bron:{" "}
+              <a href="https://digital-strategy.ec.europa.eu/en/policies/regulatory-framework-ai"
+                 target="_blank" rel="noreferrer">Europese Commissie — AI Act ↗</a>
+              {" · "}
+              <a href="https://eur-lex.europa.eu/eli/reg/2024/1689/oj"
+                 target="_blank" rel="noreferrer">Verordening (EU) 2024/1689 — EUR-Lex ↗</a>
+              {" · "}
+              <a href="https://artificialintelligenceact.eu/article/50/"
+                 target="_blank" rel="noreferrer">Artikel 50 · transparantie ↗</a>
+            </p>
           </section>
 
           {/* ── Security check ────────────────────────────────── */}

@@ -4218,3 +4218,22 @@ input:-webkit-autofill:focus {
   -webkit-background-clip: text !important;
   background-clip: text !important;
 }
+
+/* Login hero brand text — ~5x bigger, metallic silver futuristic finish.
+   Scoped to the login hero so the top-nav brand stays its normal size. */
+.login-hero-brand { align-items: flex-start; gap: 16px; }
+.login-hero-brand .brand-mark { margin-top: 6px; }
+.login-hero-brand .brand-mark { width: 52px; height: 52px; border-radius: 12px; }
+.login-hero-brand .brand-name {
+  font-family: var(--display, "Chakra Petch", sans-serif);
+  font-size: clamp(40px, 6.4vw, 80px);   /* ~5x the 16px original */
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  line-height: 1.04;
+  background: linear-gradient(174deg, #ffffff 0%, #e6ecf4 26%, #b3bece 56%, #808b9d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.5));
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}

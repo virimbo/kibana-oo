@@ -50,12 +50,14 @@ def freshness_status(age_minutes: float | None,
 
 
 def stuck_status(stuck_count: int | None) -> str:
-    """Vastgelopen documenten → status. 0 = ok, 1..9 = warn, ≥10 = crit."""
+    """Vastgelopen documenten → status. 0 = ok, obs_stuck_warn ≤ n < obs_stuck_crit
+    = warn, ≥ obs_stuck_crit = crit. Thresholds are configurable so "critical" is a
+    meaningful count of ACTIONABLE stuck documents (not a stale historic pile)."""
     if stuck_count is None:
         return "unknown"
     if stuck_count <= 0:
         return "ok"
-    if stuck_count < 10:
+    if stuck_count < settings.obs_stuck_crit:
         return "warn"
     return "crit"
 

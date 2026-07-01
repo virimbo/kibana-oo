@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     data_views: str = "logs-*,ds-prod5-koop-plooi*,ds-prod5-koop-sp,apm-*"
     default_data_view: str = "logs-*"
 
+    # ── Observability overview (Beheer → Observability) ──────────────────────
+    # Ingestion-freshness thresholds for the "Datastroom" signal: the age of the
+    # newest log is OK up to _ok_minutes, a warning up to _warn_minutes, else
+    # critical. Additive; the page is a read-only roll-up of existing facts.
+    obs_fresh_ok_minutes: int = 15
+    obs_fresh_warn_minutes: int = 60
+
     # Dashboard
     dashboard_cache_ttl: int = 60          # seconds; summary cache TTL
     dashboard_timezone: str = "Europe/Amsterdam"

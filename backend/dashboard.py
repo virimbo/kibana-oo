@@ -17,6 +17,7 @@ from documents import build_document_activity, build_pipeline_health, build_pipe
 from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view, resolve_window
 import aanlever
+import observability
 import rabbitmq_dlq
 import regression
 
@@ -123,6 +124,18 @@ async def briefing(
     payload = {"briefing": text, "period_minutes": snap.period_minutes, "data_view": snap.data_view}
     _briefing_cache.set(key, payload)
     return payload
+
+
+@router.get("/observability")
+async def observability_overview(
+    period: int = Query(default=60),
+    data_view: str | None = Query(default=None),
+    session: dict = Depends(require_feature("dashboard")),
+):
+    """Observability overview: the critical monitoring signals (datastroom,
+    publicatie, aanleverfouten, fouten) with plain-language explanations. A
+    read-only roll-up of the dashboard's already-computed facts; never raises."""
+    return await observability.build_observability(session["sid"], data_view, _period(period))
 
 
 @router.get("/certificates")

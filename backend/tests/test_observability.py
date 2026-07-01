@@ -45,13 +45,22 @@ def test_stuck_zero_ok():
 
 
 def test_stuck_low_warn():
+    # warn spans obs_stuck_warn (1) up to just under obs_stuck_crit (25)
     assert stuck_status(1) == "warn"
-    assert stuck_status(9) == "warn"
+    assert stuck_status(5) == "warn"
+    assert stuck_status(24) == "warn"
 
 
 def test_stuck_high_crit():
-    assert stuck_status(10) == "crit"
+    # crit only at/above the sane obs_stuck_crit threshold (default 25)
+    assert stuck_status(25) == "crit"
     assert stuck_status(42) == "crit"
+
+
+def test_stuck_uses_configurable_crit_threshold(monkeypatch):
+    monkeypatch.setattr(observability.settings, "obs_stuck_crit", 5)
+    assert stuck_status(4) == "warn"
+    assert stuck_status(5) == "crit"
 
 
 def test_stuck_none_unknown():

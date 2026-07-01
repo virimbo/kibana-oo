@@ -179,6 +179,19 @@ class Settings(BaseSettings):
     # the pipeline (e.g. a transient error at Intake that clears in minutes) is
     # never flagged. This is the settle/grace period.
     incident_settle_minutes: int = 45
+    # Trust gate for the "stuck document" health signal. A document is only ever
+    # "at-risk" once its NEWEST event is older than this — a doc whose latest event
+    # is younger is still within normal processing time (in-flight), NOT stuck. This
+    # stops a freshly-submitted, still-moving document from being counted.
+    pipeline_settle_minutes: int = 90
+    # Open incidents older than this are auto-resolved ('stale') — they are no
+    # longer actionable and would otherwise pile up as a historic backlog that
+    # inflates the count. Draining them keeps the list + count ACTIONABLE.
+    incident_max_age_hours: int = 72
+    # Observability "Publicatie" thresholds (configurable so "critical" is
+    # meaningful): n==0 ok, obs_stuck_warn ≤ n < obs_stuck_crit warn, ≥ crit.
+    obs_stuck_warn: int = 1
+    obs_stuck_crit: int = 25
     # Open incidents are persisted here so genuine problems stay visible for days
     # — across restarts and beyond the scan window — until they are actually
     # resolved (published or progressed). Put this on a mounted volume.

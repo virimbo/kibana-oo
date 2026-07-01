@@ -759,12 +759,27 @@ async def build_pipeline_health(
             groups.setdefault(did, []).append(e)
 
     settle_seconds = settings.incident_settle_minutes * 60
+    # TRUST GATE — a document whose NEWEST event is younger than this is still
+    # within normal processing time (in-flight), so it must NOT be flagged as
+    # at-risk. Only a hard 'problem'/error verdict overrides this (a genuine
+    # failure signal shouldn't wait out the settle window). This is what stops the
+    # accumulated pile of freshly-submitted, still-moving docs being counted.
+    pipeline_settle_seconds = settings.pipeline_settle_minutes * 60
     candidates = []
     progressed_ids: set[str] = set()  # scanned docs that are NOT (any longer) at risk
     for did, evs in groups.items():
         view = pipeline.build_pipeline_view(evs, now=now)
         if view["verdict"] not in ("stuck", "problem"):
             progressed_ids.add(did)  # healthy / in-progress / published → recovered
+            continue
+        # Settle gate: a doc whose newest event is younger than pipeline_settle is
+        # still in-flight → skip (unless it carries a hard 'problem'/error verdict).
+        newest = max((e.get("timestamp") or "" for e in evs), default="")
+        newest_dt = pipeline.parse_ts(newest)
+        newest_age = (now - newest_dt).total_seconds() if newest_dt else None
+        if view["verdict"] != "problem" and (
+            newest_age is None or newest_age < pipeline_settle_seconds
+        ):
             continue
         # SETTLE TIME — the core false-positive fix. A document still emitting
         # events is in motion, not an incident: a transient error at Intake that
@@ -866,6 +881,18 @@ async def build_pipeline_health(
         meta = m if isinstance(m, dict) else None
         if meta and pipeline.is_published(meta.get("status")):
             await incidents.resolve(r["doc_id"], "published", now)
+
+    # (4) AGE-EXPIRY: auto-resolve incidents older than incident_max_age_hours.
+    # Beyond this they are no longer actionable and would otherwise accumulate as a
+    # historic pile that inflates stuck_count. Resolving them with a distinct
+    # 'stale' reason drains the backlog so the count reflects only live problems.
+    max_age_seconds = settings.incident_max_age_hours * 3600
+    for r in open_recs:
+        if r["doc_id"] in confirmed_ids:
+            continue  # freshly re-confirmed this scan → still actionable, keep it
+        first_dt = pipeline.parse_ts(r.get("first_detected"))
+        if first_dt and (now - first_dt).total_seconds() > max_age_seconds:
+            await incidents.resolve(r["doc_id"], "stale", now)
 
     # Final list = whatever is still OPEN, oldest (longest-unsolved) first.
     final_open = await incidents.open_incidents()

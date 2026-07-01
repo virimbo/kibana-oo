@@ -263,6 +263,116 @@ async def test_incident_survives_window_then_clears_when_published(monkeypatch):
     assert res3["stuck_count"] == 0
 
 
+# ── Settle GATE + incident age-expiry (the "trustworthy count" fix) ───────────
+
+def _late_stuck_hits(uid):
+    """A single event ~5h ago at a LATE stage (Indexing) → 'stuck' verdict."""
+    return [_hit_at(NOW - timedelta(hours=5), "msvc-indexatie", f"indexing {uid} report.pdf")]
+
+
+async def test_settle_gate_flags_aged_stuck_document(monkeypatch):
+    """With the default settle gate, a document stalled LATE and quiet for 5h IS
+    flagged as at-risk."""
+    uid = "ffffffff-6666-4666-8666-ffffffffffff"
+    hits = _late_stuck_hits(uid)
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": hits if index == "ds-prod5-koop-plooi*" else []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+    monkeypatch.setattr(documents.settings, "pipeline_settle_minutes", 90)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    assert res["stuck_count"] == 1
+    assert res["stuck"][0]["id"] == uid
+
+
+async def test_settle_gate_skips_document_within_settle_window(monkeypatch):
+    """The same LATE-stalled document is NOT flagged when the settle gate is raised
+    above its newest-event age — it is still within normal processing time."""
+    uid = "ffffffff-6666-4666-8666-ffffffffffff"
+    hits = _late_stuck_hits(uid)   # newest event ~5h ago
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": hits if index == "ds-prod5-koop-plooi*" else []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+    # Gate at 6h > the doc's 5h age → treated as in-flight → skipped.
+    monkeypatch.setattr(documents.settings, "pipeline_settle_minutes", 360)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    assert res["stuck_count"] == 0
+
+
+async def test_incident_age_expiry_resolves_stale_incident(monkeypatch):
+    """An open incident older than incident_max_age_hours is auto-resolved as
+    'stale' — it is no longer actionable, so it drops off the list and the count."""
+    uid = "99999999-7777-4777-8777-999999999999"
+    # Seed a genuinely old open incident directly in the store.
+    old = NOW - timedelta(hours=100)
+    await incidents.upsert_open(
+        {"id": uid, "verdict": "problem", "headline": "old", "stuck_stage": "Intake",
+         "stage_index": 0, "title": "Old doc", "link": "https://open.overheid.nl/o",
+         "events": 1, "last_seen": old.isoformat(), "data_view": "logs-*"},
+        old,
+    )
+    assert len(await incidents.open_incidents()) == 1
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": []}}   # nothing in the scan window now
+
+    async def meta(doc_id):
+        return None                      # portal can't confirm published
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+    monkeypatch.setattr(documents.settings, "incident_max_age_hours", 72)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    assert res["stuck_count"] == 0                       # drained from the count
+    rows = await incidents.open_incidents()
+    assert rows == []                                    # resolved out of the open set
+
+
+async def test_incident_age_expiry_keeps_fresh_incident(monkeypatch):
+    """An incident younger than incident_max_age_hours is NOT expired — only the
+    stale backlog is drained, genuine recent problems stay visible."""
+    uid = "88888888-8888-4888-8888-888888888888"
+    recent = NOW - timedelta(hours=2)
+    await incidents.upsert_open(
+        {"id": uid, "verdict": "problem", "headline": "recent", "stuck_stage": "Intake",
+         "stage_index": 0, "title": "Recent doc", "link": "https://open.overheid.nl/r",
+         "events": 1, "last_seen": recent.isoformat(), "data_view": "logs-*"},
+        recent,
+    )
+
+    async def fake_es(sid, index, body):
+        return {"hits": {"hits": []}}
+
+    async def meta(doc_id):
+        return None
+
+    monkeypatch.setattr(documents, "_es_search", fake_es)
+    monkeypatch.setattr(documents, "fetch_document_meta", meta)
+    _use_views(monkeypatch)
+    monkeypatch.setattr(documents.settings, "incident_max_age_hours", 72)
+
+    res = await documents.build_pipeline_health("sid", now=NOW)
+    assert res["stuck_count"] == 1                       # still actionable → kept
+    assert res["stuck"][0]["id"] == uid
+
+
 def test_detect_pipeline_markers_then_fallback(monkeypatch):
     # With NO trusted signal configured (date cutoff off), fall back to best-effort.
     monkeypatch.setattr(documents.settings, "pipeline_nvs_cutoff", "")

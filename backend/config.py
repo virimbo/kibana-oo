@@ -386,6 +386,13 @@ class Settings(BaseSettings):
     alert_errorrate_min: int = 50
     alert_errorrate_crit: int = 200
     alert_stuck_docs_max: int = 25
+    # ── Burst control (anti-alert-storm) ──────────────────────────────────────
+    # When a single scan would dispatch more than this many NEW alerts of the SAME
+    # category (e.g. 26 stuck documents on first activation), send ONE consolidated
+    # summary instead of N individual messages. Dedup is untouched — every item's
+    # state is still recorded so none re-alert next scan. <= 0 disables the cap
+    # (unlimited/old behaviour).
+    alert_burst_max: int = 5
     # Comma-separated emails used to SEED the admin-editable recipient list on first
     # run. Empty → seed from digest_recipients. Admin edits live in kibana_oo.db.
     alerts_recipient_seed: str = ""

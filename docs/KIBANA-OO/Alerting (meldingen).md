@@ -341,3 +341,13 @@ decide/dispatch-machine, dus met per-categorie drempels, @here-ping, dedup en he
 > / AI-architectuur). Zonder sessie zijn ze **inert**: `_collect(sid=None)` levert
 > alleen de bestaande uptime/DLQ/certificaat-items — ongewijzigd gedrag. De live
 > [[Observability]]-pagina toont dezelfde signalen nu al met je eigen sessie.
+
+## Burst-control (anti-alert-storm)
+
+Als één scan méér dan `ALERT_BURST_MAX` (standaard 5) **nieuwe** meldingen van
+dezelfde categorie zou versturen (bv. 26 vastgelopen documenten bij eerste
+activatie), stuurt het systeem **één samenvatting** i.p.v. 26 losse berichten:
+"⚠️ {n} nieuwe '{categorie}'-meldingen — bekijk op het dashboard", met **één**
+@here/@channel-ping (nooit één per document). De dedup blijft intact: de status van
+**elk** document wordt gewoon opgeslagen, dus niets alertt dubbel bij de volgende
+ronde. `ALERT_BURST_MAX=0` zet de cap uit (oud gedrag: alles los).

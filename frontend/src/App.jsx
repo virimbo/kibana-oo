@@ -12,6 +12,7 @@ import AlertsPage from "./Alerts";
 import DlqIntelPage from "./DlqIntel";
 import MonitoringConfig from "./MonitoringConfig";
 import CompliancePage from "./Compliance";
+import ObservabilityPage from "./Observability";
 import TopNav from "./Nav";
 
 const SUGGESTIONS = [
@@ -1248,6 +1249,24 @@ export default function App() {
   if (view === "compliance" && isSuper) {
     return (
       <CompliancePage
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        can={can}
+        isAdmin={isAdmin}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
+    );
+  }
+
+  if (view === "observability" && isAdmin) {
+    return (
+      <ObservabilityPage
         token={token}
         username={username}
         onLogout={handleLogout}

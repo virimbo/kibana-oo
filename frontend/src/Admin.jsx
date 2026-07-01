@@ -33,6 +33,13 @@ const CARDS = [
     desc: "Na een release: controleer of open.overheid.nl nog werkt — beschikbaarheid, journeys, API en TLS.",
   },
   {
+    view: "observability",
+    icon: "📈",
+    title: "Observability",
+    subtitle: "Datastroom & gezondheid",
+    desc: "Stroomt de data nog binnen, bereiken documenten open.overheid.nl, en zijn er fouten? — in gewone taal, met wat te doen.",
+  },
+  {
     view: "alerts",
     icon: "🔔",
     title: "Alerting",
@@ -78,7 +85,10 @@ export default function AdminPage({
   stuckCount, aanleverCount, dlqCount,
 }) {
   // Show only the cards this admin may use; super admin also gets Autorisatie.
-  const cards = CARDS.filter((c) => can(c.view));
+  // Observability is an admin-baseline overview (route-gated on isAdmin, not a
+  // per-feature grant), so it is shown to every admin.
+  const ADMIN_BASELINE = new Set(["observability"]);
+  const cards = CARDS.filter((c) => ADMIN_BASELINE.has(c.view) || can(c.view));
   if (isSuper) cards.push(...SUPER_CARDS);
   return (
     <>

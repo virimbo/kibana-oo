@@ -48,6 +48,14 @@ export const fetchServiceHealth = (token) => getJSON("/dashboard/service-health"
 // ─── Monitoring registry dashboard card ──────────────────────────────────────
 export const fetchMonitoring = (token) => getJSON("/dashboard/monitoring", token);
 
+// ─── Observability overview (Beheer → Observability) ─────────────────────────
+export const fetchObservability = (token, dataView, period) =>
+  getJSON(
+    `/dashboard/observability?period=${period ?? 60}` +
+      (dataView ? `&data_view=${encodeURIComponent(dataView)}` : ""),
+    token,
+  );
+
 // ─── Monitoring Targets registry (Beheer → Monitoring) ───────────────────────
 export const fetchMonitorTypes = (token) => getJSON("/monitor/types", token);
 export const fetchMonitorConnections = (token) => getJSON("/monitor/connections", token);

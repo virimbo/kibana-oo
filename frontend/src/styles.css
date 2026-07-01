@@ -4079,3 +4079,40 @@ input:-webkit-autofill:focus {
 .cmpl-links { margin: 14px 0 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.7; }
 .cmpl-links a { color: var(--accent); text-decoration: none; }
 .cmpl-links a:hover { text-decoration: underline; }
+
+/* ── Observability (Beheer → Observability) ─────────────────────────────────
+   Plain-language signal overview. Reuses tokens, .gx-panel, .alerts-pill. */
+.alerts-pill--unknown { background: var(--bg-input); color: var(--text-secondary); }
+
+.obs-refresh { align-self: flex-start; white-space: nowrap; }
+
+/* Intelligent overall banner — tinted by worst-of status. */
+.obs-banner { display: flex; align-items: center; gap: 16px; padding: 16px 20px; margin: 0 0 6px; }
+.obs-banner-dot { width: 12px; height: 12px; border-radius: 999px; flex: none;
+  background: var(--text-secondary); box-shadow: 0 0 0 4px color-mix(in srgb, var(--text-secondary) 22%, transparent); }
+.obs-banner-body { flex: 1; min-width: 0; }
+.obs-banner-headline { margin: 4px 0 0; font-size: 15.5px; font-weight: 600; color: var(--text); line-height: 1.45; }
+.obs-banner--ok      { border-color: color-mix(in srgb, var(--success) 45%, var(--border)); background: color-mix(in srgb, var(--success) 7%, transparent); }
+.obs-banner--ok .obs-banner-dot   { background: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 22%, transparent); }
+.obs-banner--warn    { border-color: color-mix(in srgb, var(--warn) 45%, var(--border)); background: color-mix(in srgb, var(--warn) 8%, transparent); }
+.obs-banner--warn .obs-banner-dot { background: var(--warn); box-shadow: 0 0 0 4px color-mix(in srgb, var(--warn) 22%, transparent); }
+.obs-banner--crit    { border-color: color-mix(in srgb, var(--error) 50%, var(--border)); background: var(--error-soft);
+  box-shadow: var(--shadow), inset 3px 0 0 var(--error); }
+.obs-banner--crit .obs-banner-dot { background: var(--error); box-shadow: 0 0 0 4px color-mix(in srgb, var(--error) 24%, transparent); }
+
+/* Responsive grid of signal cards. */
+.obs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-top: 6px; }
+.obs-card { display: flex; flex-direction: column; gap: 10px; padding: 18px 20px; }
+.obs-card--crit { border-color: color-mix(in srgb, var(--error) 45%, var(--border)); box-shadow: var(--shadow), inset 3px 0 0 var(--error); }
+.obs-card--warn { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); box-shadow: var(--shadow), inset 3px 0 0 var(--warn); }
+.obs-card--ok   { box-shadow: var(--shadow), inset 3px 0 0 var(--success); }
+.obs-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.obs-card-title { margin: 0; font-size: 15px; }
+.obs-pill { flex: none; }
+.obs-metric { margin: 0; font-family: var(--display); font-size: 22px; font-weight: 700; color: var(--text);
+  font-variant-numeric: tabular-nums; line-height: 1.15; }
+.obs-note { margin: 0; font-size: 12px; }
+.obs-explain { margin: 4px 0 0; display: grid; gap: 3px; }
+.obs-explain dt { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
+.obs-explain dt:not(:first-child) { margin-top: 8px; }
+.obs-explain dd { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }

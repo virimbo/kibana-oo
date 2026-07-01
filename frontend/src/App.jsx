@@ -11,6 +11,7 @@ import AuthorizationPage from "./Authorization";
 import AlertsPage from "./Alerts";
 import DlqIntelPage from "./DlqIntel";
 import MonitoringConfig from "./MonitoringConfig";
+import CompliancePage from "./Compliance";
 import TopNav from "./Nav";
 
 const SUGGESTIONS = [
@@ -1229,6 +1230,24 @@ export default function App() {
   if (view === "monitoring" && isSuper) {
     return (
       <MonitoringConfig
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        can={can}
+        isAdmin={isAdmin}
+        stuckCount={stuckCount}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
+    );
+  }
+
+  if (view === "compliance" && isSuper) {
+    return (
+      <CompliancePage
         token={token}
         username={username}
         onLogout={handleLogout}

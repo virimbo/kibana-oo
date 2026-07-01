@@ -4237,3 +4237,7 @@ input:-webkit-autofill:focus {
   filter: drop-shadow(0 3px 12px rgba(0, 0, 0, 0.5));
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+
+/* tweak: LOGIUS softer/more blurred; brand headline a bit smaller */
+.login-bg-wordmark { filter: blur(4px) !important; }
+.login-hero-brand .brand-name { font-size: clamp(32px, 5vw, 62px) !important; }

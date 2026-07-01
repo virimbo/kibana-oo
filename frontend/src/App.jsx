@@ -209,11 +209,6 @@ function LoginPage({ onLogin }) {
             </span>
             <span className="brand-name">Open Overheid - Monitoring</span>
           </div>
-          <h1 className="gx-h1">
-            OPEN OVERHEID
-            <br />
-            MONITORING
-          </h1>
         </div>
 
         <div className="login-card gx-panel">

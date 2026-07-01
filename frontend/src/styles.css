@@ -4155,3 +4155,26 @@ input:-webkit-autofill:focus {
 @media (max-width: 720px) {
   .login-bg-wordmark { font-size: 40vw; filter: blur(5px); top: 42%; }
 }
+
+/* ── Login hero refinement — readable LOGIUS + a light futuristic motif ──────
+   The brand line is the identity now (no redundant big H1). LOGIUS becomes a
+   readable, elegant gradient wordmark; a faint grid + subtle radar give a light
+   futuristic feel without the earlier heaviness. */
+.login-bg-wordmark {
+  font-size: clamp(60px, 8.5vw, 124px) !important;
+  letter-spacing: 0.22em !important;
+  filter: blur(0.6px) !important;
+  color: transparent !important;
+  background: linear-gradient(180deg, rgba(240, 243, 250, 0.16) 0%, rgba(255, 31, 76, 0.11) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  opacity: 1 !important;
+  top: 50% !important;
+}
+
+/* light futuristic motif: a whisper-faint grid + a touch more radar for depth */
+.login-bg-grid { opacity: 0.05 !important; }
+.login-bg-radar { opacity: 0.13 !important; filter: none; }
+.login-bg-radar::after { opacity: 0.28 !important; }
+.login-bg-glow { opacity: 0.5 !important; }
+.login-bg-horizon { opacity: 0.28 !important; }

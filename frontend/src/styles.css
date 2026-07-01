@@ -4178,3 +4178,43 @@ input:-webkit-autofill:focus {
 .login-bg-radar::after { opacity: 0.28 !important; }
 .login-bg-glow { opacity: 0.5 !important; }
 .login-bg-horizon { opacity: 0.28 !important; }
+
+/* ── Login: 'global network' motif (world-ops vibe, à la the reference) ──────
+   Re-enable a cohesive global-monitoring backdrop — a faint red technical grid,
+   a network of connection lines spread across, glowing red nodes, and a radar
+   sweep — tasteful, not garish. Readable LOGIUS stays the focal wordmark. */
+.login-bg-net {
+  inset: 0 !important; top: 0 !important; right: 0 !important; left: 0 !important;
+  width: 100% !important; height: 100% !important; opacity: 0.55 !important;
+}
+.net-lines { stroke: rgba(255, 51, 102, 0.13) !important; }
+.net-trace { stroke: rgba(255, 90, 125, 0.55) !important; }
+.net-hex   { stroke: rgba(255, 51, 102, 0.08) !important; }
+.net-nodes { fill: #ff3b5c !important; }
+.net-nodes circle { filter: drop-shadow(0 0 3px rgba(255, 59, 92, 0.85)); }
+
+/* faint red technical grid across the whole panel */
+.login-bg-grid { opacity: 0.08 !important; }
+/* radar sweep + soft glows for depth */
+.login-bg-radar { opacity: 0.17 !important; filter: none; }
+.login-bg-radar::after { opacity: 0.32 !important; }
+.login-bg-glow { opacity: 0.55 !important; }
+.login-bg-horizon { opacity: 0.30 !important; }
+/* a faint crimson wash so the whole thing reads as one 'ops' scene */
+.login-bg::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: radial-gradient(120% 90% at 50% 40%, rgba(255, 31, 76, 0.06), transparent 60%);
+}
+
+/* Reposition LOGIUS into the left hero column so it's fully readable (was
+   centered, half-hidden behind the login card) + a touch more presence. */
+.login-bg-wordmark {
+  left: 6% !important;
+  right: auto !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  text-align: left;
+  background: linear-gradient(180deg, rgba(240, 243, 250, 0.22) 0%, rgba(255, 31, 76, 0.14) 100%) !important;
+  -webkit-background-clip: text !important;
+  background-clip: text !important;
+}

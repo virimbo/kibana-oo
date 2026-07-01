@@ -274,12 +274,12 @@ async def admin_user_suspend(username: str, session: dict = Depends(require_supe
 @app.post("/login")
 async def login(body: LoginRequest, request: Request):
     """Log in via Keycloak and create a session."""
-    # Rate-limit by client IP to blunt credential stuffing. Prefer the real
-    # socket peer; fall back to X-Forwarded-For's first hop behind a proxy.
-    client_ip = request.client.host if request.client else None
-    if not client_ip:
-        fwd = request.headers.get("x-forwarded-for", "")
-        client_ip = fwd.split(",")[0].strip() or "unknown"
+    # Rate-limit by client IP to blunt credential stuffing. Behind nginx the
+    # socket peer is the proxy (shared by everyone), so prefer the real client
+    # from X-Forwarded-For's first hop; fall back to the socket peer directly.
+    fwd = request.headers.get("x-forwarded-for", "")
+    client_ip = (fwd.split(",")[0].strip() if fwd else "") \
+        or (request.client.host if request.client else "") or "unknown"
     if not ratelimit.allow(
         f"login:{client_ip}", settings.login_rate_max, settings.login_rate_window_seconds
     ):

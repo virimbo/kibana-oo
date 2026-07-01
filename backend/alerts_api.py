@@ -19,7 +19,7 @@ router = APIRouter(prefix="/alerts")
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _VALID_SCOPES = {"global", "category", "env", "card"}
-_VALID_CATEGORIES = {"environment", "dlq", "certificate"}
+_VALID_CATEGORIES = {"environment", "dlq", "certificate", "document", "errorrate"}
 _VALID_THRESHOLDS = {"warn", "critical"}
 _VALID_MENTIONS = {"none", "here", "channel"}
 

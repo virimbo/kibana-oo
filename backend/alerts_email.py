@@ -13,6 +13,11 @@ SUGGESTED = {
            "onderzoek de faalreden en requeue of verwijder de berichten.",
     "certificate": "Vernieuw/roteer het certificaat tijdig en controleer de "
                    "volledige keten (chain) en vervaldatum.",
+    "document": "Open het document via de link, controleer waar het is "
+                "vastgelopen en herstart de verwerking of lever het opnieuw aan.",
+    "errorrate": "Onderzoek de foutpiek bij deze service: bekijk de logs, "
+                 "controleer afhankelijkheden en 5xx-responses en schaal/herstart "
+                 "zo nodig de betreffende pod.",
 }
 KIND_LABEL = {"new": "New alert", "repeated": "Repeated alert",
               "escalation": "Escalation", "recovery": "Recovery"}
@@ -40,6 +45,10 @@ def render(item: dict, kind: str, prev_severity: str, dashboard_url: str
     if item.get("reasons"):
         top = item["reasons"][0]
         fields.insert(6, ("Top-oorzaak (DLQ)", f"{top['reason']} ({top['count']}×)"))
+    if item.get("category") == "document" and item.get("doc_id"):
+        fields.insert(6, ("Document-id", item["doc_id"]))
+        if item.get("link"):
+            fields.insert(7, ("Document-link", item["link"]))
     text = "\n".join(f"{k}: {v}" for k, v in fields)
 
     rows = "".join(

@@ -323,3 +323,21 @@ de adressen verifieert vóór een echt incident. Endpoint: `POST /alerts/test`
   **@channel** om bij een **kritieke** melding het kanaal te pingen (niet bij warn of
   herstel). De mention staat in de top-level `text` van het bericht, zodat Mattermost
   daadwerkelijk notificeert.
+
+## Nieuwe categorieën: Documenten (vastgelopen) + Errors per service
+
+Twee categorieën maken de observability-signalen tot echte meldingen (via dezelfde
+decide/dispatch-machine, dus met per-categorie drempels, @here-ping, dedup en herstel):
+
+- **📄 Documenten (vastgelopen)** — meldt per document dat NIET op open.overheid.nl
+  raakt, mét het **document-id én een directe link** (open.overheid.nl / doculoket) in
+  de Mattermost-kaart en e-mail. Begrensd op `ALERT_STUCK_DOCS_MAX` (25) + één
+  samenvattingsregel bij meer.
+- **🚨 Errors per service** — meldt bij een error-/5xx-piek per service
+  (`ALERT_ERRORRATE_MIN` 50 → warn, `ALERT_ERRORRATE_CRIT` 200 → critical).
+
+> **Voeding = achtergrond service-sessie.** Deze twee zijn ES-gevoed en werken alleen
+> onbewaakt als `MONITOR_SERVICE_USER`/`PASSWORD` in `.env` staan (zie [[Observability]]
+> / AI-architectuur). Zonder sessie zijn ze **inert**: `_collect(sid=None)` levert
+> alleen de bestaande uptime/DLQ/certificaat-items — ongewijzigd gedrag. De live
+> [[Observability]]-pagina toont dezelfde signalen nu al met je eigen sessie.

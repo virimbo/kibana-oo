@@ -376,6 +376,16 @@ class Settings(BaseSettings):
     alerts_interval: int = 60               # seconds between evaluation passes
     alerts_cooldown_minutes: int = 60       # default per-card anti-spam cooldown
     alerts_default_threshold: str = "warn"  # "critical" or "warn" — min severity to alert (warn = also alert on warnings)
+    # ── ES-fed alert categories (need a background service-session sid) ─────────
+    # Stuck-document + per-service error-rate/5xx-spike alerts read the dashboard's
+    # cached health/snapshot. They stay dormant while no service sid exists.
+    #   * error-rate: a service with ≥ alert_errorrate_min error-log hits in the
+    #     window is a WARN; ≥ alert_errorrate_crit is CRITICAL.
+    #   * stuck docs: cap the per-scan item count to avoid an alert storm; beyond
+    #     the cap one summary item is emitted instead.
+    alert_errorrate_min: int = 50
+    alert_errorrate_crit: int = 200
+    alert_stuck_docs_max: int = 25
     # Comma-separated emails used to SEED the admin-editable recipient list on first
     # run. Empty → seed from digest_recipients. Admin edits live in kibana_oo.db.
     alerts_recipient_seed: str = ""

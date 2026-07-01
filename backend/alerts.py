@@ -26,6 +26,8 @@ logger = logging.getLogger(__name__)
 CATEGORY_ENVIRONMENT = "environment"
 CATEGORY_DLQ = "dlq"
 CATEGORY_CERT = "certificate"
+CATEGORY_DOCUMENT = "document"
+CATEGORY_ERRORRATE = "errorrate"
 SEV_RANK = {"ok": 0, "warn": 1, "critical": 2}
 
 
@@ -120,6 +122,73 @@ def _normalize_cert(certs: list) -> list[dict]:
     return out
 
 
+# ── ES-fed normalization (need a background service-session sid) ──────────────
+def _doc_link(row: dict) -> str:
+    """Best-effort clickable link for a stuck document: prefer the link the health
+    row already computed (portal details page); else the config templates."""
+    doc_id = row.get("id") or ""
+    link = row.get("link")
+    if link:
+        return link
+    try:
+        return settings.doculoket_link_template.format(id=doc_id)
+    except Exception:  # noqa: BLE001 — a bad template never breaks the collector
+        return settings.portal_base_url.rstrip("/") + f"/details/{doc_id}"
+
+
+def _normalize_stuck_docs(health: dict | None) -> list[dict]:
+    """One item per at-risk ("stuck"/"problem") document from the pipeline-health
+    `stuck` list. Attaches doc_id + a clickable link so the alert can point the
+    beheerder straight at the document. Capped to avoid an alert storm; the
+    overflow is summarised in a single extra item."""
+    if not health:
+        return []
+    rows = health.get("stuck") or []
+    out: list[dict] = []
+    cap = max(1, settings.alert_stuck_docs_max)
+    for row in rows[:cap]:
+        doc_id = row.get("id") or "?"
+        verdict = row.get("verdict")
+        severity = "critical" if verdict == "problem" else "warn"
+        stage = row.get("stuck_stage") or "?"
+        item = _item(CATEGORY_DOCUMENT, "PROD", doc_id, severity,
+                     f"vastgelopen bij {stage}", row.get("headline") or "")
+        item["doc_id"] = doc_id
+        item["link"] = _doc_link(row)
+        item["stage"] = stage
+        item["title"] = row.get("title") or ""
+        out.append(item)
+    extra = len(rows) - cap
+    if extra > 0:
+        summary = _item(CATEGORY_DOCUMENT, "PROD", "overige",
+                        "warn", f"nog {extra} vastgelopen document(en)")
+        summary["doc_id"] = ""
+        summary["link"] = settings.portal_base_url
+        out.append(summary)
+    return out
+
+
+def _normalize_error_rate(snapshot: dict | None) -> list[dict]:
+    """One item per worst-affected service whose error count in the window exceeds
+    the configured minimum. Conservative: only the top few services, and only when
+    over threshold."""
+    if not snapshot:
+        return []
+    services = snapshot.get("affected_services") or []
+    out: list[dict] = []
+    lo = settings.alert_errorrate_min
+    hi = settings.alert_errorrate_crit
+    for svc in services[:5]:
+        name = svc.get("name") or "?"
+        count = int(svc.get("count") or 0)
+        if count < lo:
+            continue
+        severity = "critical" if count >= hi else "warn"
+        out.append(_item(CATEGORY_ERRORRATE, "PROD", name, severity,
+                         f"{count} errors"))
+    return out
+
+
 # ── toggle hierarchy + severity threshold ─────────────────────────────────────
 def _toggles_allow(item: dict) -> bool:
     """global ∧ category ∧ env ∧ card — any explicit OFF suppresses."""
@@ -189,9 +258,15 @@ def _dashboard_url() -> str:
     return settings.frontend_origin.rstrip("/") + "/"
 
 
-async def _collect() -> list[dict]:
+async def _collect(sid: str | None = None) -> list[dict]:
     """Read each monitor's latest verdict (read-only) → flat items. Best-effort:
-    a failure in one source must not stop the others."""
+    a failure in one source must not stop the others.
+
+    The session-less monitors (uptime / dlq / cert) always run exactly as before.
+    The ES-fed categories (stuck documents, per-service error rate) need a valid
+    service-session ``sid``; when it is falsy they are skipped entirely — no ES
+    calls, no items — so behaviour is identical to today while no service account
+    exists."""
     items: list[dict] = []
     try:
         items += _normalize_uptime(await uptime.latest())
@@ -210,6 +285,21 @@ async def _collect() -> list[dict]:
         items += _normalize_cert(certs)
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: cert collect failed: %s", e)
+
+    # ── ES-fed categories — only when a background service-session exists ──────
+    if sid:
+        import dashboard
+        try:
+            health = await dashboard.get_cached_health(sid, settings.default_data_view)
+            items += _normalize_stuck_docs(health)
+        except Exception as e:  # noqa: BLE001 — never break the pass
+            logger.error("alerts: stuck-docs collect failed: %s", e)
+        try:
+            snapshot = await dashboard.get_cached_snapshot(
+                sid, settings.alerts_interval // 60 or 15, settings.default_data_view)
+            items += _normalize_error_rate(snapshot)
+        except Exception as e:  # noqa: BLE001 — never break the pass
+            logger.error("alerts: error-rate collect failed: %s", e)
     return items
 
 
@@ -222,7 +312,16 @@ async def scan(now: datetime | None = None) -> dict:
     if not cfg["global_enabled"]:
         return {"enabled": True, "global_enabled": False, "sent": 0}
     now = now or datetime.now(timezone.utc)
-    items = _collect()
+    # Background path: obtain a service-session sid (None when no service account
+    # is configured) so the ES-fed categories page unattended once credentials
+    # exist — and are skipped gracefully (sid=None) while they are absent.
+    sid = None
+    try:
+        import service_session
+        sid = await service_session.get_service_sid()
+    except Exception as e:  # noqa: BLE001 — never break the pass on a session error
+        logger.error("alerts: service-session lookup failed: %s", e)
+    items = _collect(sid)
     if asyncio.iscoroutine(items):
         items = await items
     sent = 0

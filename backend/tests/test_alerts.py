@@ -227,7 +227,7 @@ def test_scan_sends_red_not_green_and_records(store, monkeypatch):
     monkeypatch.setattr(alerts_send, "send_email_to",
                         lambda recips, subject, html, text: sent.append(subject) or True)
     monkeypatch.setattr(alerts_send, "post_webhook", _noop_webhook)
-    monkeypatch.setattr(alerts, "_collect", lambda: alerts._normalize_uptime(
+    monkeypatch.setattr(alerts, "_collect", lambda *a, **k: alerts._normalize_uptime(
         {"enabled": True, "groups": [{"env": "ACC", "sites": [
             {"name": "open-acc.overheid.nl", "env": "ACC", "state": "down",
              "http_status": 404}]}]}) + alerts._normalize_dlq(
@@ -250,7 +250,7 @@ def test_scan_disabled_global_sends_nothing(store, monkeypatch):
     monkeypatch.setattr(alerts_send, "send_email_to",
                         lambda *a, **k: sent.append(1) or True)
     monkeypatch.setattr(alerts_send, "post_webhook", _noop_webhook)
-    monkeypatch.setattr(alerts, "_collect", lambda: [
+    monkeypatch.setattr(alerts, "_collect", lambda *a, **k: [
         alerts._item("dlq", "PROD", "export.dlq", "critical")])
     asyncio.run(alerts.scan())
     assert sent == []

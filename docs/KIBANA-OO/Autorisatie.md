@@ -78,3 +78,20 @@ Rol-/template-presets (Viewer/Operator/Admin), pre-provisioning (een gebruiker
 uitnodigen vóór de eerste login), e-mailmelding aan de super-admin bij een nieuwe
 `pending`, en een nav-badge met het aantal openstaande goedkeuringen (nu toont de
 sectiekop het aantal).
+
+## Super-admins configureren (SUPER_ADMINS)
+
+Super-admins worden **niet** meer in de source vastgelegd, maar via de omgeving:
+`SUPER_ADMINS` in `.env` (comma-gescheiden). Elke waarde moet **exact** overeenkomen
+met wat die persoon bij de **SP/Keycloak-login** typt (het e-mailadres).
+
+```
+SUPER_ADMINS=anton.partono@koop.overheid.nl,anton.partono@logius.nl
+```
+
+- **Primair:** `anton.partono@koop.overheid.nl`
+- **Backup:** `anton.partono@logius.nl` — meerdere super-admins = geen single point of
+  failure (de een kan de ander herstellen).
+- ⚠️ **Leeg = géén super-admin** (lock-out): zet dit dus in **productie** in `.env`.
+  `.env` is gitignored; `.env.example` documenteert de variabele.
+- Een super-admin heeft **volledige controle** en is overal `approved` (fail-safe).

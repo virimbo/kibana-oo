@@ -299,3 +299,14 @@ de adressen verifieert vóór een echt incident. Endpoint: `POST /alerts/test`
 
 > Bezorging is best-effort: `send_email_to` gooit nooit een error — bij een
 > niet-geconfigureerde of falende SMTP krijg je een nette reden terug, geen 500.
+
+## Drempel-default + prominentere Mattermost-melding
+
+- **Default drempel = `warn`** (was `critical`). Nieuwe installaties alerten voortaan
+  ook op **waarschuwingen** (bijv. een DLQ met berichten), niet alleen op rood. Per
+  omgeving/kaart nog steeds instelbaar; globaal om te zetten in **Beheer → Alerting →
+  Drempel**. (Bestaande installaties: de opgeslagen DB-waarde blijft leidend.)
+- **Mattermost-kaart valt meer op:** een prominente **pretext**-banner boven de kaart
+  (zichtbaar in de push-notificatie), de **kerncijfers** (bv. `1 message(s)`) vetgedrukt
+  in de leadzin, en meegenomen in **titel** + **fallback**. Zo ziet een beheerder in
+  één oogopslag wát er aandacht nodig heeft.

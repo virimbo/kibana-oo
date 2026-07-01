@@ -349,7 +349,7 @@ class Settings(BaseSettings):
     alerts_enabled: bool = False
     alerts_interval: int = 60               # seconds between evaluation passes
     alerts_cooldown_minutes: int = 60       # default per-card anti-spam cooldown
-    alerts_default_threshold: str = "critical"  # "critical" or "warn" — min severity to alert
+    alerts_default_threshold: str = "warn"  # "critical" or "warn" — min severity to alert (warn = also alert on warnings)
     # Comma-separated emails used to SEED the admin-editable recipient list on first
     # run. Empty → seed from digest_recipients. Admin edits live in kibana_oo.db.
     alerts_recipient_seed: str = ""

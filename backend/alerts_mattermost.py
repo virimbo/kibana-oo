@@ -52,12 +52,12 @@ def _lead(item: dict, kind: str, prev_severity: str) -> str:
                 f"De {cat} stond eerder op `{prev_severity or 'kritiek'}`.")
     if kind == "escalation":
         return (f"🔺 De {cat} **{name}** ({env}) is **verergerd** van "
-                f"`{prev_severity}` naar **{sev['label'].lower()}** — {status}.")
+                f"`{prev_severity}` naar **{sev['label'].lower()}** — **{status}**.")
     if kind == "repeated":
         return (f"🔁 De {cat} **{name}** ({env}) is **nog steeds "
-                f"{sev['label'].lower()}** — {status} — en de cooldown is verstreken.")
+                f"{sev['label'].lower()}** — **{status}** — en de cooldown is verstreken.")
     return (f"{sev['emoji']} De {cat} **{name}** ({env}) is zojuist "
-            f"**{sev['label'].lower()}** geworden — {status}.")
+            f"**{sev['label'].lower()}** geworden — **{status}**.")
 
 
 def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
@@ -84,11 +84,22 @@ def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
                        "value": ACTION.get(item["category"],
                                            "Onderzoek de melding op het dashboard.")})
 
+    # A prominent one-line banner shown ABOVE the coloured card and in the push
+    # notification preview — leads with severity + the key metric (e.g. the DLQ
+    # message count) so an admin sees what needs attention at a glance.
+    status_txt = item["status"] or sev["label"]
+    if kind == "recovery":
+        pretext = f"✅ **HERSTELD** · {item['name']} ({item['env']}) is weer **OK**."
+    else:
+        pretext = (f"{sev['emoji']} **{sev['label']}** · {cat['icon']} {cat['label']} — "
+                   f"**{status_txt}** · {item['name']} ({item['env']})")
+
     attachment = {
-        "fallback": f"{sev['label']} — {item['name']} ({item['env']})",
+        "fallback": f"{sev['label']} · {item['name']} ({item['env']}) — {status_txt}",
+        "pretext": pretext,
         "color": sev["color"],
         "author_name": "KIBANA-OO · Alerting",
-        "title": f"{sev['emoji']} {sev['label']} · {item['name']}",
+        "title": f"{sev['emoji']} {sev['label']} · {item['name']} — {status_txt}",
         "title_link": dashboard_url,
         "text": _lead(item, kind, prev_severity),
         "fields": fields,

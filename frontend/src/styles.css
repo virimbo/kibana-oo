@@ -4116,3 +4116,42 @@ input:-webkit-autofill:focus {
 .obs-explain dt { font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--accent); }
 .obs-explain dt:not(:first-child) { margin-top: 8px; }
 .obs-explain dd { margin: 0; font-size: 13px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── Login background — calmer & editorial (UX polish) ───────────────────────
+   The old background stacked mesh + radar + a full SVG node-network + dots +
+   grid + horizon — too busy. Quiet the noisy layers to a soft, premium base and
+   let a giant, whisper-faint blurred "LOGIUS" wordmark be the hero. */
+.login-bg-net,
+.login-bg-dots,
+.login-bg-grid,
+.login-bg-mesh,
+.login-bg-particles,
+.login-bg-ring { opacity: 0 !important; }
+
+.login-bg-radar { opacity: 0.08 !important; filter: blur(1px); }
+.login-bg-radar::before { opacity: 0.5 !important; }
+.login-bg-radar::after { opacity: 0.22 !important; }
+.login-bg-glow { opacity: 0.55 !important; }
+.login-bg-horizon { opacity: 0.30 !important; }
+
+/* The big blurred LOGIUS watermark — the focal point, but barely there. */
+.login-bg-wordmark {
+  position: absolute;
+  left: 50%; top: 47%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+  font-family: var(--display, "Chakra Petch", sans-serif);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: clamp(140px, 26vw, 520px);
+  line-height: 1;
+  white-space: nowrap;
+  color: rgba(233, 236, 245, 0.05);
+  filter: blur(7px);
+  user-select: none;
+  pointer-events: none;
+}
+@media (max-width: 720px) {
+  .login-bg-wordmark { font-size: 40vw; filter: blur(5px); top: 42%; }
+}

@@ -343,4 +343,17 @@ def test_mattermost_payload_recovery_has_no_action():
     a = p["attachments"][0]
     assert a["color"] == "#46c97a"
     assert "hersteld" in a["text"].lower()
+    assert "HERSTELD" in a["pretext"]
     assert not any("Aanbevolen actie" in f["title"] for f in a["fields"])
+
+
+def test_mattermost_payload_makes_key_metric_prominent():
+    # The circled count ("1 message(s)") must stand out: in the push-notification
+    # preview (fallback), the banner (pretext), the title, and bold in the lead.
+    item = alerts._item("dlq", "PROD", "documentopslag-in.msvc-documentopslag.dlq",
+                        "warn", status="1 message(s)")
+    a = alerts_mattermost.payload(item, "new", "ok", "http://d/", "FB-OO:Anton")["attachments"][0]
+    assert "1 message(s)" in a["fallback"]
+    assert "1 message(s)" in a["pretext"]
+    assert "1 message(s)" in a["title"]
+    assert "**1 message(s)**" in a["text"]

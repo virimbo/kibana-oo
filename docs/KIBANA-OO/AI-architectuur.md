@@ -247,3 +247,13 @@ met AI praten. **Dat is al ingevuld** — de chat toont:
 - `backend/context_engine.py` — Smart Context-tekst
 - `backend/briefing.py` — briefings/digests
 - `.claude/agents/oo-ux-auditor.md` — **bouw**-agent (Laag 2, niet de app)
+
+## In-app: Beheer → Compliance & Beveiliging
+
+Deze inschatting is nu ook in de app zichtbaar (super-admin) onder **Beheer →
+Compliance & Beveiliging**: de EU AI Act-risicoklasse (**beperkt risico**), de
+transparantie-status, en de uitkomst van de **security-check** (auth/authz,
+secrets, injectie/SSRF, datalek naar cloud-LLM, TLS) met ernst per bevinding +
+aanbevolen acties. Het blijft een **engineering-inschatting**, geen certificering —
+de kaart zegt dit expliciet. EU AI Act-transparantieplicht (Art. 50) geldt vanaf
+**2 aug 2026**.

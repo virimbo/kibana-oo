@@ -57,6 +57,13 @@ const SUPER_CARDS = [
     subtitle: "Monitoring",
     desc: "Monitoring-targets en connections (Prometheus/Jaeger) beheren — secrets staan in .env.",
   },
+  {
+    view: "compliance",
+    icon: "⚖️",
+    title: "Compliance & Beveiliging",
+    subtitle: "EU AI Act & security",
+    desc: "Eerlijke inschatting: EU AI Act-risicoklasse (beperkt risico), transparantie, en de uitkomst van de security-check — met aandachtspunten.",
+  },
 ];
 
 export default function AdminPage({

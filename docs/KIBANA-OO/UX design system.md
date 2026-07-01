@@ -43,6 +43,17 @@ Gerelateerd: [[Alerting (meldingen)]] · [[Monitoring dashboard]] ·
 [[Dashboard - statusoverzicht]] · [[Navigatie]] · [[Beschikbaarheid (uptime)]] ·
 [[DLQ intelligentie]]
 
+> [!note] Wijzigingen deze ronde (UI-politoer, cosmetisch)
+> Een lichte poetsronde over de bestaande OO-GX-taal — geen nieuwe tokens, alleen
+> markup/CSS:
+> - **Login-achtergrond** is nu **statisch** (animatie weg) met een **kleinere titel**.
+> - **Alle paginatitels** zijn kleiner/professioneler geschaald.
+> - **Lege ruimtes weggewerkt** — o.a. de `page-hero` en de Alerting *single-env*-grid
+>   (geen brede gaten meer bij één omgeving).
+> - **Dubbele eyebrow/koppen verwijderd** (geen herhaalde kicker + titel meer).
+> - **Nederlandse copy consistenter** op Dashboard, Documenten, Beheer, DLQ en Chat
+>   (NL-proza met Engelse tech-termen, zie [[Navigatie]]).
+
 ---
 
 ## Wat & waarom

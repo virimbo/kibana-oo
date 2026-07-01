@@ -16,11 +16,15 @@ const CATEGORIES = [
   ["environment", "Omgevingsstatus"],
   ["dlq", "Dead-letter queues"],
   ["certificate", "Certificaten & TLS"],
+  ["document", "Documenten (vastgelopen)"],
+  ["errorrate", "Errors per service"],
 ];
 const CAT_META = {
   environment: { icon: "🌐", sub: "Beschikbaarheid van de sites" },
   dlq: { icon: "🐰", sub: "Vastgelopen berichten in queues" },
   certificate: { icon: "🔐", sub: "Geldigheid & vertrouwen van TLS" },
+  document: { icon: "📄", sub: "Documenten die vastlopen in de straat" },
+  errorrate: { icon: "🚨", sub: "Foutpieken per backend-service" },
 };
 const ENVS = ["PROD", "ACC", "TST"];
 const ENV_CLASS = { PROD: "prod", ACC: "acc", TST: "tst" };
@@ -339,11 +343,7 @@ export default function AlertsPage({
           <div className="alerts-cat-thresholds">
             <span className="alerts-cat-thresholds-label">Drempel per categorie</span>
             <div className="alerts-cat-thresholds-grid">
-              {[
-                ["environment", "Omgevingsstatus"],
-                ["dlq", "Dead-letter queues"],
-                ["certificate", "Certificaten & TLS"],
-              ].map(([key, label]) => {
+              {CATEGORIES.map(([key, label]) => {
                 const current = status.config.category_thresholds || {};
                 return (
                   <div key={key} className="alerts-cat-threshold">

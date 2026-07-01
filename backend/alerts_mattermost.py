@@ -25,6 +25,8 @@ CATEGORY = {
     "environment": {"label": "Omgevingsstatus", "icon": "🌐"},
     "dlq":         {"label": "Dead-letter queue", "icon": "🐇"},
     "certificate": {"label": "Certificaat & TLS", "icon": "🔐"},
+    "document":    {"label": "Vastgelopen document", "icon": "📄"},
+    "errorrate":   {"label": "Errors per service", "icon": "🚨"},
 }
 ACTION = {
     "environment": "Controleer de service/ingress en bereikbaarheid van de host; "
@@ -33,6 +35,11 @@ ACTION = {
            "requeue of verwijder de vastgelopen berichten.",
     "certificate": "Vernieuw/roteer het certificaat tijdig en controleer de "
                    "volledige keten (chain) en de vervaldatum.",
+    "document": "Open het document via de link, controleer waar het is vastgelopen "
+                "en herstart de verwerking of lever het opnieuw aan.",
+    "errorrate": "Onderzoek de foutpiek bij deze service: bekijk de logs, "
+                 "controleer afhankelijkheden en 5xx-responses en schaal/herstart "
+                 "zo nodig de betreffende pod.",
 }
 _MONTHS_NL = ["", "jan", "feb", "mrt", "apr", "mei", "jun",
               "jul", "aug", "sep", "okt", "nov", "dec"]
@@ -79,6 +86,16 @@ def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
         top = item["reasons"][0]
         fields.append({"short": True, "title": "Top-oorzaak",
                        "value": f"{top['reason']} ({top['count']}×)"})
+    # Stuck-document alerts MUST carry the document-id + a clickable link so the
+    # beheerder can open the document (open.overheid.nl / doculoket) in one click.
+    if item.get("category") == "document" and item.get("doc_id"):
+        link = item.get("link") or ""
+        doc_id = item["doc_id"]
+        value = f"[{doc_id}]({link})" if link else f"`{doc_id}`"
+        fields.append({"short": False, "title": "Document", "value": value})
+        if item.get("stage"):
+            fields.append({"short": True, "title": "Vastgelopen bij",
+                           "value": item["stage"]})
     if kind != "recovery":
         fields.append({"short": False, "title": "🛠️ Aanbevolen actie",
                        "value": ACTION.get(item["category"],

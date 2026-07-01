@@ -113,7 +113,7 @@ def summarize_event(hit: dict) -> dict:
 
 
 def _event_query(start: datetime, end: datetime) -> dict:
-    return {
+    q = {
         "bool": {
             "filter": [
                 {"range": {"@timestamp": {"gte": start.isoformat(), "lt": end.isoformat()}}},
@@ -121,6 +121,13 @@ def _event_query(start: datetime, end: datetime) -> dict:
             ]
         }
     }
+    # APM traces (data_stream.dataset: apm.*) are microservice request/error events,
+    # NOT document-pipeline events — their hex error ids were being mistaken for
+    # "stuck documents". Exclude them from every document query. (The dashboard's
+    # service-health / 5xx signals use a separate query and are unaffected.)
+    if settings.pipeline_exclude_apm:
+        q["bool"]["must_not"] = [{"prefix": {"data_stream.dataset": "apm"}}]
+    return q
 
 
 def _timeseries_body(start: datetime, end: datetime, interval: str) -> dict:

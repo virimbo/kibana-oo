@@ -184,6 +184,9 @@ class Settings(BaseSettings):
     # is younger is still within normal processing time (in-flight), NOT stuck. This
     # stops a freshly-submitted, still-moving document from being counted.
     pipeline_settle_minutes: int = 90
+    # Exclude APM traces (data_stream.dataset: apm.*) from document queries — they are
+    # microservice errors, not documents; their hex ids were inflating the stuck count.
+    pipeline_exclude_apm: bool = True
     # Open incidents older than this are auto-resolved ('stale') — they are no
     # longer actionable and would otherwise pile up as a historic backlog that
     # inflates the count. Draining them keeps the list + count ACTIONABLE.

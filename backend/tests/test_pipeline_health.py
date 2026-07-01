@@ -477,3 +477,23 @@ async def test_incident_clears_when_document_progresses(monkeypatch):
     monkeypatch.setattr(documents, "_es_search", es_progressed)
     res2 = await documents.build_pipeline_health("sid", now=NOW + timedelta(hours=3))
     assert res2["stuck_count"] == 0                       # recovered → cleared
+
+
+def test_event_query_excludes_apm_when_flag_on(monkeypatch):
+    from datetime import datetime, timezone
+    from config import settings
+    import documents
+    monkeypatch.setattr(settings, "pipeline_exclude_apm", True)
+    q = documents._event_query(datetime(2026, 1, 1, tzinfo=timezone.utc),
+                               datetime(2026, 1, 2, tzinfo=timezone.utc))
+    assert q["bool"]["must_not"] == [{"prefix": {"data_stream.dataset": "apm"}}]
+
+
+def test_event_query_includes_apm_when_flag_off(monkeypatch):
+    from datetime import datetime, timezone
+    from config import settings
+    import documents
+    monkeypatch.setattr(settings, "pipeline_exclude_apm", False)
+    q = documents._event_query(datetime(2026, 1, 1, tzinfo=timezone.utc),
+                               datetime(2026, 1, 2, tzinfo=timezone.utc))
+    assert "must_not" not in q["bool"]

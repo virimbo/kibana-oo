@@ -47,3 +47,17 @@ De Publicatie-telling was opgeblazen (bv. 6534 → "Kritiek"). Oorzaken + fixes:
 > open.overheid.nl-UUID. Daardoor kan een document dat wél live is toch als 'vastgelopen'
 > blijven staan tot het via de 72h-expiry vervalt. Volledige betrouwbaarheid vereist de
 > juiste id-mapping (intern doc-id ↔ open.overheid.nl) — domeininput nodig.
+
+## Kernoorzaak gevonden: APM-vervuiling (6528 → 6)
+
+De échte oorzaak van de opgeblazen 'vastgelopen'-telling: de document-scan draaide over
+`logs-*`, dat óók **APM-error-traces** bevat (`data_stream.dataset: apm.error`, bv. van
+`msvc-doculoket`). Die hex-error-id's (bv. `dc08dfadcd449a32`) werden als 'document-id'
+opgepakt en als 'vastgelopen bij Intake' geteld — ~67.000 apm.error-events in het venster.
+Daarom kon niets tegen open.overheid.nl geverifieerd worden: het waren geen documenten.
+
+**Fix** (`PIPELINE_EXCLUDE_APM=true`): elke document-query sluit nu `apm.*`-datasets uit
+(`must_not: prefix data_stream.dataset=apm`). De dashboard-service/5xx-signalen gebruiken
+een aparte query en blijven ongewijzigd. Na een eenmalige reset van de vervuilde
+incident-store + één schone scan: **6528 → 6** echt-vastgelopen documenten (→ Aandacht, niet
+Kritiek). De telling is nu betrouwbaar en zelf-herstellend (geen nieuwe APM-vervuiling).

@@ -5,6 +5,15 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from html import escape
 
+# Human category labels for the consolidated burst-control summary email.
+CATEGORY_LABEL = {
+    "environment": "Omgevingsstatus",
+    "dlq": "Dead-letter queue",
+    "certificate": "Certificaat & TLS",
+    "document": "Vastgelopen document",
+    "errorrate": "Errors per service",
+}
+
 # Per-category suggested administrator action (Dutch — audience is the beheerder).
 SUGGESTED = {
     "environment": "Controleer de service/ingress en of de host bereikbaar is; "
@@ -57,5 +66,30 @@ def render(item: dict, kind: str, prev_severity: str, dashboard_url: str
         for k, v in fields)
     html = (f"<div style='font-family:sans-serif'>"
             f"<h2>{escape(icon)} {escape(item['name'])} — {escape(label)}</h2>"
+            f"<table style='border-collapse:collapse'>{rows}</table></div>")
+    return subject, html, text
+
+
+def render_summary(category: str, count: int, env: str, dashboard_url: str
+                   ) -> tuple[str, str, str]:
+    """Consolidated ("burst control") summary email for `count` new alerts of one
+    category in a single scan → (subject, html, text). No I/O; HTML-escaped."""
+    label = CATEGORY_LABEL.get(category, category)
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    subject = f"⚠️ [{env}] {count} nieuwe '{label}'-meldingen (samenvatting)"
+    lead = (f"In deze ronde zijn {count} '{label}'-meldingen tegelijk ontstaan "
+            f"({env}). Bekijk ze op het dashboard i.p.v. losse meldingen.")
+    fields = [
+        ("Aantal", str(count)), ("Categorie", label), ("Environment", env),
+        ("Time detected", now), ("Dashboard", dashboard_url),
+    ]
+    text = lead + "\n\n" + "\n".join(f"{k}: {v}" for k, v in fields)
+    rows = "".join(
+        f"<tr><td style='padding:4px 12px;color:#888'>{escape(k)}</td>"
+        f"<td style='padding:4px 12px'><b>{escape(str(v))}</b></td></tr>"
+        for k, v in fields)
+    html = (f"<div style='font-family:sans-serif'>"
+            f"<h2>⚠️ {escape(str(count))} nieuwe '{escape(label)}'-meldingen</h2>"
+            f"<p>{escape(lead)}</p>"
             f"<table style='border-collapse:collapse'>{rows}</table></div>")
     return subject, html, text

@@ -129,3 +129,39 @@ def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
     if mention in ("here", "channel") and item.get("severity") == "critical" and kind != "recovery":
         return {"username": sender, "text": f"@{mention}", "attachments": [attachment]}
     return {"username": sender, "attachments": [attachment]}
+
+
+def summary_payload(category: str, count: int, env: str, dashboard_url: str,
+                    sender: str, now: datetime | None = None,
+                    mention: str = "none") -> dict:
+    """Consolidated ("burst control") card for `count` new alerts of one category
+    in a single scan. Same top-level shape as `payload` (username + attachments,
+    plus an optional single top-level @here/@channel mention — never one-per-item)."""
+    now = now or datetime.now(timezone.utc)
+    cat = CATEGORY.get(category, {"label": category, "icon": "🔔"})
+    label = cat["label"]
+    sev = SEV["critical"]
+
+    title = f"⚠️ {count} nieuwe '{label}'-meldingen"
+    lead = (f"In deze ronde zijn {count} '{label}'-meldingen tegelijk ontstaan "
+            f"({env}). Bekijk ze op het dashboard i.p.v. losse meldingen.")
+    attachment = {
+        "fallback": f"{count} nieuwe {label}-meldingen ({env})",
+        "pretext": f"⚠️ **BURST** · {cat['icon']} {label} — **{count} nieuwe meldingen** ({env})",
+        "color": sev["color"],
+        "author_name": "KIBANA-OO · Alerting",
+        "title": title,
+        "title_link": dashboard_url,
+        "text": lead,
+        "fields": [
+            {"short": True, "title": "Omgeving", "value": env},
+            {"short": True, "title": "Categorie", "value": f"{cat['icon']} {label}"},
+            {"short": True, "title": "Aantal", "value": str(count)},
+            {"short": True, "title": "Gedetecteerd", "value": _human_time(now)},
+        ],
+        "footer": f"KIBANA-OO Monitoring · {sender}",
+        "ts": int(now.timestamp()),
+    }
+    if mention in ("here", "channel"):
+        return {"username": sender, "text": f"@{mention}", "attachments": [attachment]}
+    return {"username": sender, "attachments": [attachment]}

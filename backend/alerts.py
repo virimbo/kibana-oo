@@ -324,7 +324,12 @@ async def scan(now: datetime | None = None) -> dict:
     items = _collect(sid)
     if asyncio.iscoroutine(items):
         items = await items
-    sent = 0
+
+    # ── Phase 1: decide + persist state (UNCHANGED decisions/dedup) ───────────
+    # Every item that gets a decision has its state recorded here EXACTLY as
+    # today, so nothing re-alerts next scan. Dispatchable items are collected for
+    # phase 2 rather than sent immediately.
+    to_dispatch: list[tuple[dict, str, str]] = []
     for item in items:
         try:
             if _is_red(item["severity"]) and not _eligible(item, _effective_threshold(item, cfg)):
@@ -340,11 +345,39 @@ async def scan(now: datetime | None = None) -> dict:
                                        nxt["red_since"])
             if kind is None:
                 continue
-            await _dispatch(item, kind, (prev or {}).get("severity", "ok"),
-                            cfg["recipients"], cfg.get("mention", "none"))
-            sent += 1
+            to_dispatch.append((item, kind, (prev or {}).get("severity", "ok")))
         except Exception as e:  # noqa: BLE001 — one bad card never breaks the pass
             logger.error("alerts: card %s failed: %s", item.get("card_id"), e)
+
+    # ── Phase 2: dispatch with burst control (anti-alert-storm) ───────────────
+    # Group dispatchable items by category. Under (or equal to) the cap, send each
+    # individually exactly as before. Over the cap → ONE consolidated summary for
+    # that category instead of N messages. State was already recorded in phase 1,
+    # so summarising never causes a re-alert.
+    cap = settings.alert_burst_max
+    mention = cfg.get("mention", "none")
+    groups: dict[str, list[tuple[dict, str, str]]] = {}
+    for entry in to_dispatch:
+        groups.setdefault(entry[0]["category"], []).append(entry)
+
+    sent = 0
+    for category, group in groups.items():
+        if cap <= 0 or len(group) <= cap:
+            for item, kind, prev_sev in group:
+                try:
+                    await _dispatch(item, kind, prev_sev, cfg["recipients"], mention)
+                    sent += 1
+                except Exception as e:  # noqa: BLE001 — one bad card never breaks the pass
+                    logger.error("alerts: card %s failed: %s", item.get("card_id"), e)
+        else:
+            env = group[0][0]["env"]
+            try:
+                await _dispatch_summary(category, len(group), env, mention,
+                                        cfg["recipients"])
+            except Exception as e:  # noqa: BLE001 — a summary must never break the pass
+                logger.error("alerts: summary dispatch for %s failed: %s", category, e)
+            sent += 1
+
     return {"enabled": True, "global_enabled": True, "sent": sent, "checked": len(items)}
 
 
@@ -370,6 +403,33 @@ async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[
         card_id=item["card_id"], category=item["category"], env=item["env"],
         kind=kind, severity=item["severity"], prev_severity=prev_severity,
         recipients=recipients, delivered=delivered, detail=item.get("status", ""))
+
+
+async def _dispatch_summary(category: str, count: int, env: str, mention: str,
+                            recipients: list[str]) -> None:
+    """Send ONE consolidated ("burst control") message for `count` new alerts of
+    `category` this scan — email to the configured recipients + a single Mattermost
+    webhook (one @here/@channel at most, never one-per-item). Best-effort: never
+    raises; individual item state was already recorded in scan()'s phase 1."""
+    import alerts_email
+    import alerts_mattermost
+    url = _dashboard_url()
+    delivered = False
+    try:
+        subject, html, text = alerts_email.render_summary(category, count, env, url)
+        delivered = await asyncio.to_thread(alerts_send.send_email_to, recipients,
+                                            subject, html, text)
+        payload = alerts_mattermost.summary_payload(category, count, env, url,
+                                                    alerts_send.ALERT_SENDER,
+                                                    mention=mention)
+        await alerts_send.post_webhook(payload)
+    except Exception as e:  # noqa: BLE001 — a summary must never break the pass
+        logger.error("alerts: summary dispatch for %s failed: %s", category, e)
+    alerts_store.record_history(
+        card_id=f"{category}:summary", category=category, env=env,
+        kind="new", severity="critical", prev_severity="ok",
+        recipients=recipients, delivered=delivered,
+        detail=f"burst summary: {count} nieuwe meldingen")
 
 
 CATEGORY_MONITORING = "monitoring"

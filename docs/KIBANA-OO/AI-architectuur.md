@@ -257,3 +257,21 @@ secrets, injectie/SSRF, datalek naar cloud-LLM, TLS) met ernst per bevinding +
 aanbevolen acties. Het blijft een **engineering-inschatting**, geen certificering —
 de kaart zegt dit expliciet. EU AI Act-transparantieplicht (Art. 50) geldt vanaf
 **2 aug 2026**.
+
+## Beveiligingsmaatregelen (toegepast)
+
+Naar aanleiding van de security-review zijn deze hardening-maatregelen doorgevoerd
+(additief; frozen cert/Mistral-code onaangeroerd):
+
+- **Super-admin** staat nu in `.env` (`SUPER_ADMINS`, comma-gescheiden) i.p.v.
+  hardcoded in de source. Zet dit in productie — leeg = géén super-admin.
+- **Rate-limiting** op `/login` (per-IP, 12/min → 429) tegen brute-force.
+- **Sessie-TTL** (12u) + **idle-timeout** (4u); verlopen tokens worden geweigerd.
+- **Securityheaders** via nginx (X-Frame-Options DENY, X-Content-Type-Options nosniff,
+  Referrer-Policy, CSP `frame-ancestors 'none'`) + API-response-headers.
+- **CORS** beperkt tot eigen origin + methodes; **/docs** staat standaard uit
+  (`EXPOSE_API_DOCS=false`); **timing-safe** token-vergelijking; login-fouten
+  gesanitiseerd (geen interne details naar de client).
+
+Zichtbaar in **Beheer → Compliance & Beveiliging**. Openstaand (bewust later):
+PII-redactie vóór de Mistral-context (nu gemitigeerd doordat Ollama lokaal draait).

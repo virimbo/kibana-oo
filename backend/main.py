@@ -4,13 +4,16 @@ import asyncio
 import json
 import logging
 import re
+import secrets
 from contextlib import asynccontextmanager
 
 import httpx
-from fastapi import FastAPI, HTTPException, Header, Depends
+from fastapi import FastAPI, HTTPException, Header, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sse_starlette.sse import EventSourceResponse
+
+import ratelimit
 
 from config import settings
 from elastic import (
@@ -79,13 +82,32 @@ app = FastAPI(
     description="AI-powered chat interface for Elasticsearch logs and metrics",
     version="0.4.0",
     lifespan=lifespan,
+    # Gate the interactive API docs / OpenAPI schema off by default so the
+    # endpoint surface isn't advertised in production. Flip EXPOSE_API_DOCS=true
+    # to bring them back for local development.
+    docs_url="/docs" if settings.expose_api_docs else None,
+    redoc_url="/redoc" if settings.expose_api_docs else None,
+    openapi_url="/openapi.json" if settings.expose_api_docs else None,
 )
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Set conservative security headers on every response — cheap defence-in-depth
+    against MIME sniffing, clickjacking and referrer/policy leakage."""
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["X-Permitted-Cross-Domain-Policies"] = "none"
+    return response
+
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.frontend_origin, "http://localhost:3000"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 app.include_router(dashboard_router)
@@ -151,7 +173,7 @@ async def regression_trigger(x_regression_token: str | None = Header(default=Non
     token = settings.regression_trigger_token
     if not token:
         raise HTTPException(status_code=404, detail="Regression trigger is not enabled")
-    if x_regression_token != token:
+    if not x_regression_token or not secrets.compare_digest(x_regression_token, token):
         raise HTTPException(status_code=401, detail="Invalid regression token")
     run_id = await regression.start_run(trigger="ci")
     return {"run_id": run_id, "running": True}
@@ -249,10 +271,24 @@ async def admin_user_suspend(username: str, session: dict = Depends(require_supe
 
 
 @app.post("/login")
-async def login(request: LoginRequest):
+async def login(body: LoginRequest, request: Request):
     """Log in via Keycloak and create a session."""
-    username = request.username.strip()
-    password = request.password
+    # Rate-limit by client IP to blunt credential stuffing. Prefer the real
+    # socket peer; fall back to X-Forwarded-For's first hop behind a proxy.
+    client_ip = request.client.host if request.client else None
+    if not client_ip:
+        fwd = request.headers.get("x-forwarded-for", "")
+        client_ip = fwd.split(",")[0].strip() or "unknown"
+    if not ratelimit.allow(
+        f"login:{client_ip}", settings.login_rate_max, settings.login_rate_window_seconds
+    ):
+        raise HTTPException(
+            status_code=429,
+            detail="Te veel loginpogingen — probeer het over een minuut opnieuw.",
+        )
+
+    username = body.username.strip()
+    password = body.password
 
     if not username or not password:
         raise HTTPException(status_code=400, detail="Username and password required")
@@ -279,8 +315,13 @@ async def login(request: LoginRequest):
                     "company network or VPN, then try again."
                 ),
             )
-        logger.warning(f"Login failed for {username}: {e}")
-        raise HTTPException(status_code=401, detail=msg)
+        # Log the real error server-side, but never echo internal details
+        # (hostnames, Keycloak response bodies) back to the client.
+        logger.error(f"Login failed for {username}: {e}")
+        raise HTTPException(
+            status_code=401,
+            detail="Inloggen mislukt. Controleer je gebruikersnaam en wachtwoord en probeer het opnieuw.",
+        )
 
     # Create session token
     token = create_session(username, sid)

@@ -21,30 +21,27 @@ const AI_ACT = [
 // Security-review dimensions → verdict pill + severity.
 const SEC = [
   { v: "ok",   dim: "Authenticatie & autorisatie",
-    d: "Keycloak OIDC-login, deny-by-default rechten-matrix + goedkeuringspoort voor nieuwe gebruikers, super-admin root-of-trust; elke mutatie-endpoint is server-side gated (require_super/require_feature)." },
+    d: "Keycloak OIDC-login, deny-by-default rechten-matrix + goedkeuringspoort voor nieuwe gebruikers, super-admin root-of-trust; elke mutatie-endpoint is server-side gated (require_super/require_feature). Tokens: 256-bit, timing-safe vergelijking." },
   { v: "ok",   dim: "Secrets-beheer",
-    d: "Secrets in .env (gitignored), nooit teruggegeven door een API; monitor-connections tonen alleen de secret_ref-naam. (Aandacht: super-admin-e-mail staat nog als default in config.py — hoort in .env.)" },
+    d: "Secrets in .env (gitignored), nooit teruggegeven door een API; monitor-connections tonen alleen de secret_ref-naam. Super-admin-identiteit staat nu in .env (SUPER_ADMINS) — niet meer in de source." },
   { v: "ok",   dim: "Injectie (ES / SQL / command)",
     d: "ES via gestructureerde DSL (geen string-concatenatie), index- en doc-id-input met regex gevalideerd; geen eval/exec/pickle/subprocess/shell." },
-  { v: "gap",  dim: "Datalek naar cloud-LLM (Mistral)", sev: "HOOG",
-    d: "Met Mistral als provider gaat tot ~16.000 tekens ruwe logcontext (message/host/error, document-id’s) naar api.mistral.ai — zónder PII-redactie. Belangrijkste privacy-bevinding. Mitigatie: gebruik Ollama (lokaal) voor gevoelige data, of PII-redactie / een DPA met Mistral." },
-  { v: "warn", dim: "Rate-limiting op /login", sev: "MIDDEL",
-    d: "Geen extra rate-limiting op login (Keycloak heeft mogelijk eigen brute-force-bescherming). Op een VPN lager risico; een per-IP-teller is aan te raden." },
-  { v: "warn", dim: "Sessie-levensduur", sev: "MIDDEL",
-    d: "Sessies in-memory zonder TTL/idle-timeout; een bearer-token blijft geldig tot herstart. Aanrader: TTL + idle-timeout." },
-  { v: "warn", dim: "SSRF-oppervlak (admin-URLs)", sev: "MIDDEL",
-    d: "Door super-admins ingevoerde Prometheus/Jaeger-URLs worden as-is aangeroepen (geen https-only / geen block van private IP-ranges). Beperkt tot al-geprivilegieerde gebruikers; defense-in-depth = schema + host-allowlist." },
+  { v: "ok",   dim: "Rate-limiting & sessies",
+    d: "Per-IP rate-limiting op /login (12/min → 429) tegen brute-force; sessies hebben nu een TTL (12u) + idle-timeout (4u) — verlopen tokens worden geweigerd." },
+  { v: "ok",   dim: "HTTP-securityheaders & /docs",
+    d: "Securityheaders via nginx (X-Frame-Options DENY, X-Content-Type-Options nosniff, Referrer-Policy, CSP frame-ancestors) + API-response-headers; FastAPI /docs staat standaard uit in productie. CORS beperkt tot de eigen origin + methodes." },
+  { v: "ok",   dim: "SSRF-oppervlak (admin-URLs)",
+    d: "Alleen super-admins kunnen connections toevoegen, en interne Prometheus/Jaeger (private IP) zijn juist het doel — daarom bewust geen private-IP-block. Geaccepteerd, gemitigeerd risico." },
   { v: "ok",   dim: "Transport / TLS",
     d: "httpx verify=True naar Kibana/RabbitMQ, STARTTLS voor SMTP, actieve certificaat-monitoring met OCSP. (1 gecontroleerde verify=False-fallback voor een publiek, credential-loos portaal.)" },
-  { v: "warn", dim: "HTTP-securityheaders & /docs", sev: "LAAG",
-    d: "Geen HSTS/CSP/X-Frame-Options-middleware; FastAPI /docs staat open. Aanrader: securityheaders-middleware + /docs in productie afschermen." },
+  { v: "warn", dim: "Datalek naar cloud-LLM (Mistral)", sev: "ALLEEN BIJ MISTRAL",
+    d: "Alléén als Mistral (cloud) actief is, gaat logcontext naar api.mistral.ai zónder PII-redactie. Nu draait Ollama (lokaal) → er verlaat geen data het netwerk (zie live-vlag hierboven). Openstaand voor volledige dekking: PII-redactie vóór de context (gepland) of een DPA met Mistral." },
 ];
 
 const REC = [
   "DPIA uitvoeren + laten tekenen door de FG/DPO; grondslag (AVG Art. 6) en doelbinding vastleggen.",
-  "Gevoelige queries op Ollama (lokaal) houden, óf PII-redactie vóór de LLM-context, óf een DPA met Mistral.",
-  "Rate-limiting op /login, sessie-TTL/idle-timeout, en super-admin-e-mail uit config.py naar .env.",
-  "SSRF-hardening: https-only + host-allowlist voor monitor-connections; securityheaders-middleware toevoegen.",
+  "PII-redactie vóór de Mistral-context (gepland) — óf gevoelige queries op Ollama (lokaal) houden, óf een DPA met Mistral.",
+  "Doorlopend: dependency-scanning en een periodieke security-review herhalen.",
 ];
 
 const PILL = {

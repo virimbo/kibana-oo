@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     # Super admins (comma-separated emails): the root of trust. They have EVERY
     # feature implicitly and are the only ones who can manage the authorisation
     # matrix. Defined here in config so it can never be revoked via the UI.
-    super_admins: str = "anton.partono@koop.overheid.nl"
+    super_admins: str = ""
     # Views treated as a superset of others — excluded from rollup totals to avoid
     # double counting (still shown as their own per-system tile).
     dashboard_superset_views: str = "logs-*"
@@ -365,6 +365,18 @@ class Settings(BaseSettings):
         "&var-operatorNamespace=&var-namespace=koop-plooi-prd&var-cluster=cnpg-cluster-v5"
         "&var-instances=$__all&refresh=30s | PROD"
     )
+
+    # ── Security hardening (sessions, login rate limit, API docs) ─────────────
+    # Sessions expire on an absolute TTL and after an idle gap (whichever hits
+    # first), so a leaked token can't live forever. Login is rate-limited per
+    # client IP to blunt credential-stuffing. API docs are gated OFF by default
+    # so the OpenAPI surface isn't exposed in production. See session.py,
+    # ratelimit.py + the security-headers middleware in main.py.
+    session_ttl_minutes: int = 720          # absolute session lifetime (12h)
+    session_idle_minutes: int = 240         # idle timeout — no activity for this long
+    login_rate_max: int = 12                # max login attempts per window per IP
+    login_rate_window_seconds: int = 60     # sliding window for the login limiter
+    expose_api_docs: bool = False           # gate /docs, /redoc, /openapi.json
 
     # Backend
     backend_port: int = 8000

@@ -106,6 +106,23 @@ nothing. This is what caused the misleading "No matching data".
 > met het lokale model. De gebruiker ziet binnen een halve minuut een antwoord met
 > de notitie dat het lokale model is gebruikt — **geen oneindige "Analyzing logs…"**.
 
+### 6. (Opgelost) Specifieke zoekvraag kwam als health-digest terug
+
+> [!success] Betere antwoord-routing — minder "geen antwoord" bij specifieke vragen
+> **Symptoom:** een gerichte zoekopdracht die toevallig de woorden *"issue"* of
+> *"error"* bevatte (bv. *"Find the attendee mailing list issue or error for
+> today"*) werd naar de generieke **cluster-health-digest** gestuurd en zocht het
+> échte onderwerp nooit op — de gebruiker kreeg een statusopsomming i.p.v. een
+> antwoord.
+>
+> **Opgelost:** de intent-classifier is nu bilinguaal (NL + EN). Een duidelijke
+> **SEARCH/lookup-intentie** (*find/search/show me/locate/trace* · NL
+> *vind/zoek/toon*) gaat naar een echte log-search en zegt eerlijk *"geen
+> log-events gevonden"* als het onderwerp er niet is. Alleen **sterke** health-
+> signalen (*failing/stuck/unhealthy* · NL *kritiek/storing/vastgelopen*) — of een
+> kaal *error/issue/problem* mét een breed-bereik-cue (*right now/any/system/nu*) —
+> gaan nog naar de digest. Zie [[Chat pipeline]] voor de volledige routeringstabel.
+
 ## Quick checks (operator)
 
 ```bash

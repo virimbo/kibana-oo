@@ -30,7 +30,7 @@ menubalk** (`TopNav`) op alle pagina's. Voordelen:
 3. **Dashboard** — het [[Dashboard - statusoverzicht|statusoverzicht]] (alleen met recht `dashboard`).
 4. **Documents** — documenten traceren/zoeken (alleen met recht `documents`).
 5. **Beheer** — het beheercentrum (alleen voor beheerders).
-6. **Rechtercluster** — statuspil (verbinding), waarschuwings­badges, AI-modelkiezer,
+6. **Rechtercluster** — statuspil (verbinding), waarschuwings­badges,
    gebruikerschip en **Afmelden**.
 
 ### Actieve pagina
@@ -56,15 +56,20 @@ Je ziet alleen de kaarten waar je recht op hebt.
     getal joeg onnodig schrik aan terwijl het meestal normale doorstroom is. De
     documenten **in behandeling** en de echte **probleemdocumenten** staan nu
     rustig en juist gekaderd op het [[Dashboard - statusoverzicht|Dashboard]].)*
-- **AI-modelkiezer** — wissel tussen **Ollama** en **Mistral**, of zet AI uit (zie [[LLM providers]]).
 - **Gebruikerschip** — een rond plaatje met je **initialen** plus je gebruikersnaam.
 - **Afmelden** — beëindigt je sessie.
+
+> [!note] De AI-modelkiezer zit niet meer in de balk
+> De pill waarmee je tussen **Ollama** / **Mistral** wisselde (of AI uit zette) is
+> uit de menubalk **verwijderd**. Het model is nu één globale, admin-only instelling
+> onder **Beheer → Instellingen → 🤖 AI-assistent** (zie [[LLM providers]]). Niet-
+> beheerders zien dus het **resultaat** (welk model actief is), maar geen wisselknop.
 
 ## Een echt voorbeeld
 
 De beheerder `anton.partono@koop.overheid.nl` logt in en ziet in de balk:
-**Chat · Dashboard · Documents · Beheer**, rechts *Verbonden* (groen), een badge
-**3589 stuck**, het model **Mistral**, en het chip **AP · anton.partono@…**.
+**Chat · Dashboard · Documents · Beheer**, rechts *Verbonden* (groen), en het chip
+**AP · anton.partono@…**.
 
 1. Hij klikt **Dashboard** → die knop licht op; hij ziet het [[Dashboard - statusoverzicht|statusoverzicht]].
 2. Hij klikt **Beheer → Regressietest** → in de balk blijft **Beheer** opgelicht

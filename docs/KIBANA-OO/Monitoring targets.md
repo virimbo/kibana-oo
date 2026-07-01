@@ -109,6 +109,14 @@ MONITOR_FLAP_THRESHOLD=2     # opeenvolgende rode rondes vóór een alert
 - **VPN:** interne endpoints (Prometheus/Jaeger op het cluster) vereisen VPN; anders
   tonen ze eerlijk `unreachable`.
 
+> [!warning] Routing vereist — `location /monitor/` in nginx
+> De beheer-pagina praat met de API onder `/monitor/`. Ontbreekt de bijbehorende
+> **`location /monitor/`**-proxy in `frontend/nginx.conf`, dan krijgt de browser de
+> SPA-`index.html` i.p.v. JSON terug en toont **Beheer → Monitoring** de fout
+> *"Unexpected token '<' … is not valid JSON"* met lege tabellen. De proxy is
+> toegevoegd (net als de bestaande `/alerts/`-proxy). Zie ook [[Navigatie]]: elke
+> nieuwe backend-route achter het menu moet in `nginx.conf` geproxyd worden.
+
 **Rollback:** `MONITOR_ENABLED=false` → card verdwijnt, poller inert, registry blijft staan.
 
 ## Architectuur (bestanden)

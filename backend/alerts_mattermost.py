@@ -61,7 +61,7 @@ def _lead(item: dict, kind: str, prev_severity: str) -> str:
 
 
 def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
-            sender: str, now: datetime | None = None) -> dict:
+            sender: str, now: datetime | None = None, mention: str = "none") -> dict:
     now = now or datetime.now(timezone.utc)
     sev = SEV.get(item["severity"], SEV["critical"])
     knd = KIND.get(kind, {"emoji": "🔔", "label": kind})
@@ -106,4 +106,9 @@ def payload(item: dict, kind: str, prev_severity: str, dashboard_url: str,
         "footer": f"KIBANA-OO Monitoring · {sender}",
         "ts": int(now.timestamp()),
     }
+    # Mattermost only pushes a channel-wide notification for a mention placed in the
+    # TOP-LEVEL text (not inside an attachment). Opt-in and only for genuine, active
+    # critical incidents — never on recovery or lower severities.
+    if mention in ("here", "channel") and item.get("severity") == "critical" and kind != "recovery":
+        return {"username": sender, "text": f"@{mention}", "attachments": [attachment]}
     return {"username": sender, "attachments": [attachment]}

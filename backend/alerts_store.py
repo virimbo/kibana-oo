@@ -80,11 +80,13 @@ def get_config() -> dict:
         "cooldown_minutes": int(rows.get("cooldown_minutes") or settings.alerts_cooldown_minutes),
         "severity_threshold": rows.get("severity_threshold") or settings.alerts_default_threshold,
         "recipients": json.loads(rows.get("recipients") or "[]"),
+        "category_thresholds": json.loads(rows.get("category_thresholds") or "{}"),
+        "mention": rows.get("mention") or "none",
     }
 
 
 def set_config(key: str, value, actor: str | None) -> None:
-    stored = json.dumps(value) if key == "recipients" else (
+    stored = json.dumps(value) if key in ("recipients", "category_thresholds") else (
         "true" if (key == "global_enabled" and value) else
         "false" if key == "global_enabled" else str(value))
     with closing(_conn()) as conn:

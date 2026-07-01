@@ -137,6 +137,12 @@ def _eligible(item: dict, threshold: str) -> bool:
     return _meets_threshold(item["severity"], threshold) and _toggles_allow(item)
 
 
+def _effective_threshold(item: dict, cfg: dict) -> str:
+    """Resolve the threshold for an item: a per-category override falls back to
+    the global severity_threshold when unset."""
+    return (cfg.get("category_thresholds") or {}).get(item["category"]) or cfg["severity_threshold"]
+
+
 # ── decision machine (new / repeated / escalation / recovery + cooldown) ──────
 def _is_red(severity: str) -> bool:
     return SEV_RANK.get(severity, 0) >= 1  # warn or critical
@@ -222,7 +228,7 @@ async def scan(now: datetime | None = None) -> dict:
     sent = 0
     for item in items:
         try:
-            if _is_red(item["severity"]) and not _eligible(item, cfg["severity_threshold"]):
+            if _is_red(item["severity"]) and not _eligible(item, _effective_threshold(item, cfg)):
                 continue  # red but suppressed by toggle/threshold
             prev = alerts_store.get_state(item["card_id"])
             # Skip recovery work for cards we never alerted on.
@@ -236,14 +242,15 @@ async def scan(now: datetime | None = None) -> dict:
             if kind is None:
                 continue
             await _dispatch(item, kind, (prev or {}).get("severity", "ok"),
-                            cfg["recipients"])
+                            cfg["recipients"], cfg.get("mention", "none"))
             sent += 1
         except Exception as e:  # noqa: BLE001 — one bad card never breaks the pass
             logger.error("alerts: card %s failed: %s", item.get("card_id"), e)
     return {"enabled": True, "global_enabled": True, "sent": sent, "checked": len(items)}
 
 
-async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[str]) -> None:
+async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[str],
+                    mention: str = "none") -> None:
     import alerts_email
     import alerts_mattermost
     url = _dashboard_url()
@@ -256,7 +263,7 @@ async def _dispatch(item: dict, kind: str, prev_severity: str, recipients: list[
         delivered = await asyncio.to_thread(alerts_send.send_email_to, recipients,
                                             subject, html, text)
         payload = alerts_mattermost.payload(item, kind, prev_severity, url,
-                                            alerts_send.ALERT_SENDER)
+                                            alerts_send.ALERT_SENDER, mention=mention)
         await alerts_send.post_webhook(payload)
     except Exception as e:  # noqa: BLE001
         logger.error("alerts: dispatch failed for %s: %s", item["card_id"], e)

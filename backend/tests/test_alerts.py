@@ -357,3 +357,120 @@ def test_mattermost_payload_makes_key_metric_prominent():
     assert "1 message(s)" in a["pretext"]
     assert "1 message(s)" in a["title"]
     assert "**1 message(s)**" in a["text"]
+
+
+# ── Feature 1: per-category alert thresholds ──────────────────────────────────
+def test_effective_threshold_category_override_makes_warn_eligible(store):
+    """A per-category override lowers the bar for that category only; a warn dlq
+    item is eligible when {"dlq":"warn"} even though the global is "critical"."""
+    warn_dlq = alerts._item("dlq", "PROD", "export.dlq", "warn")
+    cfg = {"severity_threshold": "critical", "category_thresholds": {"dlq": "warn"}}
+    assert alerts._effective_threshold(warn_dlq, cfg) == "warn"
+    assert alerts._eligible(warn_dlq, alerts._effective_threshold(warn_dlq, cfg)) is True
+
+
+def test_effective_threshold_category_critical_suppresses_warn(store):
+    """With {"dlq":"critical"} a warn dlq item is NOT eligible."""
+    warn_dlq = alerts._item("dlq", "PROD", "export.dlq", "warn")
+    cfg = {"severity_threshold": "warn", "category_thresholds": {"dlq": "critical"}}
+    assert alerts._effective_threshold(warn_dlq, cfg) == "critical"
+    assert alerts._eligible(warn_dlq, alerts._effective_threshold(warn_dlq, cfg)) is False
+
+
+def test_effective_threshold_falls_back_to_global(store):
+    """No override for the item's category → use the global threshold."""
+    warn_env = alerts._item("environment", "PROD", "x", "warn")
+    cfg = {"severity_threshold": "warn", "category_thresholds": {"dlq": "critical"}}
+    assert alerts._effective_threshold(warn_env, cfg) == "warn"
+
+
+def test_config_category_thresholds_defaults_empty(store):
+    assert store.get_config()["category_thresholds"] == {}
+
+
+def test_api_category_thresholds_rejects_bad_category(monkeypatch):
+    import alerts_api
+    with pytest.raises(HTTPException) as ei:
+        asyncio.run(alerts_api.set_config(
+            alerts_api.ConfigBody(category_thresholds={"bogus": "warn"}),
+            session={"username": "a@x"}))
+    assert ei.value.status_code == 400
+
+
+def test_api_category_thresholds_rejects_bad_value(monkeypatch):
+    import alerts_api
+    with pytest.raises(HTTPException) as ei:
+        asyncio.run(alerts_api.set_config(
+            alerts_api.ConfigBody(category_thresholds={"dlq": "bogus"}),
+            session={"username": "a@x"}))
+    assert ei.value.status_code == 400
+
+
+def test_api_category_thresholds_drops_global_and_persists(store, monkeypatch):
+    import alerts_api
+    asyncio.run(alerts_api.set_config(
+        alerts_api.ConfigBody(category_thresholds={"dlq": "warn", "environment": "global"}),
+        session={"username": "a@x"}))
+    saved = store.get_config()["category_thresholds"]
+    assert saved == {"dlq": "warn"}  # "global" entry dropped
+
+
+# ── Feature 2: opt-in @channel/@here mention on CRITICAL ───────────────────────
+def _crit_item():
+    return alerts._item("environment", "ACC", "open-acc.overheid.nl", "critical",
+                        status="HTTP 500 / DOWN")
+
+
+def test_mattermost_mention_here_on_critical_new():
+    p = alerts_mattermost.payload(_crit_item(), "new", "ok", "http://d/", "S",
+                                  mention="here")
+    assert p["text"] == "@here"
+
+
+def test_mattermost_mention_channel_on_critical_new():
+    p = alerts_mattermost.payload(_crit_item(), "new", "ok", "http://d/", "S",
+                                  mention="channel")
+    assert p["text"] == "@channel"
+
+
+def test_mattermost_mention_none_has_no_top_level_text():
+    p = alerts_mattermost.payload(_crit_item(), "new", "ok", "http://d/", "S",
+                                  mention="none")
+    assert "text" not in p
+
+
+def test_mattermost_mention_default_has_no_top_level_text():
+    p = alerts_mattermost.payload(_crit_item(), "new", "ok", "http://d/", "S")
+    assert "text" not in p
+
+
+def test_mattermost_mention_skips_warn():
+    warn = alerts._item("dlq", "PROD", "export.dlq", "warn", status="5 message(s)")
+    p = alerts_mattermost.payload(warn, "new", "ok", "http://d/", "S", mention="here")
+    assert "text" not in p
+
+
+def test_mattermost_mention_skips_recovery():
+    ok = alerts._item("environment", "ACC", "x", "ok", status="OK")
+    p = alerts_mattermost.payload(ok, "recovery", "critical", "http://d/", "S",
+                                  mention="channel")
+    assert "text" not in p
+
+
+def test_config_mention_defaults_none(store):
+    assert store.get_config()["mention"] == "none"
+
+
+def test_api_mention_rejects_bad_value():
+    import alerts_api
+    with pytest.raises(HTTPException) as ei:
+        asyncio.run(alerts_api.set_config(
+            alerts_api.ConfigBody(mention="everyone"), session={"username": "a@x"}))
+    assert ei.value.status_code == 400
+
+
+def test_api_mention_persists(store):
+    import alerts_api
+    asyncio.run(alerts_api.set_config(
+        alerts_api.ConfigBody(mention="channel"), session={"username": "a@x"}))
+    assert store.get_config()["mention"] == "channel"

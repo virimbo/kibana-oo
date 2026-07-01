@@ -21,6 +21,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _VALID_SCOPES = {"global", "category", "env", "card"}
 _VALID_CATEGORIES = {"environment", "dlq", "certificate"}
 _VALID_THRESHOLDS = {"warn", "critical"}
+_VALID_MENTIONS = {"none", "here", "channel"}
 
 
 def _valid_email(addr: str) -> bool:
@@ -38,6 +39,8 @@ class ConfigBody(BaseModel):
     cooldown_minutes: int | None = None
     severity_threshold: str | None = None
     global_enabled: bool | None = None
+    category_thresholds: dict[str, str] | None = None
+    mention: str | None = None
 
 
 class TestBody(BaseModel):
@@ -104,6 +107,21 @@ async def set_config(body: ConfigBody, session: dict = Depends(require_super)):
         alerts_store.set_config("severity_threshold", body.severity_threshold, actor)
     if body.global_enabled is not None:
         alerts_store.set_config("global_enabled", body.global_enabled, actor)
+    if body.category_thresholds is not None:
+        cleaned = {}
+        for cat, val in body.category_thresholds.items():
+            if cat not in _VALID_CATEGORIES:
+                raise HTTPException(400, f"invalid category: {cat}")
+            if val in (None, "", "global"):
+                continue  # empty/"global" means: fall back to the global threshold
+            if val not in _VALID_THRESHOLDS:
+                raise HTTPException(400, f"invalid threshold: {val}")
+            cleaned[cat] = val
+        alerts_store.set_config("category_thresholds", cleaned, actor)
+    if body.mention is not None:
+        if body.mention not in _VALID_MENTIONS:
+            raise HTTPException(400, "invalid mention")
+        alerts_store.set_config("mention", body.mention, actor)
     return {"ok": True, "config": alerts_store.get_config()}
 
 

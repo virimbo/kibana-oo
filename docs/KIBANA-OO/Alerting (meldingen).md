@@ -310,3 +310,16 @@ de adressen verifieert vóór een echt incident. Endpoint: `POST /alerts/test`
   (zichtbaar in de push-notificatie), de **kerncijfers** (bv. `1 message(s)`) vetgedrukt
   in de leadzin, en meegenomen in **titel** + **fallback**. Zo ziet een beheerder in
   één oogopslag wát er aandacht nodig heeft.
+
+## Drempel per categorie + Mattermost-ping (@here/@channel)
+
+- **Drempel per categorie** — naast de globale drempel kun je per categorie
+  (Omgevingsstatus / Dead-letter queues / Certificaten & TLS) een eigen drempel
+  zetten: **Globaal** (erft de globale), **warn** of **critical**. Zo kan bijv. DLQ
+  gevoelig op `warn` staan terwijl de rest alleen op `critical` alert. Instelbaar in
+  **Beheer → Alerting**. Server-side: `category_thresholds` (per-categorie → val terug
+  op de globale `severity_threshold`).
+- **Mattermost-ping bij kritiek (opt-in)** — standaard **uit**. Kies **@here** of
+  **@channel** om bij een **kritieke** melding het kanaal te pingen (niet bij warn of
+  herstel). De mention staat in de top-level `text` van het bericht, zodat Mattermost
+  daadwerkelijk notificeert.

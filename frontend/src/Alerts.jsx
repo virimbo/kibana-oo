@@ -324,7 +324,45 @@ export default function AlertsPage({
                 <option value="warn">warn · waarschuwing + rood</option>
               </select>
             </div>
+            <div className="alerts-rcpt-threshold">
+              <label htmlFor="al-mention">Mattermost-ping bij kritiek</label>
+              <select id="al-mention" className="alerts-select" value={status.config.mention || "none"}
+                      onChange={(e) => saveConfig({ mention: e.target.value })}>
+                <option value="none">Geen</option>
+                <option value="here">@here</option>
+                <option value="channel">@channel</option>
+              </select>
+              <span className="alerts-hint">Pingt het hele kanaal bij een kritieke melding.</span>
+            </div>
           </header>
+
+          <div className="alerts-cat-thresholds">
+            <span className="alerts-cat-thresholds-label">Drempel per categorie</span>
+            <div className="alerts-cat-thresholds-grid">
+              {[
+                ["environment", "Omgevingsstatus"],
+                ["dlq", "Dead-letter queues"],
+                ["certificate", "Certificaten & TLS"],
+              ].map(([key, label]) => {
+                const current = status.config.category_thresholds || {};
+                return (
+                  <div key={key} className="alerts-cat-threshold">
+                    <label htmlFor={`al-cat-${key}`}>{label}</label>
+                    <select id={`al-cat-${key}`} className="alerts-select"
+                            value={current[key] || ""}
+                            onChange={(e) => {
+                              const v = e.target.value;
+                              saveConfig({ category_thresholds: { ...current, [key]: v || undefined } });
+                            }}>
+                      <option value="">Globaal ({status.config.severity_threshold})</option>
+                      <option value="warn">warn · waarschuwing + rood</option>
+                      <option value="critical">critical · alleen rood</option>
+                    </select>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="alerts-rcpt-add">
             <input type="email" inputMode="email" placeholder="naam@organisatie.nl"

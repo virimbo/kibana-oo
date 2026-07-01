@@ -4076,3 +4076,6 @@ input:-webkit-autofill:focus {
 .cmpl-actions { margin: 10px 0 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px;
   font-size: 13.5px; color: var(--text-secondary); line-height: 1.5; }
 .cmpl-foot { margin-top: 14px; font-size: 12.5px; }
+.cmpl-links { margin: 14px 0 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.7; }
+.cmpl-links a { color: var(--accent); text-decoration: none; }
+.cmpl-links a:hover { text-decoration: underline; }

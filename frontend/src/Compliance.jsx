@@ -34,13 +34,13 @@ const SEC = [
     d: "Alleen super-admins kunnen connections toevoegen, en interne Prometheus/Jaeger (private IP) zijn juist het doel — daarom bewust geen private-IP-block. Geaccepteerd, gemitigeerd risico." },
   { v: "ok",   dim: "Transport / TLS",
     d: "httpx verify=True naar Kibana/RabbitMQ, STARTTLS voor SMTP, actieve certificaat-monitoring met OCSP. (1 gecontroleerde verify=False-fallback voor een publiek, credential-loos portaal.)" },
-  { v: "warn", dim: "Datalek naar cloud-LLM (Mistral)", sev: "ALLEEN BIJ MISTRAL",
-    d: "Alléén als Mistral (cloud) actief is, gaat logcontext naar api.mistral.ai zónder PII-redactie. Nu draait Ollama (lokaal) → er verlaat geen data het netwerk (zie live-vlag hierboven). Openstaand voor volledige dekking: PII-redactie vóór de context (gepland) of een DPA met Mistral." },
+  { v: "ok", dim: "Datalek naar cloud-LLM (Mistral)", sev: "ALLEEN BIJ MISTRAL",
+    d: "PII-redactie (emails/IP’s/tokens) is nu actief vóór de LLM-context — in de gedeelde contextbouwer, dus zowel Ollama als Mistral krijgen de geschoonde tekst. Document-id’s (ronl-…), servicenamen, HTTP-codes en tijdstempels blijven behouden voor analyse. Restrisico blijft: redactie is conservatief (geen 100%-garantie) en bij Mistral (cloud) gaat de geschoonde context alsnog naar api.mistral.ai. Nu draait Ollama (lokaal) → er verlaat geen data het netwerk. Voor maximale zekerheid: Ollama (lokaal) of een DPA met Mistral." },
 ];
 
 const REC = [
   "DPIA uitvoeren + laten tekenen door de FG/DPO; grondslag (AVG Art. 6) en doelbinding vastleggen.",
-  "PII-redactie vóór de Mistral-context (gepland) — óf gevoelige queries op Ollama (lokaal) houden, óf een DPA met Mistral.",
+  "PII-redactie vóór de LLM-context is actief (emails/IP’s/tokens gemaskeerd); voor maximale zekerheid gevoelige queries op Ollama (lokaal) houden of een DPA met Mistral afsluiten.",
   "Doorlopend: dependency-scanning en een periodieke security-review herhalen.",
 ];
 

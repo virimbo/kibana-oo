@@ -4,6 +4,7 @@ import asyncio, logging
 import monitor_registry as reg
 import monitor_checkers
 import monitor_intel as intel
+import service_session
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -86,7 +87,11 @@ async def run_monitor_loop():
         logger.info("monitor loop disabled"); return
     while True:
         try:
-            await run_once(sid=None)
+            # Best-effort service-account sid so ES-based checks run unattended.
+            # Returns None (unchanged, sid=None behaviour) when unconfigured or
+            # on any login failure — never raises.
+            sid = await service_session.get_service_sid()
+            await run_once(sid=sid)
         except Exception as e:  # noqa: BLE001
             logger.error("monitor loop cycle failed: %s", e)
         await asyncio.sleep(settings.monitor_interval)

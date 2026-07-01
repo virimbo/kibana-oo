@@ -680,19 +680,53 @@ def _build_doc_context(
 # are failing", "what's unhealthy", "any errors", "what's wrong right now". These
 # are answered from the SAME ground-truth health data the dashboard uses, not a
 # blind keyword log-search, so the chat agrees with the header's "N stuck" badge.
-_HEALTH_RE = re.compile(
+# A specific search / lookup intent (EN + NL) — "find the mailing-list error",
+# "zoek de fout in X". These must NEVER be hijacked into the generic health digest;
+# they answer from a real log search so the chat addresses the actual topic.
+_SEARCH_INTENT_RE = re.compile(
+    r"\b(find|search|look\s*(?:up|for)|show\s+me|locate|trace|lookup|list\s+the|"
+    r"where(?:'s| is| are)?|"
+    r"vind|zoek|toon|laat\s+zien|traceer|waar\s+(?:is|staat|zit))\b",
+    re.I,
+)
+
+# Strong overall system/pipeline-health signals (EN + NL) — a health question on
+# their own (kept bilingual so Dutch questions route consistently, not by accident).
+_HEALTH_STRONG_RE = re.compile(
     r"\b("
-    r"fail(?:ing|ed|ure|s)?|unhealthy|health|erroring|errors?|broken|down|"
-    r"outage|degraded|stuck|stalled|problems?|issues?|worst|critical|"
-    r"which services?|what(?:'s| is)\s+(?:going\s+)?wrong|going\s+wrong"
+    r"fail(?:ing|ed|ure|ures|s)?|unhealthy|healthy?|erroring|broken|kapot|"
+    r"outage|storing|uitval|degraded|down|offline|onbereikbaar|"
+    r"stuck|stalled|vastgelopen|worst|ergste|critical|kritiek(?:e)?|"
+    r"which services?|welke services?|gezondheid|"
+    r"what(?:'s| is)\s+(?:going\s+)?wrong|going\s+wrong|wat\s+(?:gaat|is)\s+er\s+mis"
     r")\b",
     re.I,
 )
 
+# Bare trouble words (EN + NL) — only a health question WITH a broad-scope cue,
+# otherwise they belong to a specific search ("the mailing-list error").
+_GENERIC_TROUBLE_RE = re.compile(
+    r"\b(errors?|fout(?:en|melding|meldingen)?|issues?|problem(?:s|en|atisch)?)\b", re.I)
+_BROAD_SCOPE_RE = re.compile(
+    r"\b(right\s+now|currently|at\s+the\s+moment|overall|system|systeem|any|"
+    r"op\s+dit\s+moment|momenteel|nu)\b", re.I)
+
 
 def _is_health_question(text: str) -> bool:
-    """True when the question is about overall system/pipeline health."""
-    return bool(_HEALTH_RE.search(text or ""))
+    """True only for BROAD system/pipeline-health questions — NOT a specific search.
+
+    Order matters: a STRONG health signal ("failing", "stuck", "what's going wrong")
+    wins even when phrased as "show me…/list the…". Otherwise a specific search/lookup
+    intent ("find the attendee mailing-list error") is routed to the real log search
+    so the chat answers what was actually asked instead of returning the generic
+    cluster-health digest. Bare "error/issue/problem" counts as health only alongside
+    a broad-scope cue ("right now", "any", "system", …)."""
+    t = text or ""
+    if _HEALTH_STRONG_RE.search(t):
+        return True
+    if _SEARCH_INTENT_RE.search(t):
+        return False
+    return bool(_GENERIC_TROUBLE_RE.search(t) and _BROAD_SCOPE_RE.search(t))
 
 
 def _build_health_context(snap: dict | None, health: dict | None) -> str:

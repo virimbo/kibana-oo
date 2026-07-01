@@ -195,6 +195,7 @@ function LoginPage({ onLogin }) {
         <span className="login-bg-dots" />
         <span className="login-bg-grid" />
         <span className="login-bg-horizon" />
+        <span className="login-bg-wordmark">LOGIUS</span>
         <span className="login-bg-particles" />
         <span className="login-bg-ring login-bg-ring--1" />
         <span className="login-bg-ring login-bg-ring--2" />
@@ -208,21 +209,11 @@ function LoginPage({ onLogin }) {
             </span>
             <span className="brand-name">Open Overheid - Monitoring</span>
           </div>
-          <span className="gx-eyebrow">100% INTERN · MONITORING</span>
           <h1 className="gx-h1">
             OPEN OVERHEID
             <br />
             MONITORING
           </h1>
-          <p className="gx-sub">
-            Meld u aan met uw <strong>SP-inloggegevens</strong> (Standaard Platform) om
-            toegang te krijgen tot de monitoringomgeving.
-          </p>
-          <div className="login-hero-tags">
-            <span className="gx-tag"><Li.pulse /> Uptime</span>
-            <span className="gx-tag"><Li.heart /> Service health</span>
-            <span className="gx-tag"><Li.bell /> Alerts</span>
-          </div>
         </div>
 
         <div className="login-card gx-panel">

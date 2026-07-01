@@ -20,6 +20,31 @@ def test_is_health_question_false_for_neutral_questions():
     assert not main._is_health_question("")
 
 
+def test_specific_search_is_not_hijacked_into_health_digest():
+    # The reported bug: a specific search containing the bare words "issue"/"error"
+    # must NOT return the generic cluster-health digest — it must go to a real search.
+    assert not main._is_health_question("Find the attendee mailing list issue or error for today")
+    assert not main._is_health_question("search the gateway timeout error")
+    assert not main._is_health_question("look for the invoice problem")
+    assert not main._is_health_question("the attendee mailing list issue")
+    # NL specific-search variants.
+    assert not main._is_health_question("zoek de fout in de mailing list van vandaag")
+    assert not main._is_health_question("toon de error van gateway-service")
+
+
+def test_health_question_bilingual_and_robust():
+    # Strong signals win even with a "show me"/"list the" verb in front.
+    assert main._is_health_question("show me stuck documents")
+    assert main._is_health_question("List the worst-affected services")
+    # Dutch health questions route consistently (not by accidental English words).
+    assert main._is_health_question("Wat zijn de meest kritieke errors van het afgelopen uur?")
+    assert main._is_health_question("Welke services falen of zijn unhealthy?")
+    assert main._is_health_question("is er een storing of iets vastgelopen?")
+    # Bare trouble word only counts with a broad-scope cue.
+    assert main._is_health_question("any errors right now?")
+    assert not main._is_health_question("errors about the mailing list")
+
+
 def test_build_health_context_lists_worst_services_first():
     snap = {
         "data_view": "logs-*", "period_minutes": 15, "status_level": "critical",

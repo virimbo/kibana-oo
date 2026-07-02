@@ -65,6 +65,13 @@ const SUPER_CARDS = [
     desc: "Monitoring-targets en connections (Prometheus/Jaeger) beheren — secrets staan in .env.",
   },
   {
+    view: "webhooks",
+    icon: "🔗",
+    title: "Webhooks",
+    subtitle: "Mattermost",
+    desc: "Mattermost-webhooks (ACC / TST / PROD) beheren en met één klik de actieve kiezen — waar meldingen naartoe gaan.",
+  },
+  {
     view: "compliance",
     icon: "⚖️",
     title: "Compliance & Beveiliging",

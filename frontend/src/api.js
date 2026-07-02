@@ -39,6 +39,14 @@ export const putAlertToggle = (token, body) => sendJSON("/alerts/toggle", token,
 export const putAlertConfig = (token, body) => sendJSON("/alerts/config", token, "PUT", body);
 export const testAlertEmail = (token, body) => sendJSON("/alerts/test", token, "POST", body);
 
+// ─── Mattermost webhooks (Beheer → Webhooks) ─────────────────────────────────
+export const fetchWebhooks = (token) => getJSON("/admin/webhooks", token);
+export const createWebhook = (token, body) => sendJSON("/admin/webhooks", token, "POST", body);
+export const updateWebhook = (token, id, body) => sendJSON(`/admin/webhooks/${id}`, token, "PUT", body);
+export const deleteWebhook = (token, id) => sendJSON(`/admin/webhooks/${id}`, token, "DELETE");
+export const activateWebhook = (token, id) => sendJSON(`/admin/webhooks/${id}/activate`, token, "POST");
+export const testWebhook = (token, id) => sendJSON(`/admin/webhooks/${id}/test`, token, "POST");
+
 // ─── DLQ Intelligence (Beheer/Dashboard → 🔍 Intelligentie) ──────────────────
 export const fetchDlqIntel = (token) => getJSON("/dashboard/dlq/intel", token);
 

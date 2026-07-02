@@ -52,6 +52,6 @@ docs/**/.smart-env/
 # Playwright MCP artifacts
 .playwright-mcp/
 
-# Local-only docs: a backup snapshot and an external wiki dump (large, not source)
-docs/KIBANA-OO_BACKUP/
-docs/fb-monitoring-wiki/
+# Local-only, non-source clutter: old backups / superseded vault dumps.
+# Relocated out of docs/ into archive/ so docs/ shows only current, canonical docs.
+archive/

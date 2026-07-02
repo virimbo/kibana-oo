@@ -9,6 +9,7 @@ import AdminPage from "./Admin";
 import RegressionPage from "./Regression";
 import AuthorizationPage from "./Authorization";
 import AlertsPage from "./Alerts";
+import WebhooksPage from "./Webhooks";
 import DlqIntelPage from "./DlqIntel";
 import MonitoringConfig from "./MonitoringConfig";
 import CompliancePage from "./Compliance";
@@ -1314,6 +1315,24 @@ export default function App() {
         onProviderChange={handleProviderChange}
         can={can}
         isAdmin={isAdmin}
+        aanleverCount={aanleverCount}
+        dlqCount={dlqCount}
+      />
+    );
+  }
+
+  if (view === "webhooks" && isSuper) {
+    return (
+      <WebhooksPage
+        token={token}
+        username={username}
+        onLogout={handleLogout}
+        onNavigate={navigate}
+        llmProvider={effectiveProvider}
+        onProviderChange={handleProviderChange}
+        can={can}
+        isAdmin={isAdmin}
+        stuckCount={stuckCount}
         aanleverCount={aanleverCount}
         dlqCount={dlqCount}
       />

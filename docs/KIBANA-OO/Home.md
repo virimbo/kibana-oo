@@ -47,6 +47,7 @@ flowchart TD
 - [[Service health]] — 🇳🇱 aparte card: werken de backend-microservices (Harvester, Antivirus, Repository, …)? Per service up/down/unreachable, met actuator-status
 - [[Grafana en infrastructuur]] — 🇳🇱 één-klik-links naar de Grafana-infradashboards (o.a. CloudNativePG)
 - [[Alerting (meldingen)]] — 🇳🇱 e-mailmeldingen bij RED-status (omgevingen, DLQ, certificaten): aan/uit per kaart, ontvangers, cooldown, herstelmeldingen en geschiedenis
+- [[Webhooks (Mattermost)]] — 🇳🇱 beheer meerdere Mattermost-webhooks (ACC/TST/PROD) en kies met één klik de actieve — waar meldingen naartoe gaan
 - [[DLQ intelligentie]] — 🇳🇱 waarom staan er berichten vast in een dead-letter queue? Oorzaak, leeftijd, trend, aanbevolen actie (alleen-lezen peek)
 - [[Backlog - TODO Anton]] — 🇳🇱 persoonlijke actielijst (o.a. Grafana live-metrics: wacht op read-only token)
 - [[Navigatie]] — 🇳🇱 de gedeelde menubalk: actieve pagina, Beheer-subpagina's, rechten

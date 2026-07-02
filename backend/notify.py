@@ -8,6 +8,7 @@ from email.message import EmailMessage
 
 import httpx
 
+import webhooks_store
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,8 @@ def email_configured() -> bool:
 
 
 def webhook_configured() -> bool:
-    return bool(settings.digest_webhook_url)
+    # active_url() = the admin-managed active webhook, or DIGEST_WEBHOOK_URL fallback.
+    return bool(webhooks_store.active_url())
 
 
 def send_email(subject: str, html: str, text: str) -> bool:
@@ -52,7 +54,7 @@ async def send_webhook(text: str) -> bool:
         return False
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(settings.digest_webhook_url, json={"text": text})
+            resp = await client.post(webhooks_store.active_url(), json={"text": text})
             resp.raise_for_status()
         return True
     except Exception as e:  # noqa: BLE001

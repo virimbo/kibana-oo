@@ -38,6 +38,7 @@ from uptime_api import router as uptime_router
 from infra_api import router as infra_router
 from alerts_api import router as alerts_router
 from alerts import run_alert_loop
+from webhooks_api import router as webhooks_router
 from dlq_intel_api import router as dlq_intel_router
 from dlq_intel import run_dlq_intel_loop
 from service_health_api import router as service_health_router
@@ -116,6 +117,7 @@ app.include_router(context_router)
 app.include_router(uptime_router)
 app.include_router(infra_router)
 app.include_router(alerts_router)
+app.include_router(webhooks_router)
 app.include_router(dlq_intel_router)
 app.include_router(service_health_router)
 app.include_router(monitor_router)

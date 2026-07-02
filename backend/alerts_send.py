@@ -10,6 +10,7 @@ from email.utils import formataddr
 
 import httpx
 
+import webhooks_store
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,8 @@ async def post_webhook(payload: dict) -> bool:
     """Post a prebuilt JSON payload to the configured webhook (Mattermost/Slack
     incoming webhook — supports {username, text, attachments}). Returns False
     (never raises) if unconfigured or on error."""
-    url = settings.digest_webhook_url
+    # Admin-managed active webhook, or DIGEST_WEBHOOK_URL fallback (see webhooks_store).
+    url = webhooks_store.active_url()
     if not url or not payload:
         return False
     try:

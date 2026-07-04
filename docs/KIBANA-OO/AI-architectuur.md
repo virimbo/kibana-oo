@@ -108,6 +108,31 @@ flowchart TB
 > op de laptop van de ontwikkelaar. Zet je Claude Code uit, dan blijft de app
 > precies hetzelfde werken.
 
+### Waarmee is het gebouwd? — een *agentic harness*
+
+De juiste vakterm voor LAAG 2 is een **agentic harness** (of kortweg *harness*).
+Een harness is de software-omhulling om een taalmodel heen die het model van
+"tekstvoorspeller" verandert in iets dat écht wérk doet: een stuurlus, toegang
+tot gereedschap (bestanden lezen/bewerken, commando's draaien, zoeken),
+context­beheer, rechten, en sub-agents. Het model is de **motor**; de harness is
+alles eromheen waardoor die motor kan "rijden". **Claude Code is zo'n agentic
+coding-harness** — en die hebben we gebruikt om deze app te *bouwen*.
+
+Belangrijk voor audits en compliance — houd deze grens scherp:
+
+| | Wat het is | Agentic / harness? |
+|---|---|---|
+| **Claude Code** | Het **bouw­gereedschap** waarmee de app is ontwikkeld | ✅ Ja — een agentic harness (agents, sub-agents, tools, MCP) |
+| **Open Overheid – Monitoring** | De **draaiende applicatie** die jullie beheren | ❌ Nee — **RAG** + achtergrond-monitors; geen agents, geen MCP |
+
+> **Zo zeg je het correct:** *"Open Overheid – Monitoring is **gebouwd met**
+> Claude Code — een agentic coding-harness. De opgeleverde applicatie zelf is
+> **niet** agentic: het is een retrieval-augmented (RAG) monitoring-app. De
+> harness was ontwikkel­gereedschap, geen onderdeel van het draaiende systeem."*
+
+Dat houdt het EU AI Act- / AVG-verhaal schoon: de agentic complexiteit zat in de
+**bouwfase**, niet in productie. Zie ook [[Presentatie - Management]].
+
 ---
 
 ## 4. Waar zit de AI in de app? (precies 3 plekken)

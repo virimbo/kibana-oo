@@ -7,6 +7,9 @@ purpose-business: Vertaalt de ruwe document-tellingen op de Documenten-pagina na
 purpose-technical: Een pure helper `_build_health()` in documents.py bouwt een `health`-object (level/headline/signals) uit de tellingen vs. het vorige venster; de frontend toont een verdict-banner + signalen.
 related: [Document lifecycle (pipeline), Document tracer, Runbook - wat te doen, AI-architectuur]
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-27
+updated: 2026-06-27
 ---
 
 # Documentgezondheid

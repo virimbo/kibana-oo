@@ -1,3 +1,11 @@
+---
+title: "open_overheid_seo_aeo_geo_roadmap"
+category: "Project & communicatie"
+created: 2026-07-01
+updated: 2026-07-01
+tags: [kibana-oo, project]
+---
+
 # Roadmap: Open.overheid.nl future-proof maken voor SEO, AEO, GEO, AIO en SXO
 
 **Doelgroep:** management, product owner, functioneel beheer, development, SEO/UX  

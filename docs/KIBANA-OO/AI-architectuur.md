@@ -6,6 +6,9 @@ purpose-business: Legt in begrijpelijke taal uit hoe de AI in Open Overheid - Mo
 purpose-technical: De applicatie is een RAG-app (Elasticsearch → prompt → LLM) plus achtergrond-monitors; geen agents, sub-agents of MCP. Die horen bij het bouwgereedschap (Claude Code), niet bij de draaiende app.
 related: [Monitoring dashboard, Service health, UX design system, Runbook - wat te doen]
 owner: KOOP Beheer
+category: "Architectuur & platform"
+created: 2026-06-27
+updated: 2026-07-04
 ---
 
 # AI-architectuur

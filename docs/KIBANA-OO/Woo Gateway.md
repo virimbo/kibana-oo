@@ -2,6 +2,9 @@
 title: Woo Gateway — the front door (auth & delivery APIs)
 tags: [architecture, koop, woo, gateway, security, reference]
 aliases: [Gateway, API Gateway, IAM, OAS, CAM]
+category: "Architectuur & platform"
+created: 2026-06-10
+updated: 2026-06-10
 ---
 
 # 🚪 Woo Gateway — the front door

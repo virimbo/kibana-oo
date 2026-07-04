@@ -8,6 +8,9 @@ dependencies: [Elasticsearch, open.overheid.nl]
 related: [Document lifecycle (pipeline), Dashboard - statusoverzicht]
 risk: low
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-17
 ---
 
 # Pipeline outcomes

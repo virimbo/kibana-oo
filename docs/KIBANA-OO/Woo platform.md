@@ -2,6 +2,9 @@
 title: Woo platform — architecture (plain language)
 tags: [architecture, koop, woo, reference]
 aliases: [Woo architecture, KOOP Woo platform, Verwerkingsstraat]
+category: "Architectuur & platform"
+created: 2026-06-10
+updated: 2026-06-10
 ---
 
 # 🏛️ The Woo platform — in plain language

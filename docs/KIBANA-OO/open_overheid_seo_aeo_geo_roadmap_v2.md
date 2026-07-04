@@ -1,3 +1,11 @@
+---
+title: "open_overheid_seo_aeo_geo_roadmap_v2"
+category: "Project & communicatie"
+created: 2026-07-01
+updated: 2026-07-01
+tags: [kibana-oo, project]
+---
+
 # Open.overheid.nl Future Search Strategy (Extended)
 
 Datum: 2026-07-01

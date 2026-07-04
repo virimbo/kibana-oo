@@ -1,3 +1,11 @@
+---
+title: "Webhooks (Mattermost)"
+category: "Beheer & configuratie"
+created: 2026-07-02
+updated: 2026-07-02
+tags: [kibana-oo, beheer]
+---
+
 # Webhooks (Mattermost)
 
 > Beheer → **Webhooks**. Houd meerdere Mattermost-webhooks (ACC / TST / PROD)

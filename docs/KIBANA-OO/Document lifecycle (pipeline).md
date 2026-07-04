@@ -9,6 +9,9 @@ dependencies: [Aanleverloket, RabbitMQ, Documentopslag, Indexatie, open.overheid
 related: [Verwerkingsstraat queues, Aanleverfouten]
 risk: medium
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-10
+updated: 2026-06-17
 ---
 
 # 🧭 Document lifecycle — the canonical pipeline

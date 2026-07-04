@@ -2,6 +2,11 @@
 aliases: [Presentatie, Management, Pitch, Waarom deze oplossing]
 purpose: Overtuigende maar eerlijke management-presentatie om tijd/mandaat te krijgen om Open Overheid – Monitoring door te ontwikkelen naar productie-grade.
 taal: Nederlands
+category: "Project & communicatie"
+created: 2026-07-04
+updated: 2026-07-04
+title: "Presentatie - Management"
+tags: [kibana-oo, project]
 ---
 
 # Presentatie — Management

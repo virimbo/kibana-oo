@@ -9,6 +9,9 @@ dependencies: [Monitoring dashboard, Obsidian vault, LLM providers]
 related: [Monitoring dashboard, Verwerkingsstraat queues, Aanleverfouten, Certificaten en TLS]
 risk: low
 owner: KOOP Beheer
+category: "Beheer & configuratie"
+created: 2026-06-17
+updated: 2026-06-17
 ---
 
 # Smart context paneel 🧠

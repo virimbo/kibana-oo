@@ -9,6 +9,9 @@ dependencies: [open.overheid.nl, doculoket.overheid.nl, Admin (KOOP Plooi), Gate
 related: [Monitoring dashboard, Certificaten en TLS, Dashboard - statusoverzicht]
 risk: medium
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-17
 ---
 
 # Beschikbaarheid (uptime monitor) 🌐

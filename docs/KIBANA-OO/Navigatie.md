@@ -1,6 +1,9 @@
 ---
 title: Navigatie — de menubalk
 tags: [navigatie, ui, beheer, nl]
+category: "Beheer & configuratie"
+created: 2026-06-17
+updated: 2026-07-01
 ---
 
 # Navigatie — de menubalk 🧭

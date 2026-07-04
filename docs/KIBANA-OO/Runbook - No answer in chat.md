@@ -1,6 +1,9 @@
 ---
 title: Runbook — No answer in chat
 tags: [runbook, troubleshooting]
+category: "Runbooks"
+created: 2026-06-09
+updated: 2026-07-01
 ---
 
 # Runbook — "No matching data found" / no answer

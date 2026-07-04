@@ -8,6 +8,9 @@ dependencies: [Elasticsearch, Kibana, APM]
 related: [Monitoring dashboard, Document lifecycle (pipeline)]
 risk: medium
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-29
 ---
 
 # Dashboard — statusoverzicht 🟢🟠🔴

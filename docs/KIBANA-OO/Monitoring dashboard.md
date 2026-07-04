@@ -1,6 +1,9 @@
 ---
 title: Monitoring dashboard
 tags: [dashboard, admin]
+category: "Monitoring & signalen"
+created: 2026-06-09
+updated: 2026-06-27
 ---
 
 # Monitoring dashboard

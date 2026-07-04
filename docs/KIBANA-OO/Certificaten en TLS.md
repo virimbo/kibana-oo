@@ -8,6 +8,9 @@ dependencies: [open.overheid.nl, doculoket.overheid.nl, Kibana Heartbeat/Synthet
 related: [Monitoring dashboard]
 risk: high
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-18
 ---
 
 # Certificaten en TLS

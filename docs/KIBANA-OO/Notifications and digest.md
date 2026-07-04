@@ -1,6 +1,9 @@
 ---
 title: Notifications & the daily digest
 tags: [notifications, digest, ops, reference]
+category: "Beheer & configuratie"
+created: 2026-06-11
+updated: 2026-06-11
 ---
 
 # 📧 Notifications & the daily digest

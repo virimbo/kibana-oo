@@ -1,3 +1,11 @@
+---
+title: "Regressietest"
+category: "Monitoring & signalen"
+created: 2026-06-29
+updated: 2026-06-29
+tags: [kibana-oo, monitoring]
+---
+
 # Regressietest
 
 > 🇳🇱 Na een prod-release: controleert automatisch of open.overheid.nl nog

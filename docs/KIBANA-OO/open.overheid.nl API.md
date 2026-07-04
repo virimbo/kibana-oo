@@ -1,6 +1,9 @@
 ---
 title: open.overheid.nl API
 tags: [reference, portal, api]
+category: "Architectuur & platform"
+created: 2026-06-09
+updated: 2026-06-09
 ---
 
 # open.overheid.nl API

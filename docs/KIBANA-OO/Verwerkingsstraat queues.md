@@ -8,6 +8,9 @@ dependencies: [RabbitMQ, Documentopslag, Indexatie, Antivirus]
 related: [Document lifecycle (pipeline), Dead-letter queues, Aanleverfouten]
 risk: low
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-17
 ---
 
 # Verwerkingsstraat queues (RabbitMQ)

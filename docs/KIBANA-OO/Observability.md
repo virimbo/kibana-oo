@@ -1,6 +1,9 @@
 ---
 title: Observability (Datastroom & gezondheid)
 tags: [kibana-oo, observability, beheer]
+category: "Monitoring & signalen"
+created: 2026-07-01
+updated: 2026-07-01
 ---
 
 # Observability 📈

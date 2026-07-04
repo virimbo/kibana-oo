@@ -4,6 +4,9 @@ tags: [backlog, todo, beheer, nl]
 aliases: [TODO Anton, Backlog Anton, Openstaande acties]
 eigenaar: Anton
 bijgewerkt: 2026-06-17
+category: "Project & communicatie"
+created: 2026-06-17
+updated: 2026-06-18
 ---
 
 # Backlog — TODO Anton 📌

@@ -9,6 +9,9 @@ dependencies: [Elasticsearch, Prometheus, Jaeger]
 related: [Service health, Beschikbaarheid (uptime), AI-architectuur, Runbook - wat te doen, Alerting (meldingen)]
 risk: medium
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-27
+updated: 2026-07-01
 ---
 
 # Monitoring targets

@@ -1,6 +1,9 @@
 ---
 title: KOOP Plooi log schema
 tags: [elasticsearch, schema, koop]
+category: "Architectuur & platform"
+created: 2026-06-09
+updated: 2026-06-09
 ---
 
 # KOOP Plooi log schema

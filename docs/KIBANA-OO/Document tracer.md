@@ -1,6 +1,9 @@
 ---
 title: Document tracer
 tags: [documents, tracer]
+category: "Monitoring & signalen"
+created: 2026-06-09
+updated: 2026-06-09
 ---
 
 # Document tracer

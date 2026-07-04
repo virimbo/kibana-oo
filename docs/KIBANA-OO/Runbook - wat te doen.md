@@ -5,6 +5,9 @@ aliases: [Wat te doen, Runbook acties, What to do]
 component: runbook-actions
 bijgewerkt: 2026-06-17
 eigenaar: KOOP Beheer
+category: "Runbooks"
+created: 2026-06-17
+updated: 2026-06-27
 ---
 
 # Runbook — wat te doen 🚨

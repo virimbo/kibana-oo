@@ -9,6 +9,9 @@ dependencies: [Harvester, Antivirus, Repository, Search, DCN, Keycloak, Solr, Ra
 related: [Beschikbaarheid (uptime), Woo Gateway, Monitoring dashboard, Runbook - wat te doen]
 risk: high
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-19
+updated: 2026-06-19
 ---
 
 # Service health

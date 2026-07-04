@@ -2,6 +2,9 @@
 title: Architecture
 tags: [architecture]
 aliases: [System Design, Arch]
+category: "Architectuur & platform"
+created: 2026-06-09
+updated: 2026-06-09
 ---
 
 # 🏗️ Architecture

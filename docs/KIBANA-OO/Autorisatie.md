@@ -7,6 +7,9 @@ purpose-business: Nieuwe gebruikers krijgen pas toegang nadat de super-admin ze 
 purpose-technical: Deny-by-default grant-matrix + een approval-gate (app_users status pending/approved/suspended) afgedwongen in has_feature/user_features, met grandfather + super-admin fail-safe.
 related: [Navigatie, AI-architectuur, Monitoring targets]
 owner: KOOP Beheer
+category: "Beheer & configuratie"
+created: 2026-06-27
+updated: 2026-07-01
 ---
 
 # Autorisatie

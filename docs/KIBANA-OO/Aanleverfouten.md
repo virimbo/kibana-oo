@@ -8,6 +8,9 @@ dependencies: [Aanleverloket, doculoket.overheid.nl, open.overheid.nl]
 related: [Document lifecycle (pipeline), Verwerkingsstraat queues]
 risk: medium
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-17
 ---
 
 # Aanleverfouten

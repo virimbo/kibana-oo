@@ -9,6 +9,9 @@ dependencies: [Grafana, Prometheus, CloudNativePG]
 related: [Beschikbaarheid (uptime), Monitoring dashboard]
 risk: low
 owner: KOOP Beheer
+category: "Monitoring & signalen"
+created: 2026-06-17
+updated: 2026-06-17
 ---
 
 # Grafana en infrastructuur 🛠

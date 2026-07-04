@@ -1,6 +1,9 @@
 ---
 title: Testing and CI
 tags: [testing, docker]
+category: "Referentie & ontwikkeling"
+created: 2026-06-09
+updated: 2026-06-09
 ---
 
 # Testing and CI

@@ -1,3 +1,11 @@
+---
+title: "Alerting (meldingen)"
+category: "Beheer & configuratie"
+created: 2026-06-18
+updated: 2026-07-01
+tags: [kibana-oo, beheer]
+---
+
 # Alerting (meldingen)
 
 > 🇳🇱 Eén centrale, beheerbare e-mailmelder die afgaat zodra een kaart op het

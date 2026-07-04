@@ -16,9 +16,11 @@ AI-ondersteunde monitoring + chat over Elasticsearch/Kibana voor het
 > Mermaid-diagrammen te zien.
 
 > [!tip] Zo is de vault ingedeeld
-> De notities zijn gegroepeerd in **6 thema's**. Zoek je iets? Ga naar het thema
-> hieronder. Elke tabel toont het **onderwerp** en de datums **aangemaakt** /
-> **bijgewerkt**, zodat je snel het juiste en het meest actuele document vindt.
+> De notities zijn gegroepeerd in **6 thema's** — dit zijn ook **genummerde mappen
+> (01–06)** in de verkenner, dus de indeling hieronder komt 1-op-1 overeen met de
+> mappenstructuur. Zoek je iets? Ga naar het thema hieronder. Elke tabel toont het
+> **onderwerp** en de datums **aangemaakt** / **bijgewerkt**, zodat je snel het
+> juiste en meest actuele document vindt. (`Home.md` blijft in de hoofdmap.)
 
 ```mermaid
 flowchart TD

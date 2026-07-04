@@ -33,14 +33,14 @@ This is the KIBANA-OO project. Update this section with project description as i
 - **Time range:** see [docs/time-range.md](docs/time-range.md) — shared presets +
   custom from→to window (additive `from`/`to`; the `period` path is unchanged).
 - **Authorization:** see [docs/authorization.md](docs/authorization.md) +
-  [docs/KIBANA-OO/Autorisatie.md](docs/KIBANA-OO/Autorisatie.md) (NL) — super admin
+  [docs/KIBANA-OO/03 - Beheer & configuratie/Autorisatie.md](docs/KIBANA-OO/03%20-%20Beheer%20&%20configuratie/Autorisatie.md) (NL) — super admin
   (config) + per-user × per-feature grant matrix; `require_feature` enforces server-side.
   Plus an **approval gate**: new users are `pending` (zero access, no chat) until the
   super admin approves them; `is_super` is always approved + existing users are
   grandfathered (fail-safe, no lock-out).
 - **RabbitMQ DLQ:** see [docs/rabbitmq-dlq.md](docs/rabbitmq-dlq.md) — dead-letter-queue
   monitor (Management API, read-only); background poll + alerts + `/dashboard/dlq`.
-- **AI architecture & compliance:** see [docs/KIBANA-OO/AI-architectuur.md](docs/KIBANA-OO/AI-architectuur.md)
+- **AI architecture & compliance:** see [docs/KIBANA-OO/AI-architectuur.md](docs/KIBANA-OO/01%20-%20Architectuur%20&%20platform/AI-architectuur.md)
   (NL) — the app is **RAG** (Elasticsearch → prompt → LLM) + background monitors; **no
   agents/sub-agents/MCP** (those are Claude Code build-time tooling). Includes Mermaid
   diagrams and an honest EU AI Act / AVG privacy posture (not a "100% compliant" claim —

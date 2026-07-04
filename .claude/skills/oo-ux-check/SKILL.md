@@ -45,7 +45,7 @@ findings by severity, then fix them additively. Frontend lives in
 squared **Chakra-Petch** display headlines, **IBM Plex Sans** body, **JetBrains Mono**
 numbers, glowing crimson CTAs, sharp 6px corners, stat-card heroes. Full spec:
 `docs/superpowers/specs/2026-06-19-opera-gx-restyle-design.md` and the Dutch vault note
-`docs/KIBANA-OO/UX design system.md`.
+`docs/KIBANA-OO/03 - Beheer & configuratie/UX design system.md`.
 
 **Reference pages to copy from:** any page using the `.gx-*` kit (Dashboard hero
 stat-row, Login split-hero, Alerts/Settings panels). Match these, don't reinvent.

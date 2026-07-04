@@ -9,7 +9,7 @@ You audit ONE page/component of the Open Overheid - Monitoring frontend against 
 
 **Single source of truth:**
 - `.claude/skills/oo-ux-check/SKILL.md` — the OO-GX checklist + token/kit reference.
-- `docs/KIBANA-OO/UX design system.md` — the palette, type scale and `.gx-*` kit.
+- `docs/KIBANA-OO/03 - Beheer & configuratie/UX design system.md` — the palette, type scale and `.gx-*` kit.
 - `frontend/src/styles.css` — the actual tokens and `.gx-*` definitions.
 
 **The OO-GX rules in brief:**

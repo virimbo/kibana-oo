@@ -167,3 +167,105 @@ async def _discover_prometheus(connection):
 
 register("jaeger-traces", _JAEGER_FIELDS, _check_jaeger, discover=_discover_jaeger)
 register("prometheus-query", _PROM_FIELDS, _check_prometheus, discover=_discover_prometheus)
+
+# ── smb (Windows/CIFS file share, port 445) ──────────────────────────────────
+# Self-contained target (no connection): host/share/creds live in config; the
+# password is read from the .env var named by `secret_ref` at check time — never
+# stored. Layered probe: TCP reach → SMB session → share → read → optional write.
+import asyncio
+
+_SMB_FIELDS = [
+    {"name": "host", "label": "Host / server", "kind": "text", "required": True},
+    {"name": "share", "label": "Share", "kind": "text", "required": True},
+    {"name": "port", "label": "Poort", "kind": "int", "default": 445},
+    {"name": "username", "label": "Gebruiker (service-account)", "kind": "text", "required": True},
+    {"name": "domain", "label": "Domein (optioneel)", "kind": "text", "default": ""},
+    {"name": "secret_ref", "label": ".env-naam met wachtwoord", "kind": "text", "required": True},
+    {"name": "path", "label": "Canary-pad om te lezen (optioneel)", "kind": "text", "default": ""},
+    {"name": "write_test", "label": "Schrijftest uitvoeren", "kind": "bool", "default": False},
+    {"name": "write_dir", "label": "Schrijf-map voor canary (optioneel)", "kind": "text", "default": ""},
+    {"name": "encrypt", "label": "SMB3-encryptie vereisen", "kind": "bool", "default": True},
+    {"name": "timeout_s", "label": "Timeout (s)", "kind": "int", "default": None},
+    {"name": "latency_warn_ms", "label": "Latency-waarschuwing (ms)", "kind": "int", "default": None},
+    {"name": "service", "label": "Service-label (correlatie)", "kind": "text", "default": None},
+]
+
+
+def _smb_probe(host, share, port, username, password, domain, path,
+               write_test, write_dir, encrypt, timeout):
+    """Blocking SMB probe — run via asyncio.to_thread so the poll loop stays async.
+    Layered so the `detail.stage` pinpoints where it failed. Never raises."""
+    import socket
+    import time as _t
+    import uuid
+    t0 = _t.monotonic()
+    # 1) TCP reach — separates 'unreachable' (network/firewall/host) from auth/share.
+    try:
+        socket.create_connection((host, port), timeout=timeout).close()
+    except Exception as e:  # noqa: BLE001
+        return {"status": "unreachable", "detail": {"stage": "tcp", "error": type(e).__name__}, "latency_ms": None}
+    try:
+        import smbclient
+    except ImportError:
+        return {"status": "unreachable", "detail": {"stage": "deps", "error": "smbprotocol niet geïnstalleerd"}, "latency_ms": None}
+    user = f"{domain}\\{username}" if domain else username
+    base = r"\\%s\%s" % (host, share)
+    # 2) SMB session (auth + protocol). Reachable but rejected → 'down'.
+    try:
+        smbclient.register_session(host, username=user, password=password, port=port,
+                                   encrypt=encrypt, connection_timeout=int(timeout))
+    except Exception as e:  # noqa: BLE001
+        return {"status": "down", "detail": {"stage": "session", "error": type(e).__name__, "msg": str(e)[:160]}, "latency_ms": None}
+    detail = {}
+    try:
+        # 3) Share / tree-connect + 4) read canary
+        detail["entries"] = len(smbclient.listdir(base, port=port))
+        if path:
+            full = base + "\\" + path.lstrip("\\/").replace("/", "\\")
+            if not smbclient.path.exists(full, port=port):
+                return {"status": "down", "detail": {"stage": "read", "error": "pad niet gevonden", "path": path},
+                        "latency_ms": int((_t.monotonic() - t0) * 1000)}
+        # 5) optional write canary — unique temp file in a dedicated dir, always cleaned up
+        if write_test:
+            wdir = base + ("\\" + write_dir.strip("\\/").replace("/", "\\") if write_dir else "")
+            fname = wdir + "\\.healthcheck-" + uuid.uuid4().hex + ".tmp"
+            with smbclient.open_file(fname, mode="wb", port=port) as fh:
+                fh.write(b"healthcheck")
+            smbclient.remove(fname, port=port)
+            detail["write"] = "ok"
+        ms = int((_t.monotonic() - t0) * 1000)
+        return {"status": "ok", "detail": detail, "latency_ms": ms}
+    except Exception as e:  # noqa: BLE001 — reachable + authed but share/IO failed → down
+        return {"status": "down", "detail": {"stage": "io", "error": type(e).__name__, "msg": str(e)[:160]},
+                "latency_ms": int((_t.monotonic() - t0) * 1000)}
+    finally:
+        try:
+            smbclient.delete_session(host, port=port)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+async def _check_smb(target, connection):
+    cfg = target["config"]
+    host = (cfg.get("host") or (connection or {}).get("base_url") or "").strip().strip("\\")
+    if not host:
+        return {"status": "unreachable", "detail": {"error": "geen host"}, "latency_ms": None}
+    if not cfg.get("share"):
+        return {"status": "unreachable", "detail": {"error": "geen share"}, "latency_ms": None}
+    ref = cfg.get("secret_ref") or (connection or {}).get("secret_ref") or ""
+    password = os.environ.get(ref, "") if ref else ""
+    timeout = cfg.get("timeout_s") or settings.monitor_timeout
+    res = await asyncio.to_thread(
+        _smb_probe, host, cfg["share"], int(cfg.get("port") or 445),
+        cfg.get("username", "") or "", password, cfg.get("domain", "") or "",
+        cfg.get("path", "") or "", bool(cfg.get("write_test")), cfg.get("write_dir", "") or "",
+        bool(cfg.get("encrypt", True)), timeout)
+    # Latency degradation → soft 'warn' (only when the probe was otherwise ok).
+    warn = cfg.get("latency_warn_ms")
+    if res.get("status") == "ok" and warn and res.get("latency_ms") and res["latency_ms"] > warn:
+        res = {**res, "status": "warn",
+               "detail": {**res.get("detail", {}), "slow": True, "latency_warn_ms": warn}}
+    return res
+
+
+register("smb", _SMB_FIELDS, _check_smb)

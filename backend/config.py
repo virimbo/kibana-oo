@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     # Kibana (we connect through Kibana, not directly to ES)
     kibana_url: str = "https://kibana-prod.cicd.s15m.nl"
     kibana_space: str = "koop-plooi-prod"
+    # OIDC issuer used to initiate Kibana login (GET /api/security/oidc/initiate_login?iss=…).
+    # Kibana's provider-selector POST route is disabled server-side, so we initiate via the
+    # issuer instead of a hardcoded provider name. Change here / in .env if SSO moves again.
+    kibana_oidc_issuer: str = "https://sso-gn2.cicd.s15m.nl/realms/SP"
     es_log_index: str = "logs-*"
     es_metric_index: str = "logs-*"
 

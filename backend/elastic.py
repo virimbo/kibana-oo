@@ -16,50 +16,69 @@ KIBANA_URL = settings.kibana_url
 KIBANA_SPACE = settings.kibana_space
 
 
-async def keycloak_login(username: str, password: str) -> str:
-    """Log in via Keycloak OIDC and return the Kibana session cookie (sid)."""
-    async with httpx.AsyncClient(verify=True, follow_redirects=False, timeout=20.0) as client:
-        # Step 1: Initiate OIDC login to get Keycloak URL
-        r1 = await client.post(
-            f"{KIBANA_URL}/internal/security/login",
-            headers={"kbn-xsrf": "true", "Content-Type": "application/json"},
-            json={
-                "providerType": "oidc",
-                "providerName": "oidc1",
-                "currentURL": f"{KIBANA_URL}/login",
-            },
-        )
-        r1.raise_for_status()
-        keycloak_url = r1.json()["location"]
+_REDIRECT_CODES = (301, 302, 303, 307, 308)
 
-        # Step 2: Get the Keycloak login form
-        r2 = await client.get(keycloak_url)
+
+def _sid_from(client: httpx.AsyncClient) -> str | None:
+    for cookie in client.cookies.jar:
+        if cookie.name == "sid":
+            return cookie.value
+    return None
+
+
+async def keycloak_login(username: str, password: str) -> str:
+    """Log in via Keycloak OIDC and return the Kibana session cookie (sid).
+
+    Kibana's provider-selector route (POST /internal/security/login) is disabled
+    server-side, so we initiate the OIDC flow through the issuer instead of a
+    hardcoded provider name: GET /api/security/oidc/initiate_login?iss=<issuer>.
+    Kibana 302-redirects to Keycloak (setting a state cookie we keep in the shared
+    jar); we submit the credentials to the Keycloak form and follow the callback
+    back to Kibana to obtain the sid. Issuer is configurable (KIBANA_OIDC_ISSUER)
+    so a future SSO move is an .env change, not a code change.
+    """
+    async with httpx.AsyncClient(verify=True, follow_redirects=False, timeout=20.0) as client:
+        # Step 1: initiate OIDC → Kibana 302s to the Keycloak auth URL (+ state cookie).
+        r1 = await client.get(
+            f"{KIBANA_URL}/api/security/oidc/initiate_login",
+            params={"iss": settings.kibana_oidc_issuer},
+        )
+        if r1.status_code not in _REDIRECT_CODES or "location" not in r1.headers:
+            raise Exception(f"OIDC login-init failed (status {r1.status_code}) — "
+                            "check KIBANA_OIDC_ISSUER / Kibana auth config")
+        keycloak_url = r1.headers["location"]
+
+        # Step 2: fetch the Keycloak login form (follow any intermediate redirects).
+        r2 = await client.get(keycloak_url, follow_redirects=True)
         r2.raise_for_status()
         action_match = re.search(r'action="([^"]*)"', r2.text)
         if not action_match:
             raise Exception("Could not find Keycloak login form")
         action_url = action_match.group(1).replace("&amp;", "&")
 
-        # Step 3: Submit credentials to Keycloak
-        r3 = await client.post(
-            action_url,
-            data={"username": username, "password": password},
-        )
-        if r3.status_code != 302:
+        # Step 3: submit credentials to Keycloak (a success is a 3xx redirect).
+        r3 = await client.post(action_url, data={"username": username, "password": password})
+        if r3.status_code not in _REDIRECT_CODES:
             err_match = re.search(r'id="input-error"[^>]*>(.*?)<', r3.text)
             if err_match:
                 raise Exception(f"Login failed: {err_match.group(1).strip()}")
             raise Exception("Invalid username or password")
 
-        # Step 4: Follow redirect to Kibana callback
-        callback_url = r3.headers["location"]
-        await client.get(callback_url)
+        # Step 4: follow the redirect chain through Kibana's OIDC callback, which
+        # sets the sid cookie. Stop as soon as sid appears (cap the hops).
+        location = r3.headers.get("location")
+        for _ in range(6):
+            if not location:
+                break
+            resp = await client.get(location)
+            sid = _sid_from(client)
+            if sid:
+                return sid
+            location = resp.headers.get("location") if resp.status_code in _REDIRECT_CODES else None
 
-        # Extract sid cookie
-        for cookie in client.cookies.jar:
-            if cookie.name == "sid":
-                return cookie.value
-
+        sid = _sid_from(client)
+        if sid:
+            return sid
         raise Exception("Login succeeded but no session cookie received")
 
 

@@ -27,6 +27,25 @@ of **mislukt** zijn, gesplitst per verwerkingsstraat (NVS/OVS), plus het
 - "Failed" wordt verzoend tegen open.overheid.nl: een document dat tóch live is, telt
   nooit als mislukking.
 
+## NVS vs OVS — beide zichtbaar (OVS = 0 op dit platform)
+
+De uitkomsten worden per **verwerkingsstraat** getoond: **NVS** (nieuwe) en
+**OVS** (oude). Elke tegel toont nu **altijd beide** (bijv. `NVS 25 · OVS 0`),
+zodat OVS nooit stilletjes verborgen is.
+
+**Analyse (2026-07-16):** de pijplijn-cluster draait **14 services, allemaal NVS**
+(`msvc-*`, `aanleverloket-v2`, `zoekportaal`, `gateway-service`) — er is **geen**
+OVS-/"oude"-/`-v1`-service. Nul precieze OVS-documentgebeurtenissen in 7 dagen.
+Conclusie: de **oude verwerkingsstraat (OVS) is uitgefaseerd**; het platform draait
+volledig op **NVS**. `OVS = 0` is dus de **echte** waarde, geen meetfout.
+
+> Zodra er tóch OVS-verkeer verschijnt (een document dat via de oude straat wordt
+> geclassificeerd), telt het hier direct mee. Draait de oude straat in een apart
+> systeem/index? Stel dan `PIPELINE_OVS_INDEX` / `PIPELINE_OVS_VALUES` /
+> `PIPELINE_NVS_CUTOFF_DATE` in (`config.py`) — dan splitst `_detect_pipeline` het
+> correct. Een aparte "OVS-kaart" is bewust **niet** toegevoegd: die zou permanent
+> 0 tonen en dat is minder eerlijk dan OVS naast NVS laten zien.
+
 ## TO DO
 
 - [ ] Trendgrafiek van succespercentage over meerdere dagen

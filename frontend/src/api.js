@@ -53,6 +53,10 @@ export const fetchDlqIntel = (token) => getJSON("/dashboard/dlq/intel", token);
 // ─── Service health (backend microservices) ──────────────────────────────────
 export const fetchServiceHealth = (token) => getJSON("/dashboard/service-health", token);
 
+// ─── Edge/ingress HTTP health (PROD): 5xx, gateway, time-outs, latency, pods ──
+export const fetchEdgeHealth = (token, period) =>
+  getJSON(`/dashboard/edge-health?period=${period ?? 15}`, token);
+
 // ─── Monitoring registry dashboard card ──────────────────────────────────────
 export const fetchMonitoring = (token) => getJSON("/dashboard/monitoring", token);
 

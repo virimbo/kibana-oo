@@ -4331,3 +4331,41 @@ input:-webkit-autofill:focus {
 .wh-test { font-size: 12px; }
 .wh-test.ok { color: var(--success); }
 .wh-test.bad { color: var(--error); }
+
+/* ─── Dashboard card: PROD edge/ingress HTTP health ───────────────────────── */
+.eh-card { border-left: 3px solid var(--border); }
+.eh-card--ok   { border-left-color: var(--success); }
+.eh-card--warn { border-left-color: var(--warn); }
+.eh-card--crit { border-left-color: var(--error); }
+.eh-card--unk  { border-left-color: var(--border-strong); }
+.eh-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.eh-title { margin: 2px 0 0; }
+.eh-sub { font-size: 12px; margin: 4px 0 12px; }
+.eh-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
+  padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border);
+  white-space: nowrap; align-self: flex-start;
+}
+.eh-badge--ok   { color: var(--success); border-color: rgba(58, 208, 122, 0.4); background: rgba(58, 208, 122, 0.12); }
+.eh-badge--warn { color: var(--warn); border-color: rgba(255, 176, 32, 0.4); background: var(--warn-soft); }
+.eh-badge--crit { color: var(--error); border-color: rgba(255, 59, 78, 0.45); background: rgba(255, 59, 78, 0.12); }
+.eh-badge--unk  { color: var(--text-faint); }
+.eh-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.eh-tile {
+  border: 1px solid var(--border); border-left-width: 3px;
+  border-radius: var(--radius-sm); background: var(--bg-elevated);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.eh-tile--ok   { border-left-color: var(--success); }
+.eh-tile--warn { border-left-color: var(--warn); }
+.eh-tile--crit { border-left-color: var(--error); }
+.eh-tile--unk  { border-left-color: var(--border-strong); }
+.eh-tile-top { display: flex; align-items: center; gap: 6px; }
+.eh-tile-icon { font-size: 12px; }
+.eh-tile--ok .eh-tile-icon   { color: var(--success); }
+.eh-tile--warn .eh-tile-icon { color: var(--warn); }
+.eh-tile--crit .eh-tile-icon { color: var(--error); }
+.eh-tile--unk .eh-tile-icon  { color: var(--text-faint); }
+.eh-tile-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+.eh-tile-metric { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text-primary); }
+.eh-tile-detail { font-size: 11px; }

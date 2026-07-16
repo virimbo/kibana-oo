@@ -7,6 +7,10 @@ class Settings(BaseSettings):
     # Kibana (we connect through Kibana, not directly to ES)
     kibana_url: str = "https://kibana-prod.cicd.s15m.nl"
     kibana_space: str = "koop-plooi-prod"
+    # OIDC issuer used to initiate Kibana login (GET /api/security/oidc/initiate_login?iss=…).
+    # Kibana's provider-selector POST route is disabled server-side, so we initiate via the
+    # issuer instead of a hardcoded provider name. Change here / in .env if SSO moves again.
+    kibana_oidc_issuer: str = "https://sso-gn2.cicd.s15m.nl/realms/SP"
     es_log_index: str = "logs-*"
     es_metric_index: str = "logs-*"
 
@@ -338,6 +342,25 @@ class Settings(BaseSettings):
     service_health_interval: int = 60        # seconds between probe cycles
     service_health_timeout: float = 8.0      # per-request timeout (seconds)
     service_health_degraded_ms: int = 2500   # slower than this (but up) = degraded
+
+    # Edge / ingress HTTP health (PROD): 5xx, gateway errors (502/503/504),
+    # time-outs (504), elevated latency — from the ingress access logs; plus pod
+    # restarts (Prometheus, best-effort). Read-only, additive. See edge_health.py.
+    edge_enabled: bool = True
+    edge_data_view: str = "ds-prod5-koop-plooi*"   # ingress/nginx access logs
+    edge_status_field: str = "status"              # HTTP status code
+    edge_latency_field: str = "request_time"       # nginx request_time, in SECONDS
+    edge_window_minutes: int = 15
+    edge_min_requests: int = 50                    # ignore tiny samples for the ratio
+    edge_5xx_ratio_warn: float = 1.0               # percent of requests
+    edge_5xx_ratio_crit: float = 5.0
+    edge_gateway_warn: int = 1                      # 502/503/504 count in the window
+    edge_gateway_crit: int = 20
+    edge_latency_warn_ms: int = 1000
+    edge_latency_crit_ms: int = 3000
+    edge_pod_restarts_warn: int = 1                 # via Prometheus, last 1h
+    edge_pod_restarts_crit: int = 5
+    edge_pod_restart_query: str = "sum(increase(kube_pod_container_status_restarts_total[1h]))"
     # One service per line: `Name | url | url …`. `kind` is inferred (actuator if the
     # URL contains "actuator", else service). Empty → no services probed.
     service_health_targets: str = (

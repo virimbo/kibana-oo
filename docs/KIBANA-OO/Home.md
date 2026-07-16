@@ -71,6 +71,7 @@ flowchart TD
 | [[Observability]] | Stroomt de data nog binnen en zijn er fouten? | 2026-07-01 | 2026-07-01 |
 | [[Monitoring targets]] | Monitoring-targets & connections (Prometheus/Jaeger) beheren | 2026-06-27 | 2026-07-01 |
 | [[SMB share health]] | Is een Windows/CIFS-netwerkschijf (SMB, poort 445) bereikbaar, leesbaar en snel? | 2026-07-04 | 2026-07-04 |
+| [[HTTP-fouten en latency (PROD)]] | PROD-voordeur: 5xx, gateway-fouten (502/503/504), time-outs, latency, pod-restarts | 2026-07-16 | 2026-07-16 |
 | [[Grafana en infrastructuur]] | Één-klik-links naar de Grafana-infradashboards | 2026-06-17 | 2026-06-17 |
 
 ## 🛠️ Beheer & configuratie
@@ -95,6 +96,7 @@ flowchart TD
 |---|---|---|---|
 | [[Runbook - wat te doen]] | Algemeen stappenplan bij een RED-status/incident | 2026-06-17 | 2026-06-27 |
 | [[Runbook - No answer in chat]] | Probleemoplossing "No matching data" in de chat | 2026-06-09 | 2026-07-01 |
+| [[RCA - Login incident (Kibana OIDC + Docker VPN)]] | Waarom inloggen faalde (VPN/Docker, WSOD, Kibana-auth verhuisd) + de fix | 2026-07-04 | 2026-07-04 |
 
 ## 🧪 Referentie & ontwikkeling
 *Naslag voor wie eraan bouwt.*

@@ -71,6 +71,7 @@ flowchart TD
 | [[Observability]] | Stroomt de data nog binnen en zijn er fouten? | 2026-07-01 | 2026-07-01 |
 | [[Monitoring targets]] | Monitoring-targets & connections (Prometheus/Jaeger) beheren | 2026-06-27 | 2026-07-01 |
 | [[SMB share health]] | Is een Windows/CIFS-netwerkschijf (SMB, poort 445) bereikbaar, leesbaar en snel? | 2026-07-04 | 2026-07-04 |
+| [[HTTP-fouten en latency (PROD)]] | PROD-voordeur: 5xx, gateway-fouten (502/503/504), time-outs, latency, pod-restarts | 2026-07-16 | 2026-07-16 |
 | [[Grafana en infrastructuur]] | Één-klik-links naar de Grafana-infradashboards | 2026-06-17 | 2026-06-17 |
 
 ## 🛠️ Beheer & configuratie

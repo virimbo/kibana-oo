@@ -18,6 +18,7 @@ from llm import provider_model
 from monitoring import build_snapshot, resolve_data_view, resolve_window
 import aanlever
 import observability
+import edge_health
 import rabbitmq_dlq
 import regression
 
@@ -136,6 +137,23 @@ async def observability_overview(
     publicatie, aanleverfouten, fouten) with plain-language explanations. A
     read-only roll-up of the dashboard's already-computed facts; never raises."""
     return await observability.build_observability(session["sid"], data_view, _period(period))
+
+
+@router.get("/edge-health")
+async def edge_health_overview(
+    period: int = Query(default=15),
+    session: dict = Depends(require_feature("dashboard")),
+):
+    """PROD edge/ingress HTTP health: 5xx, gateway errors (502/503/504),
+    time-outs (504), elevated latency and pod restarts. Read-only roll-up from
+    the ingress access logs (+ optional Prometheus); never raises."""
+    if not settings.edge_enabled:
+        return {"enabled": False}
+    try:
+        return await edge_health.build_edge_health(session["sid"], minutes=period)
+    except Exception as e:  # noqa: BLE001 — degrade rather than 500 the dashboard
+        logger.warning("edge-health failed: %s", e)
+        return {"enabled": True, "overall": "unknown", "signals": [], "error": "unavailable"}
 
 
 @router.get("/certificates")

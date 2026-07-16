@@ -23,7 +23,10 @@ from config import settings
 logger = logging.getLogger(__name__)
 
 _CRIT, _WARN, _OK, _UNK = "critical", "warn", "ok", "unknown"
-_RANK = {_OK: 0, _UNK: 1, _WARN: 2, _CRIT: 3}
+# For the overall roll-up, 'unknown' ranks BELOW 'ok': an unavailable optional
+# signal (e.g. pod restarts with no Prometheus) must not grey out the whole card
+# when the real signals are healthy. Only all-unknown rolls up to unknown.
+_RANK = {_UNK: 0, _OK: 1, _WARN: 2, _CRIT: 3}
 
 
 def _worst(statuses: list[str]) -> str:

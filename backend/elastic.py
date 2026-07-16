@@ -97,20 +97,25 @@ _SAFE_INDEX = re.compile(r"^[A-Za-z0-9_.\-*,]+$")
 
 
 async def _es_search(sid: str, index: str, body: dict) -> dict:
-    """Execute an Elasticsearch search via Kibana's console proxy."""
+    """Execute an Elasticsearch search via Kibana's internal search API.
+
+    Kibana's Dev-Tools console proxy (/api/console/proxy) is disabled server-side
+    ("not available with the current configuration"), so we use the still-enabled
+    'es' search strategy (/internal/search/es) that Kibana's own Discover uses.
+    The ES response comes back wrapped in `rawResponse`; we unwrap it so callers
+    keep the normal {hits, aggregations, ...} shape unchanged."""
     if not index or not _SAFE_INDEX.match(index):
         raise ValueError(f"Invalid index pattern: {index!r}")
 
-    url = f"{KIBANA_URL}/s/{KIBANA_SPACE}/api/console/proxy?path={index}/_search&method=POST"
+    url = f"{KIBANA_URL}/s/{KIBANA_SPACE}/internal/search/es"
+    headers = {**_headers(sid), "x-elastic-internal-origin": "Kibana"}
+    payload = {"params": {"index": index, "body": body}}
 
     async with httpx.AsyncClient(verify=True, timeout=30.0) as client:
-        response = await client.post(
-            url,
-            headers=_headers(sid),
-            content=json.dumps(body),
-        )
+        response = await client.post(url, headers=headers, content=json.dumps(payload))
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+    return data.get("rawResponse") or data
 
 
 # Document ids embedded in a free-text question: a UUID (Plooi publication id)

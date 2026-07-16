@@ -90,10 +90,11 @@ async def test_latency_non_numeric_is_unknown(monkeypatch):
 
 async def test_es_failure_degrades_to_unknown(monkeypatch):
     _patch_es(monkeypatch, raises=True)
-    _patch_pods(monkeypatch, 0)
+    _patch_pods(monkeypatch, None, "Prometheus niet geconfigureerd")
     r = await eh.build_edge_health("sid")
     for key in ("http5xx", "gateway", "timeouts", "latency"):
         assert _sig(r, key)["status"] == "unknown"
+    assert r["overall"] == "unknown"          # all signals blind → overall unknown
 
 
 async def test_pod_restarts_unavailable(monkeypatch):
@@ -102,6 +103,7 @@ async def test_pod_restarts_unavailable(monkeypatch):
     r = await eh.build_edge_health("sid")
     assert _sig(r, "pods")["status"] == "unknown"
     assert _sig(r, "pods")["metric"] == "n.v.t."
+    assert r["overall"] == "ok"   # one unavailable optional signal must not grey out the card
 
 
 async def test_pod_restarts_critical(monkeypatch):

@@ -52,6 +52,7 @@ REGISTRY: dict[str, str] = {
     "queue:orchestratie": "rabbitmq-queues",
     # Throughput & diagnostics
     "card:outcomes": "outcomes",
+    "card:ovs": "outcomes",
     "card:notfound": "criticals",
     "card:nvs": "documents-pipeline",
     "card:overtime": "criticals",

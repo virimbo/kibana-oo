@@ -147,6 +147,63 @@ const OUTCOMES_INFO =
   "Wat er daadwerkelijk met documenten in dit venster is gebeurd, gesplitst per pipeline (OVS/NVS): gepubliceerd, bijgewerkt, ingetrokken en niet gepubliceerd (system error). 'Mislukt' wordt afgestemd op open.overheid.nl, zodat een document dat in werkelijkheid live staat nooit als mislukt wordt geteld. Klik op een tegel om de exacte documenten te zien. " +
   "Beide verwerkingsstraten worden getoond: NVS (nieuwe) en OVS (oude). Dit platform draait op NVS, dus OVS staat normaal op 0 — verschijnt er tóch OVS-verkeer, dan wordt dat hier direct zichtbaar.";
 
+const OVS_INFO =
+  "Bewaakt de OUDE verwerkingsstraat (OVS). Uit de logs blijkt dat dit platform " +
+  "volledig op NVS draait (de oude straat is uitgefaseerd), dus deze kaart staat " +
+  "normaal op 0. Hij is er als vroeg-waarschuwing: verschijnt er tóch OVS-verkeer, " +
+  "dan wordt dat hier direct zichtbaar. Wil je OVS koppelen aan een oud systeem/index? " +
+  "Stel PIPELINE_OVS_INDEX / PIPELINE_OVS_VALUES / PIPELINE_NVS_CUTOFF_DATE in.";
+
+// Dedicated OVS (oude verwerkingsstraat) card — reads the real by_pipeline.OVS
+// counts from the same outcomes data. Honest: shows 0 when there is no OVS traffic
+// (the current state) and lights up the moment OVS documents appear.
+function OvsOutcomesCard({ data }) {
+  const ovs = data?.by_pipeline?.OVS;
+  const total = ovs ? OC_ORDER.reduce((a, o) => a + (ovs[o] || 0), 0) : 0;
+  const summary = data ? (
+    <span className={`panel-collapsed-summary--inline panel-collapsed-summary--${total ? "warn" : "ok"}`}>
+      {total ? `${total} OVS-documenten` : "geen OVS-verkeer (platform draait op NVS)"}
+    </span>
+  ) : null;
+
+  return (
+    <CollapsiblePanel
+      id="ovs"
+      title="Oude verwerkingsstraat (OVS)"
+      icon="🏚️"
+      info={OVS_INFO}
+      cardId="card:ovs"
+      subtitle="De oude verwerkingsstraat (OVS). Dit platform draait op NVS, dus dit staat normaal op 0 — het licht direct op zodra er OVS-verkeer verschijnt."
+      summary={summary}
+      defaultCollapsed={!total}
+    >
+      {!data ? (
+        <p className="muted">Laden…</p>
+      ) : (
+        <>
+          <div className="oc-tiles">
+            {OC_ORDER.map((o) => {
+              const meta = OC_META[o];
+              const n = ovs?.[o] || 0;
+              return (
+                <button key={o} className={`oc-tile oc-tile--${meta.cls}`} disabled title="Oude verwerkingsstraat (OVS)">
+                  <span className="oc-tile-top">{meta.icon} {meta.label}</span>
+                  <span className="oc-tile-num">{n}</span>
+                </button>
+              );
+            })}
+          </div>
+          {!total && (
+            <p className="muted oc-hint">
+              ▸ Geen OVS-activiteit. De oude verwerkingsstraat is uitgefaseerd — alle documenten lopen via NVS. Verschijnt er OVS-verkeer, dan zie je het hier.
+            </p>
+          )}
+        </>
+      )}
+    </CollapsiblePanel>
+  );
+}
+
 function OutcomesCard({ data, onNavigate }) {
   const [open, setOpen] = useState(null); // which outcome's drill list is shown
 
@@ -1180,6 +1237,7 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
 
           <DashZone id="throughput" title="Throughput & outcomes" eyebrow="Documentverwerking" hidden={!showSec("throughput")}>
           {can("outcomes") && <OutcomesCard data={outcomes} onNavigate={onNavigate} />}
+          {can("outcomes") && <OvsOutcomesCard data={outcomes} />}
           </DashZone>
 
           {snap && (

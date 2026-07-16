@@ -134,16 +134,18 @@ const OC_META = {
 const OC_ORDER = ["published", "updated", "withdrawn", "failed", "in_progress"];
 
 function PipeSplit({ by, outcome }) {
-  const parts = [];
-  for (const p of ["NVS", "OVS", "—"]) {
-    const n = by?.[p]?.[outcome] || 0;
-    if (n) parts.push(`${p} ${n}`);
-  }
-  return parts.length ? <span className="oc-split">{parts.join(" · ")}</span> : null;
+  // Always show BOTH verwerkingsstraten (NVS + OVS), even at 0, so OVS is never
+  // silently hidden — the platform runs NVS-only today, so OVS is expected 0 and
+  // this makes that explicit + would light up the moment OVS traffic returns.
+  const parts = ["NVS", "OVS"].map((p) => `${p} ${by?.[p]?.[outcome] || 0}`);
+  const other = by?.["—"]?.[outcome] || 0;
+  if (other) parts.push(`— ${other}`);
+  return <span className="oc-split">{parts.join(" · ")}</span>;
 }
 
 const OUTCOMES_INFO =
-  "Wat er daadwerkelijk met documenten in dit venster is gebeurd, gesplitst per pipeline (OVS/NVS): gepubliceerd, bijgewerkt, ingetrokken en niet gepubliceerd (system error). 'Mislukt' wordt afgestemd op open.overheid.nl, zodat een document dat in werkelijkheid live staat nooit als mislukt wordt geteld. Klik op een tegel om de exacte documenten te zien.";
+  "Wat er daadwerkelijk met documenten in dit venster is gebeurd, gesplitst per pipeline (OVS/NVS): gepubliceerd, bijgewerkt, ingetrokken en niet gepubliceerd (system error). 'Mislukt' wordt afgestemd op open.overheid.nl, zodat een document dat in werkelijkheid live staat nooit als mislukt wordt geteld. Klik op een tegel om de exacte documenten te zien. " +
+  "Beide verwerkingsstraten worden getoond: NVS (nieuwe) en OVS (oude). Dit platform draait op NVS, dus OVS staat normaal op 0 — verschijnt er tóch OVS-verkeer, dan wordt dat hier direct zichtbaar.";
 
 function OutcomesCard({ data, onNavigate }) {
   const [open, setOpen] = useState(null); // which outcome's drill list is shown

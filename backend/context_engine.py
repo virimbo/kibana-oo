@@ -59,6 +59,7 @@ REGISTRY: dict[str, str] = {
     "card:signatures": "criticals",
     "card:services": "criticals",
     "card:http5xx": "criticals",
+    "card:edge-health": "edge-health",
     "card:pipeline-health": "documents-pipeline",
     "card:aitriage": "criticals",
     "card:grafana": "grafana",

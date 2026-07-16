@@ -5,6 +5,12 @@ created: 2026-07-16
 updated: 2026-07-16
 tags: [kibana-oo, monitoring, http, 5xx, latency, gateway, pods, prod, beheer, nl]
 aliases: [Edge health, Ingress health, HTTP 5xx, Gateway errors, Latency, Pod restarts]
+component: edge-health
+purpose-business: Laat in één oogopslag zien of de PROD-voordeur gezond is — gaan er requests mis (5xx), zijn er gateway-fouten of time-outs, loopt de latency op, herstarten pods?
+purpose-technical: Eén ES-aggregatie over de ingress-access-logs (status + request_time p95) plus een optionele Prometheus-query voor pod-restarts; per signaal ok/warn/critical, read-only, degradeert naar 'onbekend'.
+risk: high
+owner: KOOP Beheer
+related: [Service health, Beschikbaarheid (uptime), Observability, Monitoring targets]
 ---
 
 # HTTP-fouten & latency (PROD)

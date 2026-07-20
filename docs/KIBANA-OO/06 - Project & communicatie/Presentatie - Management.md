@@ -4,7 +4,7 @@ purpose: Overtuigende maar eerlijke management-presentatie om tijd/mandaat te kr
 taal: Nederlands
 category: "Project & communicatie"
 created: 2026-07-04
-updated: 2026-07-04
+updated: 2026-07-16
 title: "Presentatie - Management"
 tags: [kibana-oo, project]
 ---
@@ -252,18 +252,92 @@ voor de belangrijke laatste 20% die het productie-waardig maakt."*
 
 ---
 
-## 13. Compliance — eerlijk (en dat is de kracht)
+## 13. Compliance — eerlijk (en dát geeft vertrouwen)
 
-- **EU AI Act:** valt in **beperkt risico** — de AI *ondersteunt*, beslist niet
-  autonoom. Transparantie is ingebouwd. ([[AI-architectuur]])
-- **AVG / privacy-by-design:** PII-redactie, alleen-lezen, rechten-matrix,
-  logging.
-- **Nog te doen (eerlijk benoemd):** een **DPIA** + **DPO-akkoord** om compliance
-  *aantoonbaar* te maken. Dit is een reden om het **nu formeel** te maken, geen
-  reden om te wachten.
+> **Kernboodschap:** ik claim **geen** "100% compliant". Ik laat zien wat er **wél**
+> is ingebouwd, wat er **nog** formeel moet, en het **plan** ernaartoe. Bij de
+> overheid wint eerlijkheid + een helder pad het van mooie beloftes.
 
-Spreek-punt: *"Ik claim geen '100% compliant'. Ik laat zien dat we het serieus
-en aantoonbaar aanpakken — en dat vraagt een klein stukje formele tijd."*
+**Waarom dit systeem laag-risico is (in één zin):** de AI **beslist niets** — hij
+**legt alleen uit**; een mens beslist. Het systeem is **alleen-lezen** en raakt de
+publicatieketen niet aan.
+
+| Kader | Wat het is | Status |
+|---|---|---|
+| **EU AI Act** (Vo. 2024/1689) | Europese AI-wet, risico-gebaseerd | **Beperkt risico** — geen besluit over personen, geen biometrie, mens-in-de-lus. Enige plicht: **transparantie** (gebruiker weet dat het AI is) → ✅ ingebouwd |
+| **AVG / UAVG** | Privacy | ✅ **PII-redactie**, alleen-lezen, data-minimalisatie, grondslag = wettelijke taak (Woo). ⚠️ Verwerkersovereenkomst óf **lokaal model** |
+| **BIO** | Baseline Informatiebeveiliging Overheid (o.b.v. ISO 27001/NEN) | ✅ TLS-bewaking, OIDC-SSO, autorisatie, secrets buiten code, security-headers, rate-limiting. ⚠️ Formele BIO-toetsing + **pentest** |
+| **DPIA + FG** | Gegevensbeschermings­effect­beoordeling + akkoord Functionaris Gegevensbescherming | ⚠️ **Nog uitvoeren** — dít is de belangrijkste formele stap |
+| **Algoritmeregister** | `algoritmes.overheid.nl` — publiek register van overheids-algoritmes | ⚠️ **Registreren** → past perfect bij "open overheid" en geeft publiek vertrouwen |
+
+Spreek-punt: *"De complexe AI zat in de **bouw**. Het draaiende systeem is bewust
+**simpel, alleen-lezen en transparant**. De laatste stap naar productie is niet
+techniek maar **formele borging**: DPIA, FG-akkoord, pentest. Dáár vraag ik tijd
+en mandaat voor."*
+
+---
+
+## 13.1 — Diep induiken: de 5 onderwerpen die vertrouwen geven
+
+Ga bij déze onderwerpen de diepte in — ze nemen precies de angsten weg die een
+manager (en een FG) heeft:
+
+1. **"De AI beslist niets"** — mens-in-de-lus, alleen uitleg. *(Neemt de grootste
+   AI-angst weg.)*
+2. **"De data blijft binnen"** — **lokaal model (Ollama, on-prem)** kan; alleen-lezen;
+   PII wordt geredigeerd. *(Privacy/AVG.)*
+3. **"Eerlijke compliance-status + plan"** — de tabel hierboven: wat af is, wat niet,
+   DPIA-first. *(Betrouwbaarheid.)*
+4. **"Geen black-box"** — het is **RAG** (ophalen → samenvatten), één call, géén
+   autonome agents in productie. *(Beheersbaarheid.)*
+5. **"Gedocumenteerd & overdraagbaar"** — deze hele vault + [[AI-architectuur]]; geen
+   kennis in één hoofd. *(Continuïteit, geen bus-factor.)*
+
+---
+
+## 13.2 — "Gebouwd met Claude (harness)" — waarom dat júist vertrouwen geeft
+
+Zeg het zelf, eerlijk en met trots:
+
+> *"Ik heb dit als domeinexpert zélf gebouwd, met **Claude als agentic coding-harness**
+> — professioneel AI-ontwikkelgereedschap, dezelfde soort tooling die
+> softwareteams gebruiken. Die harness zat in de **bouwfase**. Het **opgeleverde
+> systeem is niet agentic**: het is een eenvoudige, voorspelbare RAG-app."*
+
+Waarom dit vertrouwen wekt in plaats van vragen op te roepen:
+- **Snelheid + lage kosten:** een werkend, breed systeem in korte tijd, tegen een
+  fractie van normale bouwkosten.
+- **Transparant & gedocumenteerd:** alles staat in deze vault — niets zit verborgen.
+- **De juiste knip:** agentic complexiteit = **build-time**; productie = **simpel**.
+  Dat is precies wat je voor de overheid wilt.
+- **Eerlijk over de rest:** *"AI hielp me de dure eerste 80% bouwen; de laatste 20%
+  (hardening + compliance) vraagt formele tijd en review."*
+
+*(Ja — "harness" is de juiste term: het is het omhulsel om het AI-model dat er
+gereedschap + een stuurlus omheen zet. Zie [[AI-architectuur]] → "agentic harness".)*
+
+---
+
+## 13.3 — Voor de tech-managers: 6 simpel-technische kernpunten
+
+Voor de collega's mét techniek-achtergrond — kort, concreet, klopt:
+
+1. **Stack:** React-frontend + **FastAPI**-backend + **Elasticsearch/Kibana**
+   (via Kibana's interne search-API). Geen exotische techniek.
+2. **AI = RAG:** logs ophalen → prompt → LLM vat samen. **Eén** call, **geen** tools,
+   **geen** autonome acties. Voorspelbaar en te auditen.
+3. **Model-keuze = data-keuze:** **lokaal** (Ollama, on-prem, data verlaat het pand
+   niet) óf **gehost** (Mistral, EU). Omschakelbaar → bewuste data-residency.
+4. **Toegang:** **Keycloak OIDC-SSO** + rechten-matrix per gebruiker × per functie +
+   goedkeuringsgate voor nieuwe gebruikers.
+5. **Alleen-lezen:** de app **schrijft niets** naar de publicatieketen — hij
+   observeert en legt uit. Kan per definitie niets breken.
+6. **Beveiliging:** TLS-/certificaatbewaking, security-headers, rate-limiting,
+   secrets buiten de code (`.env`), PII-redactie, audit-logging.
+
+> Aanbod aan de tech-managers: *"Ik geef graag een technische deep-dive en verwijs
+> naar [[AI-architectuur]] als bewijs — inclusief de eerlijke privacy/EU AI
+> Act-paragraaf."*
 
 ---
 

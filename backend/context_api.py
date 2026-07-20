@@ -23,7 +23,7 @@ _MAX_LABEL = 80
 
 
 def _sanitize(value: str | None) -> str | None:
-    if not value:
+    if not isinstance(value, str) or not value:  # str-only (also drops Query defaults on direct calls)
         return None
     cleaned = "".join(ch for ch in value if ch.isprintable()).strip()
     return cleaned[:_MAX_LABEL] or None
@@ -42,6 +42,7 @@ def card(
     label: str | None = Query(default=None),
     status: str | None = Query(default=None),
     env: str | None = Query(default=None),
+    detail: str | None = Query(default=None),
     session: dict = Depends(require_feature("smart_context")),
 ):
     if not settings.smart_context_enabled:
@@ -49,7 +50,8 @@ def card(
     if not engine.is_known_card(card_id):
         raise HTTPException(status_code=404, detail="Unknown card")
     try:
-        return engine.assemble(card_id, label=_sanitize(label), status=_sanitize(status), env=_sanitize(env))
+        return engine.assemble(card_id, label=_sanitize(label), status=_sanitize(status),
+                               env=_sanitize(env), detail=_sanitize(detail))
     except Exception as e:  # noqa: BLE001 — degrade rather than 500 the panel
         logger.warning("SmartContext card assembly failed for %s: %s", card_id, e)
         raise HTTPException(status_code=502, detail="Context unavailable") from e
@@ -60,11 +62,14 @@ async def card_ai(
     card_id: str,
     label: str | None = Query(default=None),
     status: str | None = Query(default=None),
+    env: str | None = Query(default=None),
+    detail: str | None = Query(default=None),
     session: dict = Depends(require_feature("smart_context")),
 ):
     if not settings.smart_context_enabled:
         return {"enabled": False}
     if not engine.is_known_card(card_id):
         raise HTTPException(status_code=404, detail="Unknown card")
-    info = engine.assemble(card_id, label=_sanitize(label), status=_sanitize(status))
+    info = engine.assemble(card_id, label=_sanitize(label), status=_sanitize(status),
+                           env=_sanitize(env), detail=_sanitize(detail))
     return await engine.analyze(info, session=session)

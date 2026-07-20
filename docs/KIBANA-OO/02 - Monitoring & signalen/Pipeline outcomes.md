@@ -10,7 +10,7 @@ risk: low
 owner: KOOP Beheer
 category: "Monitoring & signalen"
 created: 2026-06-17
-updated: 2026-06-17
+updated: 2026-07-16
 ---
 
 # Pipeline outcomes
@@ -43,8 +43,17 @@ volledig op **NVS**. `OVS = 0` is dus de **echte** waarde, geen meetfout.
 > geclassificeerd), telt het hier direct mee. Draait de oude straat in een apart
 > systeem/index? Stel dan `PIPELINE_OVS_INDEX` / `PIPELINE_OVS_VALUES` /
 > `PIPELINE_NVS_CUTOFF_DATE` in (`config.py`) — dan splitst `_detect_pipeline` het
-> correct. Een aparte "OVS-kaart" is bewust **niet** toegevoegd: die zou permanent
-> 0 tonen en dat is minder eerlijk dan OVS naast NVS laten zien.
+> correct.
+
+### Aparte OVS-kaart 🏚️
+
+Naast de split op de uitkomst-tegels is er ook een **eigen kaart "Oude
+verwerkingsstraat (OVS)"** direct onder *Pipeline-uitkomsten*. Die toont de echte
+`by_pipeline.OVS`-tellingen per uitkomst (gepubliceerd/bijgewerkt/ingetrokken/
+mislukt/in behandeling). Hij is **standaard ingeklapt zolang OVS 0 is** en klapt
+open zodra er OVS-verkeer is. Eerlijk van opzet: geen verzonnen cijfers, alleen
+wat er echt is (nu 0, want NVS-only platform). Hover geeft — net als de andere
+kaarten — het context-paneel (`card:ovs`).
 
 ## TO DO
 

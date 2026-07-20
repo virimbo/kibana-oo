@@ -275,6 +275,11 @@ Spreek-punt: *"De complexe AI zat in de **bouw**. Het draaiende systeem is bewus
 techniek maar **formele borging**: DPIA, FG-akkoord, pentest. Dáár vraag ik tijd
 en mandaat voor."*
 
+> 📋 **Voor de FG/CISO ligt er een kant-en-klare afvinklijst:**
+> [[FG-DPO checklist (AVG, EU AI Act, BIO)]] — AVG, EU AI Act, BIO, DPIA,
+> Algoritmeregister, met per punt de status (✅ ingebouwd / ⚠️ te doen / ❓ FG
+> beslist). *"We hebben het door de FG laten toetsen"* is zelf al een vertrouwenspunt.
+
 ---
 
 ## 13.1 — Diep induiken: de 5 onderwerpen die vertrouwen geven

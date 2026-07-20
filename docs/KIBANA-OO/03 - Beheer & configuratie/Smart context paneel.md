@@ -152,3 +152,15 @@ verandert. Rollback is dus een kwestie van seconden.
   pin, toetsenbord) + stijlen in `styles.css` (`.scp`).
 - Kaarten dragen inerte `data-smartcard`/`data-smartlabel`/`data-smartstatus`
   attributen; verder is alles additief — bestaand gedrag verandert niet.
+
+## Situatie-bewuste procedure uit de runbook (nieuw)
+
+Het paneel toont onder **WAT TE DOEN NU** niet alleen de korte actie, maar ook de
+**volledige procedure** uit [[Runbook - wat te doen]] die past bij de **live status**
+van de kaart. Voorbeeld: hover je de **Certificaat & TLS**-kaart terwijl die op
+oranje/rood staat, dan verschijnt de stap-voor-stap "Procedure — certificaat bijna
+verlopen / verlopen" (inclusief de TOPdesk-verwijzing). Werkt voor alle kaarten met
+een gekoppelde conditie (down, service, service-unreachable, monitoring, documenten,
+certificaat). De runbook wordt **live** ingelezen — pas je 'm aan in Obsidian, dan
+zie je het direct bij de volgende hover. Lange procedures worden ingekort met een
+"+ N meer"-hint; open dan de runbook.

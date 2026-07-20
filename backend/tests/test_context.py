@@ -264,3 +264,17 @@ def test_runbook_procedure_surfaced_for_cert_card(_vault, monkeypatch):
 
 def test_no_condition_no_action_when_healthy():
     assert engine._build_action("card:certificates", "ok", "PROD") is None
+
+
+def test_ai_context_includes_runbook_procedure_for_prioritisation():
+    info = {
+        "component": "Cert", "health": "crit", "risk": "high",
+        "action": {"condition": "cert", "urgent": True, "env": "PROD",
+                   "text": "Vernieuw het certificaat.",
+                   "procedure": {"title": "certificaat verlopen",
+                                 "steps": ["Bepaal urgentie via de kaart", "Vraag nieuw certificaat aan"]}},
+    }
+    ctx = engine._ai_context(info)
+    assert "Conditie: cert (URGENT)" in ctx
+    assert "Runbook-actie (PROD): Vernieuw het certificaat." in ctx
+    assert "Runbook-procedure" in ctx and "Bepaal urgentie via de kaart" in ctx

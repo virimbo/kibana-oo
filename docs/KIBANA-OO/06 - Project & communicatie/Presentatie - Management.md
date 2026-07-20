@@ -4,7 +4,7 @@ purpose: Overtuigende maar eerlijke management-presentatie om tijd/mandaat te kr
 taal: Nederlands
 category: "Project & communicatie"
 created: 2026-07-04
-updated: 2026-07-16
+updated: 2026-07-20
 title: "Presentatie - Management"
 tags: [kibana-oo, project]
 ---
@@ -343,6 +343,32 @@ Voor de collega's mét techniek-achtergrond — kort, concreet, klopt:
 > Aanbod aan de tech-managers: *"Ik geef graag een technische deep-dive en verwijs
 > naar [[AI-architectuur]] als bewijs — inclusief de eerlijke privacy/EU AI
 > Act-paragraaf."*
+
+---
+
+## 13.4 — Echt bewijs uit de logs (Kibana · met datum en tijd)
+
+> Geen beloftes — **échte logregels** uit Kibana (`ds-prod5-koop-plooi*`),
+> **alleen-lezen** opgehaald op **2026-07-20**. Elke compliance-claim is zo met
+> **datum en tijd** te controleren (IP gedeeltelijk gemaskeerd — we passen zelf toe
+> wat we prediken).
+
+| Compliance-situatie | Écht bewijs uit de logs (datum · tijd) | Wat het aantoont |
+|---|---|---|
+| **AVG — persoonsgegevens in logs** | `2026-07-20 09:13:59` · `remote_addr: 10.6.140.***` (een IP-adres) | Logs bevátten persoonsgegevens (een IP = PII). → **PII-redactie** (`LLM_REDACT_PII`) verwijdert dit **vóór** de tekst naar de AI gaat. |
+| **BIO — transportbeveiliging (TLS)** | `2026-07-20 09:13:59` · `ssl_protocol: TLSv1.3` · `ssl_cipher: TLS_AES_256_GCM_SHA384` | Verkeer loopt over **moderne TLS 1.3** — precies wat de certificaat-/TLS-bewaking bewaakt ([[Certificaten en TLS]]). |
+| **BIO — toegangscontrole / least privilege** | `2026-07-20 09:13:57` · `status 401` op `GET /zoekresultaten` | **Ongeautoriseerde toegang wordt geweigerd** (401) — toegangscontrole werkt aantoonbaar. |
+| **EU AI Act — mens-in-de-lus, alleen uitleg** | `2026-07-20 09:11:41` · `status 500` op `GET /documenten/a6cf2636…/file` | Zo'n fout wordt door de AI **uitgelegd**, maar er wordt **geen actie** ondernomen — een mens beslist. |
+| **AVG/AI Act — alleen-lezen** | álle regels hierboven — opgehaald via `/internal/search/es` (een **read**-query) | De app **schrijft nooit** naar de keten; hij observeert en vat samen. Kan per definitie niets breken. |
+| **Transparantie (EU AI Act art. 50)** | elk AI-antwoord in de app is gelabeld als **AI-gegenereerd** | De gebruiker weet dat het **AI** is. |
+| **Auditbaarheid / monitoring** | de 500-fout van `09:11:41` werd **gedetecteerd** op de kaart [[HTTP-fouten en latency (PROD)]] | Storingen zijn **traceerbaar met tijdstip** — bruikbaar als audittrail. |
+
+Spreek-punt: *"Dit zijn geen beloftes — dit zijn échte logregels van **2026-07-20**.
+Elke compliance-claim is met **datum en tijd** controleerbaar. Dát is het verschil
+tussen 'wij denken dat het veilig is' en 'wij kunnen het aantonen'."*
+
+> De datums/tijden zijn een momentopname; ververs ze vóór de presentatie met een
+> actuele regel uit Kibana zodat het bewijs 'vers' is.
 
 ---
 

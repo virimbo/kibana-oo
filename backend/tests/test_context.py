@@ -278,3 +278,14 @@ def test_ai_context_includes_runbook_procedure_for_prioritisation():
     assert "Conditie: cert (URGENT)" in ctx
     assert "Runbook-actie (PROD): Vernieuw het certificaat." in ctx
     assert "Runbook-procedure" in ctx and "Bepaal urgentie via de kaart" in ctx
+
+
+def test_ai_context_includes_live_detail_metric():
+    info = {"component": "Cert", "health": "warn",
+            "detail": "minimaal 19 dagen tot verval over 4 host(s)"}
+    ctx = engine._ai_context(info)
+    assert "Live meting: minimaal 19 dagen tot verval over 4 host(s)" in ctx
+    # assemble threads the detail through
+    import context_api  # noqa: F401
+    doc = engine.assemble("card:certificates", status="warn", detail="minimaal 19 dagen tot verval")
+    assert doc["detail"] == "minimaal 19 dagen tot verval"

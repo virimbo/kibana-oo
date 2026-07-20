@@ -170,3 +170,9 @@ gematchte runbook-procedure + de live status mee, en vat die samen tot **"Nu doe
 — max 3 genummerde acties, geprioriteerd voor déze situatie en verwijzend naar de
 runbook-stappen (geen verzonnen stappen). Zo krijg je bij een rode kaart meteen de
 **belangrijkste 3 acties nu**, gegrond in de officiële procedure.
+
+**Met de live cijfers erbij:** kaarten geven nu ook hun **live meting** mee
+(`data-smartdetail`, bv. "minimaal 19 dagen tot verval"). De AI gebruikt dat, dus
+"Nu doen" wordt concreet — bv. *"nog 19 dagen; binnen 14 dagen wordt het rood → dien
+tijdig een TOPdesk-verzoek in"*. Zo koppelt het paneel **situatie → cijfer →
+procedure → geprioriteerde actie**.

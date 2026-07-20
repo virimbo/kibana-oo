@@ -53,6 +53,7 @@ export function CollapsiblePanel({
   cardId,        // SmartContextPanel: when set, marks this panel as "smart"
   cardLabel,
   cardStatus,
+  cardDetail,    // live metric string (e.g. "minimaal 19 dagen tot verval") → AI
   children,
 }) {
   const key = `dash.collapse.${id}`;
@@ -78,7 +79,8 @@ export function CollapsiblePanel({
         className ? ` ${className}` : ""
       }${collapsed ? " is-collapsed" : ""}`}
       {...(cardId
-        ? { "data-smartcard": cardId, "data-smartlabel": cardLabel || title, "data-smartstatus": cardStatus }
+        ? { "data-smartcard": cardId, "data-smartlabel": cardLabel || title,
+            "data-smartstatus": cardStatus, "data-smartdetail": cardDetail }
         : {})}
     >
       <h3 className="panel-toggle">
@@ -1160,6 +1162,22 @@ export default function DashboardPage({ token, username, onLogout, onNavigate, l
             cardId="card:certificates"
             title="Certificate & TLS health"
             info="Security (TLS) certificaatstatus voor de belangrijkste sites. De app controleert open.overheid.nl en doculoket.overheid.nl actief en direct — expiry-countdown plus eventuele trust-, chain-, hostname- of expiry-problemen — en toont ook wat Kibana monitort. Groen: >30 dagen & trusted; oranje: onder 30 dagen of een warning; rood: onder 14 dagen, verlopen of niet trusted."
+            cardStatus={(() => {
+              if (!certs || certs.length === 0) return null;
+              const prob = certs.filter((c) => (c.issues && c.issues.length) || c.status === "critical" || c.status === "expired");
+              const min = certs.filter((c) => c.reachable && c.days_remaining != null).reduce((m, c) => Math.min(m, c.days_remaining), Infinity);
+              if (prob.some((c) => c.status === "critical" || c.status === "expired") || (Number.isFinite(min) && min < 14)) return "critical";
+              if (prob.length || (Number.isFinite(min) && min < 30)) return "warning";
+              return "ok";
+            })()}
+            cardDetail={(() => {
+              if (!certs || certs.length === 0) return null;
+              const reach = certs.filter((c) => c.reachable && c.days_remaining != null);
+              const min = reach.reduce((m, c) => Math.min(m, c.days_remaining), Infinity);
+              const prob = certs.filter((c) => (c.issues && c.issues.length) || c.status === "critical" || c.status === "expired");
+              return (Number.isFinite(min) ? `minimaal ${min} dagen tot verval over ${reach.length} host(s)` : "bereikbaarheid onbekend")
+                + (prob.length ? `; ${prob.length} host(s) met issues` : "");
+            })()}
             summary={(() => {
               if (!certs || certs.length === 0) return null;
               const problems = certs.filter(

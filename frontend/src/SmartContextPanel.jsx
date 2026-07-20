@@ -69,6 +69,7 @@ export default function SmartContextPanel({ token, aiEnabled = true, lang = "nl"
     if (active.label) p.set("label", active.label);
     if (active.status) p.set("status", active.status);
     if (active.env) p.set("env", active.env);
+    if (active.detail) p.set("detail", active.detail);
     const s = p.toString();
     return s ? `?${s}` : "";
   }, [active]);

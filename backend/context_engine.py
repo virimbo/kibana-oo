@@ -231,9 +231,11 @@ def registry_map() -> dict[str, str]:
 
 
 def assemble(card_id: str, label: str | None = None, status: str | None = None,
-             env: str | None = None) -> dict:
-    """Build the panel's fast (non-AI) payload for a card. `label`/`status`/`env`
-    are display-only values the card already shows (sanitised by the API layer)."""
+             env: str | None = None, detail: str | None = None) -> dict:
+    """Build the panel's fast (non-AI) payload for a card. `label`/`status`/`env`/
+    `detail` are display-only values the card already shows (sanitised by the API
+    layer). `detail` = the live metric (e.g. "minimaal 19 dagen tot verval") so the
+    AI can be concrete."""
     component_id = _resolve_component(card_id)
     if component_id is None:
         raise KeyError(card_id)  # caller returns 404
@@ -261,6 +263,7 @@ def assemble(card_id: str, label: str | None = None, status: str | None = None,
         "risk": risk,
         "owner": meta.get("owner"),
         "health": health,
+        "detail": detail or None,
         "last_incident": meta.get("last-incident"),
         "todos": entry["todos"] if entry else [],
         "doc": doc,
@@ -487,6 +490,8 @@ def _ai_context(info: dict) -> str:
         parts.append("Afhankelijkheden: " + ", ".join(info["dependencies"]))
     if info.get("health"):
         parts.append(f"Huidige status (live): {info['health']}")
+    if info.get("detail"):
+        parts.append(f"Live meting: {info['detail']}")
     if info.get("risk"):
         parts.append(f"Risiconiveau: {info['risk']}")
     # Feed the matched runbook so the AI prioritises the OFFICIAL procedure for the

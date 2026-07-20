@@ -164,3 +164,9 @@ een gekoppelde conditie (down, service, service-unreachable, monitoring, documen
 certificaat). De runbook wordt **live** ingelezen — pas je 'm aan in Obsidian, dan
 zie je het direct bij de volgende hover. Lange procedures worden ingekort met een
 "+ N meer"-hint; open dan de runbook.
+
+**Slimme AI-prioritering:** de **AI-analyse** in het paneel krijgt nu óók de
+gematchte runbook-procedure + de live status mee, en vat die samen tot **"Nu doen"**
+— max 3 genummerde acties, geprioriteerd voor déze situatie en verwijzend naar de
+runbook-stappen (geen verzonnen stappen). Zo krijg je bij een rode kaart meteen de
+**belangrijkste 3 acties nu**, gegrond in de officiële procedure.

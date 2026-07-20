@@ -468,9 +468,12 @@ _ai_cache = TTLCache(ttl=300)
 _AI_SYSTEM = (
     "Je bent een observability-expert die een beheerder helpt. Antwoord in het "
     "Nederlands, kort en concreet, met deze kopjes (Markdown, vetgedrukt): "
-    "**Huidige toestand**, **Trend**, **Risico**, **Mogelijke impact**, "
-    "**Aanbevolen acties**. Verzin geen cijfers; baseer je uitsluitend op de "
-    "aangeleverde feiten. Maximaal ~120 woorden."
+    "**Huidige toestand**, **Risico**, **Nu doen**. Onder **Nu doen** geef je "
+    "maximaal 3 genummerde acties, op volgorde van urgentie voor DEZE situatie. "
+    "Is er een runbook-procedure meegegeven, baseer je acties dan op díe stappen "
+    "(samengevat en geprioriteerd voor de live status) en verwijs kort naar de "
+    "runbook — verzin geen nieuwe stappen. Gebruik uitsluitend de aangeleverde "
+    "feiten; verzin geen cijfers. Maximaal ~110 woorden."
 )
 
 
@@ -486,6 +489,18 @@ def _ai_context(info: dict) -> str:
         parts.append(f"Huidige status (live): {info['health']}")
     if info.get("risk"):
         parts.append(f"Risiconiveau: {info['risk']}")
+    # Feed the matched runbook so the AI prioritises the OFFICIAL procedure for the
+    # live situation instead of inventing steps.
+    action = info.get("action") or {}
+    if action.get("condition"):
+        parts.append(f"Conditie: {action['condition']}"
+                     + (" (URGENT)" if action.get("urgent") else ""))
+    if action.get("text"):
+        parts.append(f"Runbook-actie ({action.get('env') or 'algemeen'}): {action['text']}")
+    proc = action.get("procedure") or {}
+    if proc.get("steps"):
+        steps = "; ".join(f"{i}) {s}" for i, s in enumerate(proc["steps"][:12], 1))
+        parts.append(f"Runbook-procedure ({proc.get('title') or 'procedure'}): {steps}")
     open_todos = [t["text"] for t in info.get("todos", []) if not t["done"]]
     if open_todos:
         parts.append("Openstaande taken: " + "; ".join(open_todos))

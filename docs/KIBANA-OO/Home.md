@@ -113,8 +113,7 @@ flowchart TD
 | [[Presentatie - Management]] | Dia-voor-dia pitch voor het management (met Mermaid-diagrammen) | 2026-07-04 | 2026-07-16 |
 | [[FG-DPO checklist (AVG, EU AI Act, BIO)]] | Compliance-checklist voor de FG/CISO om naar productie te gaan (AVG, EU AI Act, BIO, DPIA, Algoritmeregister) | 2026-07-16 | 2026-07-16 |
 | [[Backlog - TODO Anton]] | Persoonlijke actielijst | 2026-06-17 | 2026-06-18 |
-| [[open_overheid_seo_aeo_geo_roadmap]] | SEO/AEO/GEO-roadmap (v1) | 2026-07-01 | 2026-07-01 |
-| [[open_overheid_seo_aeo_geo_roadmap_v2]] | SEO/AEO/GEO-roadmap (v2, actueel) | 2026-07-01 | 2026-07-01 |
+| [[SEO AEO GEO roadmap]] | Vindbaarheid van open.overheid.nl voor zoekmachines én AI (SEO/AEO/GEO/AIO/SXO): scorecard, MoSCoW-roadmap, implementatie & KPI's | 2026-07-01 | 2026-07-16 |
 
 ---
 

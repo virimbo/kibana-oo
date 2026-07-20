@@ -1,17 +1,18 @@
 ---
-title: "open_overheid_seo_aeo_geo_roadmap"
+title: "SEO AEO GEO roadmap"
 category: "Project & communicatie"
 created: 2026-07-01
-updated: 2026-07-01
-tags: [kibana-oo, project]
+updated: 2026-07-16
+tags: [kibana-oo, project, seo, aeo, geo, aio, sxo, roadmap]
+aliases: [SEO AEO GEO roadmap, Future Search Strategy, Open.overheid.nl vindbaarheid, open_overheid_seo_aeo_geo_roadmap, open_overheid_seo_aeo_geo_roadmap_v2]
 ---
 
 # Roadmap: Open.overheid.nl future-proof maken voor SEO, AEO, GEO, AIO en SXO
 
 **Doelgroep:** management, product owner, functioneel beheer, development, SEO/UX  
 **Scope:** open.overheid.nl als publieke vindplaats voor overheidsdocumenten  
-**Datum:** 2026-07-01  
-**Versie:** 1.0  
+**Datum:** 2026-07-16  
+**Versie:** 2.0 (geconsolideerd — vervangt de losse *v1* en *v2*/"Extended"-notities)  
 
 ---
 
@@ -34,6 +35,60 @@ Dat betekent concreet:
 - documentrelaties moeten duidelijk zijn;
 - zoekresultaten moeten gebruikers beter helpen;
 - AI-systemen moeten officiële informatie correct kunnen herkennen en citeren.
+
+---
+
+## 1a. Volwassenheids-scorecard (SEO / AEO / GEO / AIO / SXO)
+
+> Indicatieve nulmeting per zoek-discipline en per platform (**geen** officiële
+> audit). Geeft het management in één oogopslag *waar we staan* en *waar we
+> naartoe willen*.
+
+| Domein | Huidig | Doel | Prioriteit |
+|---|---:|---:|---|
+| **SEO** — klassieke zoekmachines | 6.5/10 | 9.8/10 | MUST |
+| **AEO** — answer engines (directe antwoorden) | 4.0/10 | 9.5/10 | MUST |
+| **GEO** — generative engines (AI-antwoorden) | 3.5/10 | 9.5/10 | MUST |
+| **AIO** — AI-optimalisatie (citeerbaarheid) | 5.0/10 | 9.0/10 | SHOULD |
+| **SXO** — search experience (UX) | 6.0/10 | 9.5/10 | SHOULD |
+
+### Score per zoek-/AI-platform
+
+| Platform | Nu | Na roadmap |
+|---|---:|---:|
+| Google | 7 | 10 |
+| Bing | 6 | 10 |
+| DuckDuckGo | 6 | 9 |
+| ChatGPT | 4 | 9 |
+| Gemini | 4 | 9 |
+| Microsoft Copilot | 4 | 9 |
+| Claude | 4 | 9 |
+| Perplexity | 5 | 10 |
+
+### Welke signalen tellen per AI-model
+
+| Model | SEO | Structured Data | Canonical | Entity's | Samenvatting |
+|---|:--:|:--:|:--:|:--:|:--:|
+| ChatGPT | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Gemini | ✔ | ✔✔ | ✔ | ✔✔ | ✔ |
+| Copilot | ✔✔ | ✔ | ✔ | ✔ | ✔ |
+| Claude | ✔ | ✔ | ✔ | ✔ | ✔ |
+| Perplexity | ✔✔ | ✔✔ | ✔ | ✔✔ | ✔✔ |
+
+Legenda: **✔** = belangrijk · **✔✔** = zeer belangrijk.
+
+### De reis in één beeld
+
+```mermaid
+flowchart LR
+    A[SEO] --> B[AEO] --> C[GEO] --> D[AIO] --> E[SXO] --> F[AI-Ready<br/>Open.overheid.nl]
+    classDef red fill:#ffd6d6,stroke:#d32f2f,color:#000;
+    classDef yellow fill:#fff4cc,stroke:#f9a825,color:#000;
+    classDef green fill:#d8f3dc,stroke:#2e7d32,color:#000;
+    class A,B red
+    class C,D yellow
+    class E,F green
+```
 
 ---
 

@@ -372,6 +372,62 @@ tussen 'wij denken dat het veilig is' en 'wij kunnen het aantonen'."*
 
 ---
 
+## 13.5 — Inloggen via Keycloak (SP): waarom dit veilig én compliant is
+
+> **Kernboodschap:** *"Ik beheer zelf **geen wachtwoorden**. Inloggen gaat via
+> **Keycloak** in het **SP-realm** (Standaard Platform) — het centrale
+> identiteitssysteem van de organisatie. De app ziet je wachtwoord **nooit**."*
+
+Waarom dit juist de **veiligste én meest compliant** manier is:
+
+- **Geen wachtwoordbeheer in de app** — authenticatie is **gedelegeerd** aan de
+  standaard-IdP (Keycloak/SP). Geen wachtwoorden opgeslagen, verzonden of gezien.
+  *(De grootste bron van datalekken — een eigen wachtwoorddatabase — bestaat hier
+  simpelweg niet.)*
+- **Centraal toegangsbeheer** — accounts aanmaken/intrekken, **MFA**,
+  wachtwoordbeleid en sessiebeheer worden **centraal** door SP/Keycloak afgedwongen.
+  Iemand uit dienst? Eén centrale intrekking sluit ook déze app.
+- **Standaard-protocol** — **OpenID Connect (OIDC)** op OAuth2: de industrie- én
+  overheidsstandaard voor federatief inloggen. Geen zelfbedachte constructie.
+- **Twee lagen (defense in depth):** **authenticatie** = Keycloak (SP);
+  **autorisatie** = de app zelf (rechten-matrix per gebruiker × functie +
+  goedkeuringsgate — [[Autorisatie]]). *Ingelogd zijn ≠ overal bij mogen.*
+- **Versleuteld** — de volledige inlogflow loopt over **TLS 1.3** (zie §13.4).
+
+**Compliance-koppeling:**
+- **BIO** — centrale authenticatie zonder lokale wachtwoordopslag; gebruik van de
+  door de organisatie **goedgekeurde IdP**; MFA afdwingbaar.
+- **AVG** — **data-minimalisatie**: de app krijgt alleen de identiteits-claims die
+  hij nodig heeft (bv. e-mail/naam), **geen** wachtwoord; toegang centraal beheerd.
+
+**Simpel-technisch (voor de tech-managers) — OIDC Authorization Code Flow:**
+1. De app stuurt je door naar **Keycloak (SP-realm)**.
+2. Je logt in bij **Keycloak**, niet bij de app.
+3. Keycloak stuurt een **autorisatie-code** terug; de app wisselt die in voor een
+   **sessie** (`sid`-cookie).
+4. **`state` + `nonce`** beschermen tegen CSRF/replay; de **code-flow** zet **geen**
+   token in de URL.
+
+**Echt bewijs (SP-realm · 2026-07-20):**
+
+```text
+https://sso-gn2.cicd.s15m.nl/realms/SP/protocol/openid-connect/auth
+   ?response_type=code
+   &redirect_uri=https://kibana-prod.cicd.s15m.nl/api/security/oidc/callback
+   &state=…  &nonce=…  &client_id=cicd4-elastic-prod  &scope=openid profile
+```
+
+> Dit is de **standaard OIDC-inlogflow** in het **SP-realm**: `response_type=code`
+> (Authorization Code Flow), met `state` + `nonce`, client `cicd4-elastic-prod`.
+> Keycloak-activiteit waargenomen op `2026-07-20 08:42:56`.
+
+Spreek-punt: *"Je logt niet in bíj mijn app — je logt in bij **Keycloak (SP)**, het
+centrale systeem dat de organisatie al vertrouwt en beheert. Mijn app krijgt daarna
+alleen een veilige sessie. Precies zoals je het wilt: geen losse wachtwoorden,
+centraal beheer, een standaard-protocol."*
+
+---
+
 ## 14. Roadmap — wat "professioneel doorontwikkelen" betekent
 
 ```mermaid

@@ -131,9 +131,27 @@ export default function SmartContextPanel({ token, aiEnabled = true, lang = "nl"
             {info.action && (
               <section className={`scp-action ${info.action.urgent ? "scp-action--urgent" : "scp-action--warn"}`}>
                 <div className="scp-action-head">⚠ {t.actionNow}</div>
-                {info.action.text ? (
+                {info.action.text && (
                   <div className="scp-action-text">{info.action.text}</div>
-                ) : (
+                )}
+                {info.action.procedure && info.action.procedure.steps?.length > 0 && (
+                  <div className="scp-proc">
+                    <div className="scp-proc-title">
+                      Procedure{info.action.procedure.title ? ` — ${info.action.procedure.title}` : ""}
+                    </div>
+                    <ol className="scp-proc-steps">
+                      {info.action.procedure.steps.slice(0, 14).map((s, i) => (
+                        <li key={i}>{s}</li>
+                      ))}
+                    </ol>
+                    {info.action.procedure.steps.length > 14 && (
+                      <div className="scp-proc-more">
+                        + {info.action.procedure.steps.length - 14} meer — open de runbook ↓
+                      </div>
+                    )}
+                  </div>
+                )}
+                {!info.action.text && !(info.action.procedure && info.action.procedure.steps?.length) && (
                   <div className="scp-action-missing">{t.actionMissing}</div>
                 )}
                 <div className="scp-action-meta">

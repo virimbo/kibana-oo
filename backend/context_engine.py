@@ -333,14 +333,30 @@ def _find_runbook_path() -> Path | None:
     return None
 
 
+_STEP_NUM_RE = re.compile(r"^\s*\d+[.)]\s*")
+
+
+def _clean_step(text: str) -> str:
+    """Plain-text a runbook step so the panel can render it directly: drop leading
+    numbering, **bold**, `code` and wiki-link brackets."""
+    t = _STEP_NUM_RE.sub("", text.lstrip("-*").strip())
+    t = t.replace("**", "").replace("`", "")
+    t = re.sub(r"\[\[([^\]|]+)\|([^\]]+)\]\]", r"\2", t)   # [[a|b]] -> b
+    t = re.sub(r"\[\[([^\]]+)\]\]", r"\1", t)              # [[a]]   -> a
+    return t.strip()
+
+
 def parse_runbook() -> dict:
     """Read the runbook note FRESH from disk on every call (on-demand) — an edit in
     Obsidian shows on the next panel open, no cache and no restart.
 
-    Returns {conditions: {cond: {ENV: action}}, updated, owner, note}. A heading is
-    a condition; lines `ENV: action` (bullet optional) where ENV is a known env
-    (PROD/ACC/TEST, aliases) are per-env actions — prose/steps are ignored."""
-    empty = {"conditions": {}, "updated": None, "owner": None, "note": None}
+    Returns {conditions, procedures, updated, owner, note}. A heading is a
+    *condition*; under it, lines `ENV: action` (PROD/ACC/TEST, aliases) become the
+    per-env one-liners (`conditions`), and any other step/prose lines become the
+    step-by-step `procedures[cond] = {title, steps[]}` (a "Procedure — …" heading
+    wins as the title). So a card in a bad state can show BOTH the quick action and
+    the full procedure."""
+    empty = {"conditions": {}, "procedures": {}, "updated": None, "owner": None, "note": None}
     path = _find_runbook_path()
     if not path:
         return empty
@@ -350,26 +366,38 @@ def parse_runbook() -> dict:
         return empty
     meta, body = parse_note(text)
     conditions: dict[str, dict[str, str]] = {}
+    procedures: dict[str, dict] = {}
     current: str | None = None
+    current_title: str | None = None
     for raw in body.splitlines():
         line = raw.strip()
         if not line:
             continue
         if line.startswith("#"):
-            current = _condition_from_heading(line.lstrip("#").strip())
+            current_title = line.lstrip("#").strip()
+            current = _condition_from_heading(current_title)
             if current:
                 conditions.setdefault(current, {})
             continue
-        if not current or ":" not in line:
+        if not current:
             continue
         item = line.lstrip("-*").strip()  # bullet optional
-        env, _, action = item.partition(":")
+        env, sep, action = item.partition(":")
         env_n = _normalize_env(env)
-        action = action.strip()
-        if env_n in _KNOWN_ENVS and action:
-            conditions[current][env_n] = action
-    return {"conditions": conditions, "updated": meta.get("bijgewerkt"),
-            "owner": meta.get("eigenaar"), "note": path.stem}
+        if sep and env_n in _KNOWN_ENVS and action.strip():
+            conditions[current][env_n] = action.strip()
+            continue
+        # Not a per-env action → a step of the procedure for this condition.
+        step = _clean_step(item)
+        if step:
+            p = procedures.setdefault(current, {"title": None, "steps": []})
+            is_proc_heading = bool(current_title) and "procedure" in current_title.lower()
+            if is_proc_heading or not p["title"]:
+                p["title"] = re.sub(r"(?i)^procedure\s*[—\-:]\s*", "",
+                                    current_title or "").strip() or current_title
+            p["steps"].append(step)
+    return {"conditions": conditions, "procedures": procedures,
+            "updated": meta.get("bijgewerkt"), "owner": meta.get("eigenaar"), "note": path.stem}
 
 
 def runbook_action(condition: str, env: str | None) -> str | None:
@@ -391,6 +419,7 @@ def _runbook_stale(updated: str | None, today: date | None = None) -> bool:
 def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, bool]:
     """(condition, urgent) from the card type + its live status, else (None, False)."""
     s = (status or "").strip().lower()
+    s = {"crit": "critical", "warn": "warning", "expiring": "warning"}.get(s, s)
     if card_id.startswith("uptime:") and s in ("down", "degraded", "unreachable"):
         return "down", s == "down"
     if card_id.startswith("card:service_health"):
@@ -402,7 +431,10 @@ def _derive_condition(card_id: str, status: str | None) -> tuple[str | None, boo
         return "monitoring", s == "down"
     if card_id.startswith("card:documents") and s in ("warning", "critical"):
         return "documents", s == "critical"
-    if card_id.startswith("cert:") and s in ("warning", "critical", "expired"):
+    # Certificates: both a per-host tile (cert:<host>) and the whole card
+    # (card:certificates) surface the "certificaat bijna verlopen" procedure.
+    if (card_id.startswith("cert:") or card_id.startswith("card:certificates")) \
+            and s in ("warning", "critical", "expired"):
         return "cert", s in ("critical", "expired")
     return None, False
 
@@ -415,13 +447,15 @@ def _build_action(card_id: str, status: str | None, env: str | None) -> dict | N
     rb = parse_runbook()
     norm_env = _normalize_env(env)
     text = rb["conditions"].get(condition, {}).get(norm_env or "")
+    procedure = rb.get("procedures", {}).get(condition)
     return {
         "text": text or None,
         "label": _CONDITION_LABEL.get(condition, condition),
         "condition": condition,
         "env": norm_env,
         "urgent": urgent,
-        "missing": not text,
+        "missing": not text and not (procedure and procedure.get("steps")),
+        "procedure": procedure or None,   # {title, steps[]} — the step-by-step runbook
         "runbook_updated": rb["updated"],
         "runbook_stale": _runbook_stale(rb["updated"]),
         "note": rb["note"],

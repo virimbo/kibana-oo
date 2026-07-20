@@ -229,3 +229,38 @@ def test_runbook_robust_headings_and_plain_lines(_vault):
     rb = engine.parse_runbook()
     assert rb["conditions"]["down"] == {"PROD": "bel iedereen", "ACC": "bel firas"}
     assert rb["conditions"]["cert"] == {"TEST": "bel anton"}
+
+
+# ── Runbook procedures surfaced by live card status ──────────────────────────
+
+def test_clean_step_strips_markdown_and_wikilinks():
+    assert engine._clean_step("1. **Bevestig** de storing") == "Bevestig de storing"
+    assert engine._clean_step("- zie [[Monitoring dashboard|het dashboard]]") == "zie het dashboard"
+    assert engine._clean_step("2) check `/actuator/health`") == "check /actuator/health"
+
+
+def test_runbook_procedure_surfaced_for_cert_card(_vault, monkeypatch):
+    _note(_vault, "runbook.md",
+          "---\ncomponent: runbook-actions\nbijgewerkt: 2026-07-16\n---\n\n"
+          "## Bij certificaat bijna verlopen\n"
+          "- PROD: Vernieuw het certificaat voor de vervaldatum.\n\n"
+          "## Procedure - certificaat bijna verlopen / verlopen\n"
+          "1. Bepaal de urgentie via de kaart.\n"
+          "2. Vraag een nieuw certificaat aan bij de CA (zie [[Certificaten en TLS]]).\n"
+          "3. Zie ter referentie TOPdesk-verzoek: KOOP25080900\n")
+    rb = engine.parse_runbook()
+    assert "cert" in rb["procedures"]
+    steps = rb["procedures"]["cert"]["steps"]
+    assert any("TOPdesk" in s for s in steps)
+    assert "[[" not in " ".join(steps)          # wiki-link brackets cleaned
+    # the WHOLE cert card in a bad state now surfaces the procedure
+    a = engine._build_action("card:certificates", "warn", "PROD")
+    assert a["condition"] == "cert"
+    assert a["text"] == "Vernieuw het certificaat voor de vervaldatum."   # one-liner still works
+    assert a["procedure"]["title"].lower().startswith("certificaat")
+    assert any("KOOP25080900" in s for s in a["procedure"]["steps"])       # the real TOPdesk ref
+    assert a["missing"] is False
+
+
+def test_no_condition_no_action_when_healthy():
+    assert engine._build_action("card:certificates", "ok", "PROD") is None

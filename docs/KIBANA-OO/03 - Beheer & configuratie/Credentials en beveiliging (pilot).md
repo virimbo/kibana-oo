@@ -20,9 +20,10 @@ aliases: [Credentials, Secrets, Least privilege, Compromise runbook, Wachtwoorde
 - **Gebruikers loggen in via Keycloak (SP)** — de app slaat **nooit** een
   gebruikerswachtwoord op. Data-queries lopen op de **eigen sessie** van de
   ingelogde gebruiker.
-- **Geen enkel geheim staat in de broncode of in git** — aantoonbaar: `.env` is
-  **nooit** gecommit, staat in `.gitignore`, zit **niet** in het Docker-image en
-  bestaat **niet** als bestand in de container (alleen runtime-variabelen).
+- **Geen enkel geheim staat in de broncode of in git** — en dat is **gemeten, niet
+  aangenomen**: de echte waarden zijn gezocht in **alle 503 commits** → **0
+  treffers** (§1.1, met de commando's zodat een auditor het kan overdoen). `.env`
+  zit ook niet in het Docker-image en bestaat niet als bestand in de container.
 - **Scope = pilot:** één gebruiker, lokaal, **alleen-lezen** monitoring; de app
   schrijft niets naar de productieketen.
 - **Het grootste risico was niet "waar staan de geheimen", maar "hoeveel mogen
@@ -56,6 +57,58 @@ aliases: [Credentials, Secrets, Least privilege, Compromise runbook, Wachtwoorde
 > bestandsrechten — een aanvaller met fysieke toegang leest de schijf gewoon
 > buiten Windows om.
 
+### 1.1 Bewijs: er staat géén wachtwoord in git 🔍
+
+> [!success] Dit is de vraag die het management stelt — en dit is het antwoord
+> **Wij hebben niet aangenomen dat git schoon is, wij hebben het gemeten:** de
+> **echte** geheime waarden uit `.env` zijn letterlijk gezocht in **alle 503
+> commits op alle branches**. **Nul treffers.**
+
+Deze meting is **herhaalbaar** — een auditor kan hem zelf uitvoeren en hetzelfde
+resultaat krijgen. Dat is het verschil tussen "wij denken van niet" en bewijs.
+
+| # | Controle | Uitkomst (2026-07-21) |
+|---|---|---|
+| 1 | Is `.env` ooit gecommit? | **Nee** — alleen `.env.example` (URL's/instellingen, géén geheimen) |
+| 2 | Staat `.env` in `.gitignore`? | **Ja** (`.gitignore:14`) |
+| 3 | De 5 echte geheimen gezocht in 503 commits | **0 treffers** |
+| 4 | Treffers op `SMTP_PASSWORD=` e.d. in de historie | Alleen **documentatie met placeholders** (`<Resend API-key>`, `XXX/YYY/ZZZ`) |
+
+**Controle 3 per geheim** — `MISTRAL_API_KEY`, `SMTP_PASSWORD`, `DIGEST_WEBHOOK_URL`,
+`MONITOR_SERVICE_PASSWORD`, `RABBITMQ_PASSWORD`: **allemaal "not in history"**.
+
+<details><summary>De commando's (zelf na te lopen)</summary>
+
+```bash
+# 1) is .env ooit gecommit? -> toont alleen .env.example
+git log --all --full-history --name-only --format="" -- .env .env.* | sort -u
+
+# 2) wordt .env genegeerd?
+git check-ignore -v .env
+
+# 3) de sterkste test: zoek de ECHTE waarden in ALLE commits.
+#    Leeg resultaat = die waarde staat in geen enkele commit.
+git grep -I -l -F '<de-echte-waarde>' -- $(git rev-list --all)
+```
+
+Waarom controle 3 doorslaggevend is: 1 en 2 tonen aan dat het bestand nooit is
+meegegaan; 3 vangt ook het geval dat een geheim per ongeluk in **een ander**
+bestand terechtkwam (een script, een testbestand, een notitie).
+</details>
+
+> [!danger] Wat deze meting óók aan het licht bracht
+> Git is schoon, **maar het RabbitMQ-wachtwoord is 5 tekens lang** — op het
+> account `admin`, dat volledige controle over de queues heeft. Dat is in
+> seconden te raden. **Dit weegt zwaarder dan de vraag waar het bestand staat.**
+> Zie §2.1: maak de read-only `monitoring`-user aan mét een lang, willekeurig
+> wachtwoord, en **wijzig ook het `admin`-wachtwoord**.
+
+**Wees precies in wat je claimt.** Wel hard te maken: geheimen staan niet in de
+code, niet in de historie, niet in het image, en `.env` is alleen voor de
+eigenaar leesbaar. **Nog niet** hard te maken: dat een gelekt geheim onschadelijk
+is (§2) en dat de schijf versleuteld is (§4, BitLocker). Een halve claim die
+later sneuvelt kost meer vertrouwen dan een eerlijk openstaand punt.
+
 ## 2. De drie kritieke credentials — risico & fix
 
 > **Kernidee:** verberg geheimen niet alleen beter — **maak ze waardeloos als ze
@@ -64,7 +117,7 @@ aliases: [Credentials, Secrets, Least privilege, Compromise runbook, Wachtwoorde
 | # | Credential | Nu | Risico als het lekt | Fix |
 |---|---|---|---|---|
 | 1 | **Keycloak** (`MONITOR_SERVICE_*`) | een **persoonlijk account** | iemand is **jou**, met ál je rechten; audittrail onbruikbaar | dedicated **service-account**, alleen-lezen |
-| 2 | **RabbitMQ** (`RABBITMQ_*`) | **`admin`** (volledige controle) | queues legen/lezen/verwijderen → **pipeline kapot** | user met tag **`monitoring`** (alleen-lezen) |
+| 2 | **RabbitMQ** (`RABBITMQ_*`) | **`admin`** (volledige controle) **met een wachtwoord van 5 tekens** | in seconden te raden → queues legen/lezen/verwijderen → **pipeline kapot** | user met tag **`monitoring`** (alleen-lezen) **+ `admin`-wachtwoord wijzigen** |
 | 3 | **Mattermost webhook** | post-token in `.env` **en** in de DB | iemand kan **nepberichten** posten (geen leesrechten) | **roteren** + opslaan als `env:VARNAME` |
 
 ### 2.1 RabbitMQ → alleen-lezen (doe dit eerst, grootste winst)
@@ -163,7 +216,8 @@ shred -u .env                # verwijder de platte tekst definitief
 
 ## 7. Openstaand (eerlijk)
 
-- [ ] RabbitMQ-monitoring-user aanmaken (§2.1) — **hoogste prioriteit**
+- [ ] RabbitMQ-monitoring-user aanmaken **én het 5-tekens `admin`-wachtwoord
+      wijzigen** (§2.1) — **hoogste prioriteit, dit is het grootste gat**
 - [ ] Keycloak service-account aanmaken (§2.2)
 - [ ] Webhook roteren + `env:`-referentie gebruiken (§2.3)
 - [ ] `.env` versleutelen en platte tekst verwijderen (§3)

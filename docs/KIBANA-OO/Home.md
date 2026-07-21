@@ -83,6 +83,7 @@ flowchart TD
 | [[Webhooks (Mattermost)]] | Meerdere Mattermost-webhooks (ACC/TST/PROD); kies met één klik de actieve | 2026-07-02 | 2026-07-02 |
 | [[Notifications and digest]] | De digest en notificatie-kanalen | 2026-06-11 | 2026-06-11 |
 | [[Autorisatie]] | Wie mag wat (functie-matrix) + goedkeuring van nieuwe gebruikers | 2026-06-27 | 2026-07-01 |
+| [[Credentials en beveiliging (pilot)]] | Geheimen veilig beheren: audit, least privilege, versleutelde `.env`, compromise-runbook | 2026-07-21 | 2026-07-21 |
 | [[Navigatie]] | De gedeelde menubalk, Beheer-subpagina's, rechten | 2026-06-17 | 2026-07-01 |
 | [[LLM providers]] | Ollama vs Mistral, de switcher, een sleutel installeren | 2026-06-09 | 2026-06-28 |
 | [[Chat pipeline]] | Hoe een vraag een antwoord wordt (doc-id-trace, OCR, escalatie) | 2026-06-09 | 2026-07-01 |

@@ -9,7 +9,9 @@ import {
 // one — the one alerts post to — in one click, instead of editing .env and
 // redeploying. Full URLs are never shown (masked); "Test" posts a real message.
 
-const URL_RE = /^https?:\/\/\S+$/i;
+// A webhook value is either a literal http(s) URL, or an `env:VARNAME` reference —
+// the reference keeps the secret OUT of the database (only the name is stored).
+const URL_RE = /^(https?:\/\/\S+|env:[A-Za-z_][A-Za-z0-9_]*)$/i;
 const PRESETS = ["PROD", "ACC", "TST"];
 
 function fmtTs(ts) {
@@ -161,12 +163,12 @@ export default function WebhooksPage({
                 </label>
                 <label className="wh-field wh-grow">
                   <span className="wh-flabel">
-                    Webhook-URL {editId != null && <em className="muted">(leeg = ongewijzigd laten)</em>}
+                    Webhook-URL of <code>env:NAAM</code> {editId != null && <em className="muted">(leeg = ongewijzigd laten)</em>}
                   </span>
-                  <input className="wh-input" value={url} type="url"
-                         placeholder="https://mattermost…/hooks/xxxxxxxxxxxxxxxxx"
+                  <input className="wh-input" value={url} type="text"
+                         placeholder="env:MATTERMOST_PROD_HOOK  (aanbevolen)  of  https://mattermost…/hooks/xxxx"
                          onChange={(e) => setUrl(e.target.value)} />
-                  {url && !urlValid && <span className="wh-err">Voer een geldige http(s)-URL in.</span>}
+                  {url && !urlValid && <span className="wh-err">Voer een geldige http(s)-URL in, of een verwijzing als <code>env:MATTERMOST_PROD_HOOK</code>.</span>}
                 </label>
               </div>
               <div className="wh-actions">

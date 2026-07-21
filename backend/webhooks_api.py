@@ -32,10 +32,18 @@ def _clean_label(label: str | None) -> str:
     return label
 
 
+_ENV_REF_RE = re.compile(r"^env:[A-Za-z_][A-Za-z0-9_]*$")
+
+
 def _clean_url(url: str | None) -> str:
+    """Accepts a literal http(s) URL **or** an `env:VARNAME` reference. The
+    reference form is recommended: only the variable NAME is stored in the
+    database, the secret URL stays in the (encrypted) .env."""
     url = (url or "").strip()
+    if _ENV_REF_RE.match(url):
+        return url
     if len(url) > _MAX_URL or not _URL_RE.match(url):
-        raise HTTPException(400, "url must be a valid http(s) URL")
+        raise HTTPException(400, "url must be a valid http(s) URL or an env:VARNAME reference")
     return url
 
 
@@ -102,9 +110,12 @@ async def test_webhook(wid: int, session: dict = Depends(require_super)):
         "text": (f":white_check_mark: **Testbericht** vanuit Beheer → Webhooks "
                  f"(**{wh['label']}**). Zie je dit in Mattermost, dan werkt de webhook."),
     }
+    target = webhooks_store.resolve_url(wh["url"])   # resolves env:VARNAME
+    if not target:
+        return {"ok": False, "error": "env-variabele niet gezet (of lege URL)"}
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.post(wh["url"], json=payload)
+            resp = await client.post(target, json=payload)
         return {"ok": resp.is_success, "status": resp.status_code}
     except Exception as e:  # noqa: BLE001 — a failed test must not raise
         logger.warning("webhook test failed (id=%s): %s", wid, e)

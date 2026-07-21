@@ -14,11 +14,26 @@ webhook is active at a time.
 """
 from __future__ import annotations
 
+import os
 from contextlib import closing
 from datetime import datetime, timezone
 
 import db
 from config import settings
+
+# A stored value may be a literal URL **or** an `env:VARNAME` reference. The
+# reference form keeps the secret OUT of the database — only the env-var NAME is
+# stored; the real URL lives in the (encrypted) .env. Recommended for production.
+_ENV_PREFIX = "env:"
+
+
+def resolve_url(value: str | None) -> str:
+    """Effective URL for a stored value: resolves `env:VARNAME` from the
+    environment, or returns the literal URL. "" when unset/missing."""
+    v = (value or "").strip()
+    if v.startswith(_ENV_PREFIX):
+        return os.environ.get(v[len(_ENV_PREFIX):].strip(), "").strip()
+    return v
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS mattermost_webhooks (
@@ -49,6 +64,8 @@ def mask_url(url: str) -> str:
     admin can tell webhooks apart without the full token being exposed."""
     if not url:
         return ""
+    if url.strip().startswith(_ENV_PREFIX):
+        return url.strip()          # a variable NAME, not a secret — safe to show
     if "/hooks/" in url:
         head, code = url.split("/hooks/", 1)
         tail = code[-4:] if len(code) > 4 else code
@@ -154,7 +171,7 @@ def active_url() -> str:
         r = conn.execute(
             "SELECT url FROM mattermost_webhooks WHERE active=1 ORDER BY id LIMIT 1").fetchone()
     if r and r["url"]:
-        return r["url"]
+        return resolve_url(r["url"])     # resolves an env:VARNAME reference
     return settings.digest_webhook_url
 
 

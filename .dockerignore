@@ -1,0 +1,12 @@
+# Never let secrets or local state enter a build context (defence in depth).
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+.git
+archive/
+docs/
+**/__pycache__/
+*.sqlite
+*.db

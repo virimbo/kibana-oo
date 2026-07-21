@@ -4,7 +4,7 @@ purpose: Overtuigende maar eerlijke management-presentatie om tijd/mandaat te kr
 taal: Nederlands
 category: "Project & communicatie"
 created: 2026-07-04
-updated: 2026-07-20
+updated: 2026-07-21
 title: "Presentatie - Management"
 tags: [kibana-oo, project]
 ---
@@ -279,6 +279,15 @@ en mandaat voor."*
 > [[FG-DPO checklist (AVG, EU AI Act, BIO)]] — AVG, EU AI Act, BIO, DPIA,
 > Algoritmeregister, met per punt de status (✅ ingebouwd / ⚠️ te doen / ❓ FG
 > beslist). *"We hebben het door de FG laten toetsen"* is zelf al een vertrouwenspunt.
+
+> 🔑 **Omgang met wachtwoorden/geheimen** — vaak de eerste vraag van security:
+> **geen enkel geheim staat in de broncode of in git** (aantoonbaar: nooit gecommit,
+> niet in het image, geen bestand in de container), gebruikers loggen in via
+> **Keycloak** (de app slaat géén gebruikerswachtwoorden op), en de machine-accounts
+> gaan naar **alleen-lezen** (least privilege) met een **versleuteld** geheimenbestand.
+> Volledige analyse + compromise-runbook: [[Credentials en beveiliging (pilot)]].
+> *Spreek-punt:* **"Een gelekt geheim mag geen ramp zijn — daarom maken we ze
+> alleen-lezen. Dát is echte beveiliging, niet alleen beter verstoppen."**
 
 ---
 

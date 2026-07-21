@@ -98,8 +98,14 @@ neemt geen besluiten over personen. Zie [[AI-architectuur]].
 - [ ] **Authenticatie** ✅ **Keycloak OIDC-SSO** (geen eigen wachtwoordopslag).
 - [ ] **Autorisatie / least privilege** ✅ rechten-matrix **per gebruiker × per
   functie** + **goedkeuringsgate** voor nieuwe gebruikers ([[Autorisatie]]).
-- [ ] **Secrets-beheer** ✅ geheimen in `.env` (**niet** in de code/git); in het
-  scherm/DB alleen de *naam* van een geheim, nooit de waarde.
+- [ ] **Secrets-beheer** ✅ geheimen in `.env` (**niet** in de code/git —
+  aantoonbaar: nooit gecommit, niet in het image, geen bestand in de container);
+  in het scherm/DB alleen de *naam* van een geheim (`secret_ref` / `env:VARNAME`),
+  nooit de waarde. ✅ `.env` op 600 + `.dockerignore`. ⚠️ **Least privilege nog
+  door te voeren** (RabbitMQ `admin` → alleen-lezen; Keycloak persoonlijk account
+  → service-account) en `.env` te **versleutelen** (`.env.enc`).
+  → volledige analyse, stappen én compromise-runbook:
+  **[[Credentials en beveiliging (pilot)]]**
 - [ ] **Applicatie-hardening** ✅ security-headers, rate-limiting op login,
   read-only data-toegang.
 - [ ] **Logging & auditing** ✅ audit-trail van config-/rechtenwijzigingen; ⚠️

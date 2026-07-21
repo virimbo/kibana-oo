@@ -104,3 +104,27 @@ def test_mask_url_handles_nonstandard_and_empty():
     assert webhooks_store.mask_url("") == ""
     masked = webhooks_store.mask_url("https://example.com/other/path1234")
     assert "1234" in masked and "…" in masked
+
+
+# ── env:VARNAME references — keep the secret OUT of the database ─────────────
+
+def test_env_reference_keeps_secret_out_of_the_database(monkeypatch):
+    monkeypatch.setenv("MM_PROD_HOOK", "https://chat.example/hooks/realsecret123")
+    wh = webhooks_store.add_webhook("PROD", "env:MM_PROD_HOOK", actor="anton")
+    assert wh["url"] == "env:MM_PROD_HOOK"          # only the NAME is stored/shown
+    assert "realsecret123" not in wh["url"]
+    listed = webhooks_store.list_webhooks()[0]
+    assert listed["url"] == "env:MM_PROD_HOOK"      # and never masked into a fake secret
+    # dispatch resolves the reference to the real URL at send time
+    assert webhooks_store.active_url() == "https://chat.example/hooks/realsecret123"
+
+
+def test_env_reference_unset_resolves_to_empty(monkeypatch):
+    monkeypatch.delenv("MM_MISSING_HOOK", raising=False)
+    webhooks_store.add_webhook("PROD", "env:MM_MISSING_HOOK", actor="anton")
+    assert webhooks_store.active_url() == ""        # nothing sent rather than a wrong target
+
+
+def test_literal_url_still_supported(monkeypatch):
+    webhooks_store.add_webhook("PROD", "https://chat.example/hooks/abcdef1234", actor="anton")
+    assert webhooks_store.active_url() == "https://chat.example/hooks/abcdef1234"

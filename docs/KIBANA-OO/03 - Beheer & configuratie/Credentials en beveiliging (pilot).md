@@ -37,8 +37,24 @@ aliases: [Credentials, Secrets, Least privilege, Compromise runbook, Wachtwoorde
 | In het Docker-image gebakken? | ✅ **Nee** — valt buiten de build-context |
 | Als bestand in de container? | ✅ **Nee** — runtime-variabelen |
 | Repo in OneDrive/Dropbox? | ✅ **Nee** |
-| Bestandsrechten | ✅ `chmod 600 .env` (alleen eigenaar) |
+| Bestandsrechten | ✅ alleen eigenaar — **via `icacls`**, zie de waarschuwing hieronder |
 | `.dockerignore` | ✅ toegevoegd (`.env`, sleutels, db's) |
+
+> [!warning] Op Windows werkt `chmod` **niet**
+> Deze notitie claimde eerst `chmod 600 .env`. Dat is op een NTFS-schijf een
+> **schijnzekerheid**: Git Bash meldt succes, maar Windows houdt de overgeërfde
+> ACL. Bij controle op 2026-07-21 bleek `.env` daadwerkelijk **leesbaar voor
+> `Gebruikers`** en zelfs **wijzigbaar voor `Geverifieerde gebruikers`**.
+> Gecorrigeerd met:
+> ```bash
+> icacls .env /inheritance:r /grant:r "$(whoami):(F)"
+> # controle:
+> icacls .env      # verwacht: alleen <MACHINE>\<jij>:(F)
+> ```
+> `encrypt-env.sh` en `secure-up.sh` doen dit nu automatisch.
+> **Les:** op Windows is **BitLocker** de maatregel die telt, niet de
+> bestandsrechten — een aanvaller met fysieke toegang leest de schijf gewoon
+> buiten Windows om.
 
 ## 2. De drie kritieke credentials — risico & fix
 
@@ -99,12 +115,18 @@ shred -u .env                # verwijder de platte tekst definitief
 
 - **Bewaar de passphrase in je password manager — er is géén herstel.**
 - Start de app voortaan met **`./scripts/secure-up.sh`** (niet met `docker compose up`).
+  **Inloggen in de browser verandert niet:** `http://localhost:3000` → Keycloak (SP).
+- **Op Windows/SSD wist `shred` niet gegarandeerd** (NTFS journaling + wear
+  levelling laten resten achter). Ook daarom is **BitLocker** de maatregel die
+  telt: dan zijn die resten versleuteld.
 - Laptop gestolen terwijl hij uit staat → de geheimen zijn **onbruikbaar**.
 
 ## 4. Laptop-hardening (dit is het echte dreigingsmodel)
 
-- [ ] **BitLocker aan** (volledige schijfversleuteling) — belangrijkste maatregel.
-- [x] `.env` op **600** (alleen eigenaar).
+- [ ] **BitLocker aan** (volledige schijfversleuteling) — **verreweg de
+      belangrijkste maatregel op Windows**; bestandsrechten houden alleen andere
+      accounts op dezelfde draaiende machine tegen, BitLocker beschermt de schijf.
+- [x] `.env` alleen voor de eigenaar leesbaar (**`icacls`**, niet `chmod` — zie §1).
 - [x] Repo **niet** in OneDrive/Dropbox.
 - [x] `.dockerignore` + `.gitignore` dekken `.env`.
 - [ ] Schermvergrendeling + korte time-out.

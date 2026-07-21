@@ -4,9 +4,18 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 [ -f .env ] || { echo "No .env found in $(pwd)"; exit 1; }
+# See secure-up.sh: chmod is a no-op on NTFS, so lock the ACL down on Windows too.
+lock_down() {
+  chmod 600 "$1" 2>/dev/null || true
+  if command -v icacls >/dev/null 2>&1; then
+    icacls "$(cygpath -w "$1" 2>/dev/null || echo "$1")" \
+      /inheritance:r /grant:r "$(whoami):(F)" >/dev/null 2>&1 || true
+  fi
+}
+
 umask 077
 openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in .env -out .env.enc
-chmod 600 .env.enc
+lock_down .env.enc
 echo "✓ .env.enc written ($(wc -c < .env.enc) bytes)."
 echo
 echo "NEXT:"

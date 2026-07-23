@@ -403,6 +403,14 @@ class Settings(BaseSettings):
     monitor_service_user: str = ""
     monitor_service_password: str = ""
     service_sid_ttl_minutes: int = 30   # re-login when the cached sid is older than this
+    # Circuit breaker for the service-session login. After service_sid_quick_retries
+    # consecutive failures we STOP retrying every cycle and back off exponentially
+    # (60s, 120s, 240s, …) capped at service_sid_backoff_cap_minutes. This is what
+    # keeps a stale/expired service password from locking out the account by
+    # hammering Keycloak once a minute. A success resets the counter. See
+    # service_session.py.
+    service_sid_quick_retries: int = 3        # free immediate retries before backoff
+    service_sid_backoff_cap_minutes: int = 60  # max cooldown between attempts
 
     # ── Unified alerting (admin-managed RED-state email alerts) ───────────────
     # Additive & OFF by default. When true, a background engine reads the existing

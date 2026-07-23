@@ -98,6 +98,7 @@ flowchart TD
 | [[Runbook - wat te doen]] | Algemeen stappenplan bij een RED-status/incident | 2026-06-17 | 2026-06-27 |
 | [[Runbook - No answer in chat]] | Probleemoplossing "No matching data" in de chat | 2026-06-09 | 2026-07-01 |
 | [[RCA - Login incident (Kibana OIDC + Docker VPN)]] | Waarom inloggen faalde (VPN/Docker, WSOD, Kibana-auth verhuisd) + de fix | 2026-07-04 | 2026-07-04 |
+| [[RCA - Service-session lockout (Keycloak brute-force)]] | Verlopen service-wachtwoord bestookte Keycloak → zelfveroorzaakte account-lockout + backoff-fix | 2026-07-23 | 2026-07-23 |
 
 ## 🧪 Referentie & ontwikkeling
 *Naslag voor wie eraan bouwt.*
